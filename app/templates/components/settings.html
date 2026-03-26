@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Paramètres — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>⚙️ Paramètres</h1>
+</div>
+
+<!-- Statut API LCSC -->
+<div class="settings-status {% if lcsc_configured %}status-ok{% else %}status-warn{% endif %}">
+    {% if lcsc_configured %}
+        ✅ API LCSC configurée et active
+    {% else %}
+        ⚠️ API LCSC non configurée — les enrichissements automatiques (catégorie, image) sont désactivés
+    {% endif %}
+</div>
+
+<div class="form-card">
+    <form method="post" action="{{ url_for('components.settings') }}">
+
+        <div class="form-section">
+            <h2 class="form-section-title">🔑 Clés API LCSC</h2>
+
+            <p class="form-hint">
+                Ces clés sont disponibles dans votre espace
+                <a href="https://www.lcsc.com/agent" target="_blank" rel="noopener">lcsc.com/agent</a>
+                après avoir souscrit au programme partenaire.
+                Elles sont stockées localement dans la base SQLite.
+            </p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input
+                        type="text"
+                        name="lcsc_api_key"
+                        class="form-input"
+                        value="{{ current.lcsc_api_key }}"
+                        placeholder="Votre clé API LCSC"
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="form-group">
+                    <label>API Secret</label>
+                    <div class="input-password-wrap">
+                        <input
+                            type="password"
+                            name="lcsc_api_secret"
+                            id="lcsc_api_secret"
+                            class="form-input"
+                            value="{{ current.lcsc_api_secret }}"
+                            placeholder="Votre secret API LCSC"
+                            autocomplete="off"
+                        />
+                        <button type="button" class="btn-eye" onclick="toggleSecret()" title="Afficher/masquer">👁</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-hint form-hint-info">
+                <strong>Comment ça fonctionne :</strong>
+                lors d'un import CSV ou d'un ajout manuel avec une référence LCSC,
+                l'application interroge automatiquement l'API LCSC pour récupérer
+                la <strong>catégorie</strong> du composant et télécharger son <strong>image</strong>
+                dans <code>instance/images/</code>.
+                L'opération se fait en arrière-plan, sans bloquer l'interface.
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Sauvegarder</button>
+            <a href="{{ url_for('components.index') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleSecret() {
+    const input = document.getElementById('lcsc_api_secret');
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+</script>
+{% endblock %}

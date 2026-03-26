@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Importer BOM — {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn-back">
+        ← {{ project.name }}
+    </a>
+    <h1>📋 Importer une BOM KiCad</h1>
+</div>
+
+<div class="import-layout">
+    <div class="form-card">
+        <form method="post" action="{{ url_for('projects.import_bom', project_id=project.id) }}"
+              enctype="multipart/form-data">
+
+            <div class="drop-zone" id="drop-zone">
+                <div class="drop-icon">📂</div>
+                <p class="drop-title">Glissez votre BOM KiCad ici</p>
+                <p class="drop-subtitle">ou</p>
+                <label class="btn btn-primary btn-file">
+                    Parcourir…
+                    <input type="file" name="bom_file" id="bom_file" accept=".csv" hidden required/>
+                </label>
+                <p id="file-name" class="file-selected" style="display:none"></p>
+            </div>
+
+            <div class="form-actions" style="margin-top:1.5rem">
+                <button type="submit" class="btn btn-primary btn-lg">🔍 Analyser la BOM</button>
+                <a href="{{ url_for('projects.detail', project_id=project.id) }}"
+                   class="btn btn-secondary">Annuler</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="info-card">
+        <h2>📋 Formats supportés</h2>
+        <p>StockElec reconnaît automatiquement les BOM exportées depuis :</p>
+        <ul class="column-list" style="margin-bottom:1rem">
+            <li><strong>KiCad 7 / 8</strong> — via <em>Tools → Edit Symbol Fields → Export</em></li>
+            <li><strong>KiCad + plugin JLCPCB</strong> — colonnes <code>Comment, Designator, Footprint, LCSC Part Number</code></li>
+            <li><strong>KiCad + bom2csv</strong> — séparateur <code>;</code> supporté</li>
+        </ul>
+
+        <p>La colonne LCSC reconnue peut s'appeler :</p>
+        <ul class="column-list">
+            <li><code>LCSC Part Number</code></li>
+            <li><code>LCSC Part #</code></li>
+            <li><code>LCSC</code></li>
+            <li><code>Supplier Part Number</code></li>
+        </ul>
+
+        <p class="info-note" style="margin-top:.75rem">
+            💡 Assure-toi d'avoir renseigné le champ <strong>LCSC</strong>
+            sur tes composants dans KiCad pour que la comparaison fonctionne.
+        </p>
+    </div>
+</div>
+
+<script>
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('bom_file');
+const fileNameEl = document.getElementById('file-name');
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+        fileNameEl.textContent = '✅ ' + fileInput.files[0].name;
+        fileNameEl.style.display = 'block';
+    }
+});
+['dragover','dragenter'].forEach(e =>
+    dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(e =>
+    dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); }));
+dropZone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length) {
+        const dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]);
+        fileInput.files = dt.files;
+        fileNameEl.textContent = '✅ ' + e.dataTransfer.files[0].name;
+        fileNameEl.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

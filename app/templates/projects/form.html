@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if project else 'Nouveau' }} projet — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('projects.index') }}" class="btn-back">← Projets</a>
+    <h1>{{ '✏️ Modifier' if project else '➕ Nouveau' }} projet</h1>
+</div>
+
+<div class="form-card">
+    <form method="post" enctype="multipart/form-data">
+        <div class="form-section">
+            <div class="form-grid">
+
+                <div class="form-group form-group-full">
+                    <label>Nom du projet *</label>
+                    <input type="text" name="name" class="form-input" required
+                           value="{{ project.name if project else '' }}"
+                           placeholder="ex: Robot bras articulé"/>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label>Description</label>
+                    <textarea name="description" class="form-input" rows="3"
+                              placeholder="Description du projet…">{{ project.description if project else '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Statut</label>
+                    <select name="status" class="form-input">
+                        {% for s in status_options %}
+                        <option value="{{ s }}" {% if project and project.status == s %}selected{% endif %}>{{ s }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Image du projet -->
+                <div class="form-group">
+                    <label>Image du projet</label>
+                    <div class="project-img-upload" id="img-upload-zone">
+                        {% if project and project.image_path %}
+                            <!-- Image existante -->
+                            <div class="project-img-preview" id="img-preview">
+                                <img src="{{ url_for('projects.project_image', filename=project.image_path) }}"
+                                     alt="{{ project.name }}" id="preview-img"/>
+                                <button type="button" class="project-img-remove"
+                                        onclick="removeImage()" title="Supprimer l'image">✕</button>
+                            </div>
+                            <input type="hidden" name="delete_image" id="delete-image" value="0"/>
+                        {% else %}
+                            <div class="project-img-placeholder" id="img-placeholder"
+                                 onclick="document.getElementById('image-input').click()">
+                                <span>🖼️</span>
+                                <p>Cliquer pour ajouter une image</p>
+                                <p style="font-size:.75rem;color:var(--text-muted)">JPG, PNG, WEBP</p>
+                            </div>
+                            <div class="project-img-preview" id="img-preview" style="display:none">
+                                <img src="" alt="" id="preview-img"/>
+                                <button type="button" class="project-img-remove"
+                                        onclick="removeImage()" title="Supprimer">✕</button>
+                            </div>
+                            <input type="hidden" name="delete_image" id="delete-image" value="0"/>
+                        {% endif %}
+                        <input type="file" name="image" id="image-input"
+                               accept=".jpg,.jpeg,.png,.gif,.webp" hidden
+                               onchange="previewImage(this)"/>
+                    </div>
+                    <small style="color:var(--text-muted);font-size:.75rem">
+                        Photo de la PCB, du boîtier, du schéma…
+                    </small>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+            <a href="{{ url_for('projects.index') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function previewImage(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('preview-img').src = e.target.result;
+        document.getElementById('img-placeholder') &&
+            (document.getElementById('img-placeholder').style.display = 'none');
+        document.getElementById('img-preview').style.display = 'flex';
+        document.getElementById('delete-image').value = '0';
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+function removeImage() {
+    document.getElementById('preview-img').src = '';
+    document.getElementById('img-preview').style.display = 'none';
+    const ph = document.getElementById('img-placeholder');
+    if (ph) ph.style.display = 'flex';
+    document.getElementById('image-input').value = '';
+    document.getElementById('delete-image').value = '1';
+}
+</script>
+{% endblock %}

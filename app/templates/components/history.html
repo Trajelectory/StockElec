@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Historique — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📋 Historique des mouvements</h1>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid" style="margin-bottom:1.5rem">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_movements }}</div>
+        <div class="stat-label">Mouvements total</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value mv-pos">+{{ stats.total_in }}</div>
+        <div class="stat-label">Pièces entrées</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value mv-neg">−{{ stats.total_out }}</div>
+        <div class="stat-label">Pièces sorties</div>
+    </div>
+</div>
+
+{% if movements %}
+<div class="table-wrapper">
+    <table class="data-table movement-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Composant</th>
+                <th>Type</th>
+                <th>Variation</th>
+                <th>Avant</th>
+                <th>Après</th>
+                <th>Projet</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for m in movements %}
+        <tr>
+            <td class="td-secondary mono" style="font-size:.8rem;white-space:nowrap">{{ m.created_at[:16] }}</td>
+            <td>
+                <a href="{{ url_for('components.detail', component_id=m.component_id) }}">
+                    {{ m.component_description or '—' }}
+                </a>
+                {% if m.component_lcsc %}
+                    <span class="td-secondary mono" style="font-size:.75rem"> {{ m.component_lcsc }}</span>
+                {% endif %}
+            </td>
+            <td>{{ m.icon }} {{ m.label }}</td>
+            <td class="td-qty {% if m.is_positive %}mv-pos{% else %}mv-neg{% endif %}">
+                {{ '+' if m.is_positive else '' }}{{ m.qty_change }}
+            </td>
+            <td class="td-qty td-secondary">{{ m.qty_before }}</td>
+            <td class="td-qty">{{ m.qty_after }}</td>
+            <td class="td-secondary">
+                {% if m.project_name %}
+                    <a href="{{ url_for('projects.detail', project_id=m.project_id) }}">{{ m.project_name }}</a>
+                {% else %}—{% endif %}
+            </td>
+            <td class="td-secondary">{{ m.note or '—' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p class="empty-icon">📭</p>
+    <p>Aucun mouvement enregistré.</p>
+</div>
+{% endif %}
+{% endblock %}

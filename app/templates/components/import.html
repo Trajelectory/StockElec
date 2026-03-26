@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Importer CSV — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour au stock</a>
+    <h1>📥 Importer un fichier CSV</h1>
+</div>
+
+<div class="import-layout">
+    <!-- Zone de drop -->
+    <div class="form-card">
+        <form method="post" action="{{ url_for('components.import_csv') }}"
+              enctype="multipart/form-data" id="import-form">
+
+            <div class="drop-zone" id="drop-zone">
+                <div class="drop-icon">📂</div>
+                <p class="drop-title">Glissez votre fichier CSV ici</p>
+                <p class="drop-subtitle">ou</p>
+                <label class="btn btn-primary btn-file">
+                    Parcourir…
+                    <input type="file" name="csv_file" id="csv_file" accept=".csv" hidden required/>
+                </label>
+                <p id="file-name" class="file-selected" style="display:none"></p>
+            </div>
+
+            <div class="form-actions" style="margin-top:1.5rem">
+                <button type="submit" class="btn btn-primary btn-lg">⚡ Importer</button>
+                <a href="{{ url_for('components.index') }}" class="btn btn-secondary">Annuler</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Aide -->
+    <div class="info-card">
+        <h2>📋 Format attendu</h2>
+        <p>Les fichiers CSV exportés depuis <strong>LCSC</strong> sont directement supportés.</p>
+        <p>Colonnes reconnues :</p>
+        <ul class="column-list">
+            <li><code>LCSC Part Number</code></li>
+            <li><code>Manufacture Part Number</code></li>
+            <li><code>Manufacturer</code></li>
+            <li><code>Customer NO.</code></li>
+            <li><code>Package</code></li>
+            <li><code>Description</code></li>
+            <li><code>RoHS</code></li>
+            <li><code>Quantity</code></li>
+            <li><code>Unit Price(€)</code></li>
+            <li><code>Ext.Price(€)</code></li>
+        </ul>
+        <p class="info-note">💡 Les lignes vides ou sans référence sont ignorées automatiquement.</p>
+
+        <hr/>
+
+        {% if lcsc_configured %}
+        <p class="info-note info-note-ok">
+            ✅ <strong>API LCSC active</strong> — après l'import, les catégories et images
+            seront récupérées automatiquement en arrière-plan.
+        </p>
+        {% else %}
+        <p class="info-note info-note-warn">
+            ⚠️ <strong>API LCSC non configurée</strong> — les catégories et images ne seront
+            pas récupérées automatiquement.
+            <a href="{{ url_for('components.settings') }}">Configurer →</a>
+        </p>
+        {% endif %}
+
+        <hr/>
+        <p>Vous préférez saisir un composant manuellement ?</p>
+        <a href="{{ url_for('components.add') }}" class="btn btn-secondary">➕ Ajout manuel</a>
+    </div>
+</div>
+
+<script>
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('csv_file');
+const fileNameEl = document.getElementById('file-name');
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+        fileNameEl.textContent = '✅ ' + fileInput.files[0].name;
+        fileNameEl.style.display = 'block';
+    }
+});
+
+['dragover', 'dragenter'].forEach(evt => {
+    dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+});
+['dragleave', 'drop'].forEach(evt => {
+    dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
+});
+dropZone.addEventListener('drop', e => {
+    const files = e.dataTransfer.files;
+    if (files.length) {
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        fileInput.files = dt.files;
+        fileNameEl.textContent = '✅ ' + files[0].name;
+        fileNameEl.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Alertes stock — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🔔 Composants sous seuil d'alerte</h1>
+    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour</a>
+</div>
+
+{% if components %}
+<p class="result-count" style="margin-bottom:1rem">
+    {{ components|length }} composant{{ 's' if components|length > 1 }} à réapprovisionner
+</p>
+<div class="table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th class="th-img"></th>
+                <th>Description</th>
+                <th>Réf. LCSC</th>
+                <th>Catégorie</th>
+                <th>En stock</th>
+                <th>Seuil</th>
+                <th>Manquant</th>
+                <th>Emplacement</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in components %}
+        <tr id="row-{{ c.id }}">
+            <td class="td-thumb">
+                {% if c.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                         class="thumb" loading="lazy" alt=""/>
+                {% else %}
+                    <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                {% endif %}
+            </td>
+            <td><a href="{{ url_for('components.detail', component_id=c.id) }}">{{ c.description or '—' }}</a></td>
+            <td class="td-mono td-secondary">{{ c.lcsc_part_number or '—' }}</td>
+            <td class="td-secondary">{{ c.category or '—' }}</td>
+            <td class="td-qty qty-{% if c.quantity == 0 %}zero{% else %}low{% endif %}" id="qty-{{ c.id }}">
+                {{ c.quantity }}
+            </td>
+            <td class="td-qty">{{ c.min_stock }}</td>
+            <td class="td-qty qty-low">{{ [c.min_stock - c.quantity, 0]|max }}</td>
+            <td class="td-secondary">{{ c.location or '—' }}</td>
+            <td class="td-actions">
+                <div class="qty-control">
+                    <button class="qty-btn" onclick="adjustQty({{ c.id }}, -1, this)">−</button>
+                    <button class="qty-btn" onclick="adjustQty({{ c.id }}, +1, this)">+</button>
+                </div>
+                <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon">✏️</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p class="empty-icon">✅</p>
+    <p>Tous les composants sont au-dessus de leur seuil d'alerte.</p>
+    <a href="{{ url_for('components.index') }}" class="btn btn-primary">Retour au stock</a>
+</div>
+{% endif %}
+
+<script>
+function adjustQty(id, delta, btn) {
+    btn.disabled = true;
+    fetch(`/component/${id}/adjust`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({delta})
+    })
+    .then(r=>r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById(`qty-${id}`).textContent = data.new_qty;
+            if (!data.is_low) {
+                const row = document.getElementById(`row-${id}`);
+                row.style.opacity = '0.4';
+                row.style.transition = 'opacity .4s';
+                setTimeout(() => row.remove(), 500);
+            }
+        } else alert(data.error);
+        btn.disabled = false;
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}{{ component.description or 'Composant' }} — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour</a>
+    <div class="page-header-actions">
+        <a href="{{ url_for('components.edit', component_id=component.id) }}" class="btn btn-primary">✏️ Modifier</a>
+        <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
+              style="display:inline" onsubmit="return confirm('Supprimer ?')">
+            <button type="submit" class="btn btn-danger">🗑️</button>
+        </form>
+    </div>
+</div>
+
+<div class="detail-card">
+    <div class="detail-top">
+        <div class="detail-image-wrap">
+            {% if component.image_path %}
+                <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
+                     alt="{{ component.description }}" class="detail-image"
+                     onclick="openLightbox(this.src)"/>
+                <p class="detail-image-hint">Cliquer pour agrandir</p>
+            {% else %}
+                <div class="detail-image-placeholder">
+                    <span>📷</span><p>Pas d'image</p>
+                    {% if component.lcsc_part_number %}
+                    <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
+                            onclick="enrichComponent({{ component.id }})">Récupérer depuis LCSC</button>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        <div class="detail-header">
+            <h1 class="detail-title">{{ component.description or '—' }}</h1>
+            <div class="detail-badges">
+                {% if component.rohs == 'YES' %}<span class="badge badge-green">RoHS</span>{% endif %}
+                {% if component.category %}<span class="badge badge-blue">{{ component.category }}</span>{% endif %}
+                {% if component.package %}<span class="badge badge-gray">{{ component.package }}</span>{% endif %}
+            </div>
+            {% if component.datasheet_url %}
+            <a href="{{ component.datasheet_url }}" target="_blank" rel="noopener"
+               class="btn btn-secondary btn-sm" style="margin-top:.75rem">📄 Datasheet</a>
+            {% endif %}
+
+            <!-- Contrôle de quantité rapide -->
+            <div class="detail-qty-block">
+                <div class="detail-qty-label">Stock</div>
+                <div class="qty-control qty-control-lg">
+                    <button class="qty-btn" onclick="adjustQty({{ component.id }}, -1, this)">−</button>
+                    <span class="qty-value-lg {% if component.quantity == 0 %}qty-zero{% elif component.is_low_stock %}qty-low{% endif %}"
+                          id="qty-{{ component.id }}">{{ component.quantity }}</span>
+                    <button class="qty-btn" onclick="adjustQty({{ component.id }}, +1, this)">+</button>
+                </div>
+                {% if component.min_stock > 0 %}
+                <div class="min-stock-label {% if component.is_low_stock %}ms-alert{% endif %}">
+                    {% if component.is_low_stock %}⚠️{% endif %}
+                    Seuil d'alerte : {{ component.min_stock }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+        <div class="detail-section">
+            <h2>Identification</h2>
+            <dl class="detail-list">
+                <dt>Référence LCSC</dt>       <dd class="mono">{{ component.lcsc_part_number or '—' }}</dd>
+                <dt>Référence fabricant</dt>  <dd class="mono">{{ component.manufacture_part_number or '—' }}</dd>
+                <dt>Fabricant</dt>            <dd>{{ component.manufacturer or '—' }}</dd>
+                <dt>N° client</dt>            <dd>{{ component.customer_no or '—' }}</dd>
+            </dl>
+        </div>
+        <div class="detail-section">
+            <h2>Prix</h2>
+            <dl class="detail-list">
+                <dt>Prix unitaire</dt>
+                <dd>{% if component.unit_price is not none %}{{ "%.4f"|format(component.unit_price) }} €{% else %}—{% endif %}</dd>
+                <dt>Valeur totale</dt>
+                <dd>{% if component.ext_price is not none %}{{ "%.2f"|format(component.ext_price) }} €{% else %}—{% endif %}</dd>
+            </dl>
+        </div>
+        <div class="detail-section">
+            <h2>Organisation</h2>
+            <dl class="detail-list">
+                <dt>Catégorie</dt>   <dd>{{ component.category or '—' }}</dd>
+                <dt>Emplacement</dt> <dd>{{ component.location or '—' }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    {% if component.notes %}
+    <div class="detail-notes"><h2>Notes</h2><p>{{ component.notes }}</p></div>
+    {% endif %}
+
+    <!-- Projets utilisant ce composant -->
+    {% if projects_using %}
+    <div class="detail-section" style="margin-top:1.5rem">
+        <h2>🗂️ Utilisé dans</h2>
+        <div class="project-tags">
+            {% for p in projects_using %}
+            <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="project-tag">
+                {{ p.name }} <span class="project-tag-qty">×{{ p.quantity }}</span>
+                <span class="badge badge-status-{{ p.status|replace(' ','-') }}">{{ p.status }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historique des mouvements -->
+    {% if movements %}
+    <div class="detail-section" style="margin-top:1.5rem">
+        <h2>📋 Historique récent
+            <a href="{{ url_for('components.history') }}" class="link-small">voir tout →</a>
+        </h2>
+        <table class="data-table movement-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Variation</th><th>Stock après</th><th>Note</th></tr></thead>
+            <tbody>
+            {% for m in movements %}
+            <tr>
+                <td class="td-secondary mono" style="font-size:.8rem">{{ m.created_at[:16] }}</td>
+                <td>{{ m.icon }} {{ m.label }}{% if m.project_name %} — {{ m.project_name }}{% endif %}</td>
+                <td class="td-qty {% if m.is_positive %}mv-pos{% else %}mv-neg{% endif %}">
+                    {{ '+' if m.is_positive else '' }}{{ m.qty_change }}
+                </td>
+                <td class="td-qty">{{ m.qty_after }}</td>
+                <td class="td-secondary">{{ m.note or '—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="detail-meta">
+        Ajouté le {{ component.created_at }} · Mis à jour le {{ component.updated_at }}
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+    <div class="lightbox-inner" onclick="event.stopPropagation()">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <img id="lightbox-img" src="" alt=""/>
+    </div>
+</div>
+
+<script>
+function adjustQty(id, delta, btn) {
+    btn.disabled = true;
+    fetch(`/component/${id}/adjust`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({delta})
+    })
+    .then(r=>r.json())
+    .then(data => {
+        if (data.ok) {
+            const el = document.getElementById(`qty-${id}`);
+            el.textContent = data.new_qty;
+            el.className = 'qty-value-lg' +
+                (data.new_qty === 0 ? ' qty-zero' : data.is_low ? ' qty-low' : '');
+        } else alert(data.error);
+        btn.disabled = false;
+    });
+}
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeLightbox(); });
+
+function enrichComponent(id) {
+    const btn = document.getElementById('enrich-btn');
+    btn.textContent = '⏳ Récupération…'; btn.disabled = true;
+    fetch(`/enrich/${id}`, {method:'POST'}).then(r=>r.json()).then(data => {
+        if (data.ok) location.reload();
+        else { btn.textContent='❌ ' + (data.error||'Erreur');
+               setTimeout(()=>{ btn.textContent='Récupérer depuis LCSC'; btn.disabled=false; },3000); }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% from "partials/category_select.html" import category_select %}
+{% block title %}Ajouter un composant — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour au stock</a>
+    <h1>➕ Ajouter un composant</h1>
+</div>
+
+<!-- ── Import rapide LCSC ─────────────────────────────────────── -->
+<div class="lcsc-lookup-card" id="lcsc-lookup">
+    <div class="lcsc-lookup-header">
+        <span class="lcsc-lookup-title">⚡ Import rapide depuis LCSC</span>
+        <span class="lcsc-lookup-hint">Colle une référence LCSC pour pré-remplir le formulaire automatiquement</span>
+    </div>
+    <div class="lcsc-lookup-row">
+        <input type="text" id="lcsc-ref-input" class="form-input lcsc-ref-input"
+               placeholder="C149504" maxlength="20"
+               autocomplete="off" spellcheck="false"/>
+        <button type="button" class="btn btn-primary" id="lcsc-lookup-btn" onclick="lookupLCSC()">
+            🔍 Rechercher
+        </button>
+    </div>
+    <div id="lcsc-lookup-status" class="lcsc-status" style="display:none"></div>
+    <!-- Prévisualisation -->
+    <div id="lcsc-preview-box" class="lcsc-preview" style="display:none">
+        <img id="lcsc-preview-img" src="" alt="" class="lcsc-preview-img"/>
+        <div class="lcsc-preview-info">
+            <div class="lcsc-preview-name" id="lcsc-preview-name"></div>
+            <div class="lcsc-preview-meta" id="lcsc-preview-meta"></div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="applyPreview()">
+            ✓ Utiliser ces données
+        </button>
+    </div>
+</div>
+
+<!-- ── Formulaire complet ─────────────────────────────────────── -->
+<div class="form-card" id="main-form-card">
+    <form method="post" action="{{ url_for('components.add') }}" id="add-form">
+
+        <div class="form-section">
+            <h2 class="form-section-title">Identification</h2>
+            <div class="form-grid">
+                <div class="form-group form-group-full">
+                    <label>Description *</label>
+                    <input type="text" name="description" id="f-description" class="form-input" required
+                           placeholder="ex: 100kΩ ±1% 125mW 0805 Thick Film Resistor"/>
+                </div>
+                <div class="form-group">
+                    <label>Référence LCSC</label>
+                    <input type="text" name="lcsc_part_number" id="f-lcsc" class="form-input"
+                           placeholder="ex: C149504"/>
+                </div>
+                <div class="form-group">
+                    <label>Référence fabricant</label>
+                    <input type="text" name="manufacture_part_number" id="f-mfr-part" class="form-input"
+                           placeholder="ex: 0805W8F1003T5E"/>
+                </div>
+                <div class="form-group">
+                    <label>Fabricant</label>
+                    <input type="text" name="manufacturer" id="f-manufacturer" class="form-input"
+                           placeholder="ex: UNI-ROYAL"/>
+                </div>
+                <div class="form-group">
+                    <label>Package / Boîtier</label>
+                    <input type="text" name="package" id="f-package" class="form-input"
+                           placeholder="ex: 0805, SOT-23, DIP-8…"/>
+                </div>
+                <div class="form-group">
+                    <label>RoHS</label>
+                    <select name="rohs" id="f-rohs" class="form-input">
+                        <option value="">—</option>
+                        <option value="YES">YES</option>
+                        <option value="NO">NO</option>
+                    </select>
+                </div>
+                <!-- Champs cachés pour image/datasheet récupérés par LCSC -->
+                <input type="hidden" name="datasheet_url" id="f-datasheet"/>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="form-section-title">Stock &amp; Prix</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Quantité *</label>
+                    <input type="number" name="quantity" id="f-quantity" class="form-input"
+                           value="0" min="0" required/>
+                </div>
+                <div class="form-group">
+                    <label>Seuil d'alerte</label>
+                    <input type="number" name="min_stock" class="form-input" value="0" min="0"
+                           placeholder="0 = pas d'alerte"/>
+                </div>
+                <div class="form-group">
+                    <label>Prix unitaire (€)</label>
+                    <input type="number" name="unit_price" id="f-unit-price" class="form-input"
+                           step="0.0001" min="0" placeholder="0.0000"/>
+                </div>
+                <div class="form-group">
+                    <label>Prix total (€)</label>
+                    <input type="number" name="ext_price" class="form-input" step="0.01" min="0"
+                           placeholder="Calculé auto si vide"/>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="form-section-title">Organisation</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Catégorie</label>
+                    <select name="category" id="f-category" class="input-select">
+                        <option value="">— Choisir une catégorie —</option>
+                        {% for group in category_groups %}
+                            {% if group.group %}
+                                <optgroup label="{{ group.group }}">
+                                    {% for opt in group.options %}
+                                        <option value="{{ opt.value }}">{{ opt.label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% else %}
+                                {% for opt in group.options %}
+                                    <option value="{{ opt.value }}">{{ opt.label }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <small style="color:var(--text-muted);font-size:.75rem">
+                        Pré-rempli automatiquement si tu utilises l'import LCSC ci-dessus
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>Emplacement</label>
+                    <input type="text" name="location" class="form-input"
+                           placeholder="ex: Boîte A3, Tiroir 12…"/>
+                </div>
+                <div class="form-group form-group-full">
+                    <label>Notes</label>
+                    <textarea name="notes" class="form-input" rows="3"
+                              placeholder="Remarques, liens…"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+            <a href="{{ url_for('components.index') }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+
+<script>
+let _previewData = null;
+
+// Déclenche la recherche sur Entrée
+document.getElementById('lcsc-ref-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); lookupLCSC(); }
+});
+
+function lookupLCSC() {
+    const ref = document.getElementById('lcsc-ref-input').value.trim().toUpperCase();
+    if (!ref) return;
+
+    const btn    = document.getElementById('lcsc-lookup-btn');
+    const status = document.getElementById('lcsc-lookup-status');
+    const box    = document.getElementById('lcsc-preview-box');
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Recherche…';
+    status.style.display = 'none';
+    box.style.display = 'none';
+    _previewData = null;
+
+    fetch(`/api/lcsc-preview?ref=${encodeURIComponent(ref)}`)
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.textContent = '🔍 Rechercher';
+
+            if (!data.ok) {
+                status.className = 'lcsc-status lcsc-status-error';
+                status.textContent = '❌ ' + data.error;
+                status.style.display = 'block';
+                return;
+            }
+
+            _previewData = data;
+
+            // Affiche la prévisualisation
+            const img = document.getElementById('lcsc-preview-img');
+            if (data.image_url) {
+                img.src = data.image_url;
+                img.style.display = 'block';
+            } else {
+                img.style.display = 'none';
+            }
+            document.getElementById('lcsc-preview-name').textContent = data.description || data.lcsc_part_number;
+            document.getElementById('lcsc-preview-meta').textContent =
+                [data.manufacturer, data.package, data.category].filter(Boolean).join(' · ');
+
+            box.style.display = 'flex';
+            status.style.display = 'none';
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.textContent = '🔍 Rechercher';
+            status.className = 'lcsc-status lcsc-status-error';
+            status.textContent = '❌ Erreur réseau';
+            status.style.display = 'block';
+        });
+}
+
+function applyPreview() {
+    if (!_previewData) return;
+    const d = _previewData;
+
+    // Pré-remplit tous les champs
+    setVal('f-lcsc',         d.lcsc_part_number);
+    setVal('f-description',  d.description);
+    setVal('f-mfr-part',     d.manufacture_part_number);
+    setVal('f-manufacturer', d.manufacturer);
+    setVal('f-package',      d.package);
+    setVal('f-category',     d.category);
+    setVal('f-datasheet',    d.datasheet_url);
+    if (d.unit_price) setVal('f-unit-price', parseFloat(d.unit_price).toFixed(4));
+
+    // RoHS
+    const rohs = document.getElementById('f-rohs');
+    if (d.rohs && rohs) rohs.value = d.rohs;
+
+    // Feedback visuel
+    const box = document.getElementById('lcsc-preview-box');
+    box.style.display = 'none';
+    const status = document.getElementById('lcsc-lookup-status');
+    status.className = 'lcsc-status lcsc-status-ok';
+    status.textContent = '✅ Formulaire pré-rempli — vérifie la quantité puis enregistre.';
+    status.style.display = 'block';
+
+    // Focus sur la quantité
+    document.getElementById('f-quantity').focus();
+    document.getElementById('f-quantity').select();
+
+    // Scroll vers le formulaire
+    document.getElementById('main-form-card').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+function setVal(id, val) {
+    if (val === undefined || val === null || val === '') return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') {
+        // Cherche une option dont la value correspond exactement
+        for (const opt of el.options) {
+            if (opt.value === val) { el.value = val; return; }
+        }
+        // Pas trouvé → ajoute une option dynamique (catégorie nouvelle)
+        const opt = new Option(val, val, true, true);
+        el.appendChild(opt);
+    } else {
+        el.value = val;
+    }
+}
+</script>
+{% endblock %}

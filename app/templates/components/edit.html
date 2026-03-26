@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% from "partials/category_select.html" import category_select %}
+{% block title %}Modifier — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← Retour</a>
+    <h1>✏️ Modifier le composant</h1>
+</div>
+
+<div class="form-card">
+    <form method="post" action="{{ url_for('components.edit', component_id=component.id) }}">
+
+        <div class="form-section">
+            <h2 class="form-section-title">Identification</h2>
+            <div class="form-grid">
+                <div class="form-group form-group-full">
+                    <label>Description *</label>
+                    <input type="text" name="description" class="form-input" required
+                           value="{{ component.description or '' }}"/>
+                </div>
+                <div class="form-group">
+                    <label>Référence fabricant</label>
+                    <input type="text" name="manufacture_part_number" class="form-input"
+                           value="{{ component.manufacture_part_number or '' }}"/>
+                </div>
+                <div class="form-group">
+                    <label>Référence LCSC</label>
+                    <input type="text" name="lcsc_part_number" class="form-input"
+                           value="{{ component.lcsc_part_number or '' }}"/>
+                </div>
+                <div class="form-group">
+                    <label>Fabricant</label>
+                    <input type="text" name="manufacturer" class="form-input"
+                           value="{{ component.manufacturer or '' }}"/>
+                </div>
+                <div class="form-group">
+                    <label>Package / Boîtier</label>
+                    <input type="text" name="package" class="form-input"
+                           value="{{ component.package or '' }}"/>
+                </div>
+                <div class="form-group">
+                    <label>RoHS</label>
+                    <select name="rohs" class="form-input">
+                        <option value="">—</option>
+                        <option value="YES" {% if component.rohs == 'YES' %}selected{% endif %}>YES</option>
+                        <option value="NO"  {% if component.rohs == 'NO'  %}selected{% endif %}>NO</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="form-section-title">Stock &amp; Prix</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Quantité *</label>
+                    <input type="number" name="quantity" class="form-input" min="0" required
+                           value="{{ component.quantity }}"/>
+                </div>
+                <div class="form-group">
+                    <label>Seuil d'alerte (min. stock)</label>
+                    <input type="number" name="min_stock" class="form-input" min="0"
+                           value="{{ component.min_stock or 0 }}"
+                           placeholder="0 = pas d'alerte"/>
+                </div>
+                <div class="form-group">
+                    <label>Prix unitaire (€)</label>
+                    <input type="number" name="unit_price" class="form-input" step="0.0001" min="0"
+                           value="{{ component.unit_price or '' }}"/>
+                </div>
+                <div class="form-group">
+                    <label>Prix total (€)</label>
+                    <input type="number" name="ext_price" class="form-input" step="0.01" min="0"
+                           value="{{ component.ext_price or '' }}"/>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h2 class="form-section-title">Organisation</h2>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Catégorie</label>
+                    {{ category_select("category", component.category or "", category_groups) }}
+                </div>
+                <div class="form-group">
+                    <label>Emplacement</label>
+                    <input type="text" name="location" class="form-input"
+                           value="{{ component.location or '' }}"/>
+                </div>
+                <div class="form-group form-group-full">
+                    <label>Notes</label>
+                    <textarea name="notes" class="form-input" rows="3">{{ component.notes or '' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
+            <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn btn-secondary">Annuler</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

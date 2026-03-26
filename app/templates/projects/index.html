@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Projets — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🗂️ Projets</h1>
+    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">➕ Nouveau projet</a>
+</div>
+
+{% if projects %}
+<div class="project-grid">
+    {% for p in projects %}
+    <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="project-card">
+
+        <!-- Image ou placeholder -->
+        {% if p.image_path %}
+            <div class="project-card-img"
+                 style="background-image:url('{{ url_for('projects.project_image', filename=p.image_path) }}')">
+            </div>
+        {% else %}
+            <div class="project-card-img project-card-img-empty">
+                <span>🔌</span>
+            </div>
+        {% endif %}
+
+        <!-- Contenu -->
+        <div class="project-card-body">
+            <div class="project-card-header">
+                <span class="project-name">{{ p.name }}</span>
+                <span class="badge badge-status-{{ p.status|replace(' ','-') }}">{{ p.status }}</span>
+            </div>
+            {% if p.description %}
+            <p class="project-desc">
+                {{ p.description[:80] }}{% if p.description|length > 80 %}…{% endif %}
+            </p>
+            {% endif %}
+            <div class="project-card-footer">
+                <span>🔩 {{ p.component_count }} composant{{ 's' if p.component_count != 1 }}</span>
+                <span>💶 {{ "%.2f"|format(p.total_value or 0) }} €</span>
+                <span class="td-secondary" style="font-size:.75rem">{{ p.updated_at[:10] }}</span>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p class="empty-icon">🗂️</p>
+    <p>Aucun projet. Crée ton premier projet pour lier des composants.</p>
+    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">➕ Créer un projet</a>
+</div>
+{% endif %}
+{% endblock %}
