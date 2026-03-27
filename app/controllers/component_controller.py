@@ -247,6 +247,60 @@ def lcsc_preview():
 
 
 # ------------------------------------------------------------------ #
+#  Étiquettes imprimables
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/component/<int:component_id>/label")
+def label(component_id):
+    """Étiquette pour un seul composant — redirige vers la page multi."""
+    return redirect(url_for("components.labels_print", ids=str(component_id)))
+
+
+@component_bp.route("/labels")
+def labels_print():
+    """
+    Page d'impression multi-étiquettes.
+    Paramètres GET :
+      ids=1,2,3        → liste d'IDs séparés par virgule
+    """
+    from ..services.qr_generator import qr_svg_data_url
+
+    raw_ids = request.args.get("ids", "")
+    try:
+        ids = [int(x.strip()) for x in raw_ids.split(",") if x.strip().isdigit()]
+    except ValueError:
+        ids = []
+
+    if not ids:
+        flash("Aucun composant sélectionné.", "warning")
+        return redirect(url_for("components.index"))
+
+    base_url = request.host_url.rstrip("/")
+
+    components_data = []
+    for cid in ids:
+        comp = ComponentModel.get_by_id(cid)
+        if comp is None:
+            continue
+        fiche_url = f"{base_url}{url_for('components.detail', component_id=cid)}"
+        qr_data_url = qr_svg_data_url(fiche_url)
+        components_data.append({
+            "comp":        comp,
+            "fiche_url":   fiche_url,
+            "qr_data_url": qr_data_url,
+        })
+
+    if not components_data:
+        flash("Aucun composant trouvé.", "warning")
+        return redirect(url_for("components.index"))
+
+    return render_template(
+        "components/labels_print.html",
+        components_data=components_data,
+    )
+
+
+# ------------------------------------------------------------------ #
 #  Détail
 # ------------------------------------------------------------------ #
 
@@ -292,6 +346,85 @@ def delete(component_id):
     ComponentModel.delete(component_id)
     flash("Composant supprimé.", "success")
     return redirect(url_for("components.index"))
+
+
+# ------------------------------------------------------------------ #
+#  Symbole & Footprint EasyEDA (proxy + cache)
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/api/easyeda-pngs/<lcsc_ref>")
+def easyeda_pngs(lcsc_ref):
+    """
+    Télécharge et sauvegarde les PNGs EasyEDA (symbole + footprint).
+    Met en cache dans la base et dans instance/easyeda_pngs/.
+    Paramètre GET ?force=1 pour forcer le rechargement.
+    """
+    from ..services.easyeda import fetch_and_save
+    from ..models.database import get_db
+    import os
+
+    lcsc_ref = lcsc_ref.strip().upper()
+    if not lcsc_ref:
+        return jsonify({"ok": False, "error": "Référence manquante"}), 400
+
+    force = request.args.get("force") == "1"
+    db    = get_db()
+
+    # Cherche le composant en base
+    row = db.execute(
+        "SELECT id, symbol_png, footprint_png FROM components WHERE lcsc_part_number = ?",
+        (lcsc_ref,),
+    ).fetchone()
+
+    # Cache valide ?
+    if not force and row and (row["symbol_png"] or row["footprint_png"]):
+        # Vérifie que les fichiers existent encore
+        instance_path = os.path.join(component_bp.root_path, "..", "..", "instance")
+        sym_ok = row["symbol_png"] and os.path.exists(
+            os.path.join(os.path.abspath(instance_path), row["symbol_png"])
+        )
+        fp_ok  = row["footprint_png"] and os.path.exists(
+            os.path.join(os.path.abspath(instance_path), row["footprint_png"])
+        )
+        if sym_ok or fp_ok:
+            return jsonify({
+                "ok":           True,
+                "symbol_png":   row["symbol_png"],
+                "footprint_png": row["footprint_png"],
+                "cached":       True,
+            })
+
+    # Téléchargement + conversion
+    instance_path = os.path.abspath(
+        os.path.join(component_bp.root_path, "..", "..", "instance")
+    )
+    result = fetch_and_save(lcsc_ref, instance_path)
+    sym = result.get("symbol_png")
+    fp  = result.get("footprint_png")
+
+    if not sym and not fp:
+        return jsonify({"ok": False, "error": f"Aucune image disponible pour {lcsc_ref}"}), 404
+
+    # Sauvegarde les chemins en base
+    if row:
+        ComponentModel.save_easyeda_pngs(row["id"], sym, fp)
+
+    return jsonify({
+        "ok":           True,
+        "symbol_png":   sym,
+        "footprint_png": fp,
+        "cached":       False,
+    })
+
+
+@component_bp.route("/easyeda-pngs/<path:filename>")
+def easyeda_png_file(filename):
+    """Sert les fichiers PNG EasyEDA depuis instance/easyeda_pngs/."""
+    import os
+    pngs_dir = os.path.abspath(
+        os.path.join(component_bp.root_path, "..", "..", "instance", "easyeda_pngs")
+    )
+    return send_from_directory(pngs_dir, filename)
 
 
 # ------------------------------------------------------------------ #

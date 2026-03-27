@@ -76,6 +76,10 @@
     <table class="data-table">
         <thead>
             <tr>
+                <th class="th-check">
+                    <input type="checkbox" id="check-all" title="Tout sélectionner"
+                           onchange="toggleAll(this.checked)"/>
+                </th>
                 <th class="th-img"></th>
                 <th>Description</th>
                 <th>Réf. Fabricant</th>
@@ -84,7 +88,7 @@
                 <th>Package</th>
                 <th>Catégorie</th>
                 <th>Quantité</th>
-                <!-- <th>Prix unit.</th> -->
+                <th>Prix unit.</th>
                 <th>Emplacement</th>
                 <th>Actions</th>
             </tr>
@@ -93,6 +97,10 @@
             {% for c in components %}
             <tr class="{% if c.quantity == 0 %}row-empty{% elif c.is_low_stock %}row-low{% endif %}"
                 id="row-{{ c.id }}">
+                <td class="td-check">
+                    <input type="checkbox" class="row-check" value="{{ c.id }}"
+                           onchange="onCheckChange()"/>
+                </td>
                 <td class="td-thumb">
                     {% if c.image_path %}
                         <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
@@ -137,7 +145,7 @@
                         </div>
                     {% endif %}
                 </td>
-                <!-- <td class="td-price">{% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}</td> -->
+                <td class="td-price">{% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}</td>
                 <td class="td-secondary">{{ c.location or '—' }}</td>
                 <td class="td-actions">
                     <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon" title="Modifier">✏️</a>
@@ -243,5 +251,51 @@ function openLightbox(src, caption) {
 }
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
 document.addEventListener('keydown', e => { if (e.key==='Escape') closeLightbox(); });
+
+// ── Sélection multiple ──────────────────────────────────────────────
+function toggleAll(checked) {
+    document.querySelectorAll('.row-check').forEach(cb => { cb.checked = checked; });
+    onCheckChange();
+}
+
+function onCheckChange() {
+    const checked = getChecked();
+    const bar = document.getElementById('selection-bar');
+    const count = document.getElementById('selection-count');
+    if (checked.length > 0) {
+        count.textContent = checked.length + ' composant' + (checked.length > 1 ? 's' : '') + ' sélectionné' + (checked.length > 1 ? 's' : '');
+        bar.style.display = 'flex';
+    } else {
+        bar.style.display = 'none';
+    }
+    // Synchronise la case "tout sélectionner"
+    const all = document.querySelectorAll('.row-check');
+    document.getElementById('check-all').indeterminate = checked.length > 0 && checked.length < all.length;
+    document.getElementById('check-all').checked = checked.length === all.length && all.length > 0;
+}
+
+function getChecked() {
+    return [...document.querySelectorAll('.row-check:checked')].map(cb => cb.value);
+}
+
+function printSelected() {
+    const ids = getChecked();
+    if (!ids.length) return;
+    window.open('/labels?ids=' + ids.join(','), '_blank');
+}
+
+function clearSelection() {
+    document.querySelectorAll('.row-check').forEach(cb => { cb.checked = false; });
+    document.getElementById('check-all').checked = false;
+    document.getElementById('check-all').indeterminate = false;
+    document.getElementById('selection-bar').style.display = 'none';
+}
 </script>
+
+<!-- Barre d'actions flottante -->
+<div id="selection-bar" class="selection-bar" style="display:none">
+    <span id="selection-count" class="selection-count"></span>
+    <button class="btn btn-primary" onclick="printSelected()">🏷️ Imprimer les étiquettes</button>
+    <button class="btn btn-secondary" onclick="clearSelection()">✕ Désélectionner</button>
+</div>
 {% endblock %}

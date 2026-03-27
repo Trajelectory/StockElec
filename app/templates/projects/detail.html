@@ -65,72 +65,118 @@
     </form>
 </div>
 
-<!-- Liste des composants du projet -->
+<!-- Liste des composants groupés par catégorie -->
 {% if components %}
-<div class="table-wrapper">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th class="th-img"></th>
-                <th>Composant</th>
-                <th>Réf. LCSC</th>
-                <th>Package</th>
-                <th>Qté projet</th>
-                <th>En stock</th>
-                <th>Dispo ?</th>
-                <th>Prix total</th>
-                <th>Note</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for pc in components %}
-        {% set ok = pc.stock_quantity >= pc.quantity %}
-        <tr class="{{ 'row-low' if not ok }}">
-            <td class="td-thumb">
-                {% if pc.image_path %}
-                    <img src="{{ url_for('components.component_image', filename=pc.image_path.split('images/')|last) }}"
-                         class="thumb" loading="lazy" alt=""/>
-                {% else %}
-                    <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
-                {% endif %}
-            </td>
-            <td>
-                <a href="{{ url_for('components.detail', component_id=pc.component_id) }}">
-                    {{ pc.description or '—' }}
-                </a>
-            </td>
-            <td class="td-mono td-secondary">{{ pc.lcsc_part_number or '—' }}</td>
-            <td><span class="badge badge-gray">{{ pc.package or '—' }}</span></td>
-            <td class="td-qty">{{ pc.quantity }}</td>
-            <td class="td-qty {% if pc.stock_quantity == 0 %}qty-zero{% elif not ok %}qty-low{% endif %}"
-                id="stock-{{ pc.component_id }}">{{ pc.stock_quantity }}</td>
-            <td>{% if ok %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td>
-            <td class="td-price">
-                {% if pc.unit_price is not none %}{{ "%.2f"|format(pc.unit_price * pc.quantity) }} €{% else %}—{% endif %}
-            </td>
-            <td class="td-secondary">{{ pc.notes or '—' }}</td>
-            <td class="td-actions">
-                <!-- Débiter du stock -->
-                <button class="btn btn-secondary btn-sm"
-                        onclick="useComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
-                        title="Débiter {{ pc.quantity }} du stock">🔧 −{{ pc.quantity }}</button>
-                <!-- Restituer au stock -->
-                <button class="btn btn-secondary btn-sm"
-                        onclick="returnComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
-                        title="Remettre {{ pc.quantity }} en stock">↩️ +{{ pc.quantity }}</button>
-                <!-- Retirer du projet -->
-                <form method="post"
-                      action="{{ url_for('projects.remove_component', project_id=project.id, component_id=pc.component_id) }}"
-                      style="display:inline" onsubmit="return confirm('Retirer ce composant du projet ?')">
-                    <button type="submit" class="btn-icon" title="Retirer du projet">🗑️</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
+
+{# Collecte les catégories uniques dans l'ordre #}
+{% set ns = namespace(current_cat=none) %}
+
+<div class="project-components">
+{% for pc in components %}
+    {% set cat = pc.category or '— Sans catégorie' %}
+
+    {# En-tête de groupe si la catégorie change #}
+    {% if cat != ns.current_cat %}
+        {% if ns.current_cat is not none %}
+            </tbody></table></div>  {# Ferme le tableau précédent #}
+        {% endif %}
+        {% set ns.current_cat = cat %}
+
+        {# Calcule les stats de la catégorie pour le badge de dispo #}
+        {% set cat_components = components | selectattr('category', 'equalto', pc.category) | list
+           if pc.category else
+           components | selectattr('category', 'none') | list %}
+
+        <div class="category-group">
+            <div class="category-group-header">
+                <span class="category-group-title">{{ cat }}</span>
+                <span class="category-group-count">
+                    {{ components | selectattr('category', 'equalto', pc.category) | list | length
+                       if pc.category else
+                       components | selectattr('category', 'none') | list | length }}
+                    composant(s)
+                </span>
+            </div>
+            <div class="table-wrapper" style="border-radius:0 0 var(--radius) var(--radius)">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="th-img"></th>
+                        <th>Composant</th>
+                        <th>Réf. LCSC</th>
+                        <th>Package</th>
+                        <th>Qté projet</th>
+                        <th>En stock</th>
+                        <th>Dispo ?</th>
+                        <th>Prix total</th>
+                        <th>Note</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    {% endif %}
+
+    {# Ligne du composant #}
+    {% set ok = pc.stock_quantity >= pc.quantity %}
+    <tr class="{{ 'row-low' if not ok }}">
+        <td class="td-thumb">
+            {% if pc.image_path %}
+                <img src="{{ url_for('components.component_image', filename=pc.image_path.split('images/')|last) }}"
+                     class="thumb" loading="lazy" alt=""/>
+            {% else %}
+                <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+            {% endif %}
+        </td>
+        <td>
+            <a href="{{ url_for('components.detail', component_id=pc.component_id) }}">
+                {{ pc.description or '—' }}
+            </a>
+        </td>
+        <td class="td-mono td-secondary">{{ pc.lcsc_part_number or '—' }}</td>
+        <td><span class="badge badge-gray">{{ pc.package or '—' }}</span></td>
+        <td class="td-qty">{{ pc.quantity }}</td>
+        <td class="td-qty {% if pc.stock_quantity == 0 %}qty-zero{% elif not ok %}qty-low{% endif %}"
+            id="stock-{{ pc.component_id }}">{{ pc.stock_quantity }}</td>
+        <td>{% if ok %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td>
+        <td class="td-price">
+            {% if pc.unit_price is not none %}{{ "%.2f"|format(pc.unit_price * pc.quantity) }} €{% else %}—{% endif %}
+        </td>
+        <td class="td-secondary">{{ pc.notes or '—' }}</td>
+        <td class="td-actions">
+            {# Lien LCSC #}
+            {% if pc.lcsc_part_number %}
+            <a href="https://www.lcsc.com/product-detail/{{ pc.lcsc_part_number }}.html"
+               target="_blank" rel="noopener"
+               class="btn btn-secondary btn-sm" title="Voir sur LCSC">
+                🛒
+            </a>
+            {% endif %}
+            <!-- Débiter du stock -->
+            <button class="btn btn-secondary btn-sm"
+                    onclick="useComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
+                    title="Débiter {{ pc.quantity }} du stock">🔧 −{{ pc.quantity }}</button>
+            <!-- Restituer au stock -->
+            <button class="btn btn-secondary btn-sm"
+                    onclick="returnComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
+                    title="Remettre {{ pc.quantity }} en stock">↩️ +{{ pc.quantity }}</button>
+            <!-- Retirer du projet -->
+            <form method="post"
+                  action="{{ url_for('projects.remove_component', project_id=project.id, component_id=pc.component_id) }}"
+                  style="display:inline" onsubmit="return confirm('Retirer ce composant du projet ?')">
+                <button type="submit" class="btn-icon" title="Retirer du projet">🗑️</button>
+            </form>
+        </td>
+    </tr>
+
+{% endfor %}
+
+{# Ferme le dernier tableau #}
+{% if ns.current_cat is not none %}
+    </tbody></table></div></div>
+{% endif %}
+
+</div>{# .project-components #}
+
 {% else %}
 <div class="empty-state" style="padding:2rem">
     <p>Aucun composant dans ce projet.</p>

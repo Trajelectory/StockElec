@@ -26,6 +26,10 @@ class Component:
         self.notes                   = row["notes"]
         self.image_path              = row["image_path"]    if "image_path"    in keys else None
         self.datasheet_url           = row["datasheet_url"] if "datasheet_url" in keys else None
+        self.symbol_svg              = row["symbol_svg"]    if "symbol_svg"    in keys else None
+        self.footprint_svg           = row["footprint_svg"] if "footprint_svg" in keys else None
+        self.symbol_png              = row["symbol_png"]    if "symbol_png"    in keys else None
+        self.footprint_png           = row["footprint_png"] if "footprint_png" in keys else None
         self.created_at              = row["created_at"]
         self.updated_at              = row["updated_at"]
 
@@ -303,6 +307,38 @@ class ComponentModel:
                 f"UPDATE components SET {', '.join(fields)} WHERE id = ?",
                 values,
             )
+            db.commit()
+
+    @staticmethod
+    def save_easyeda_svgs(component_id: int, symbol_svg: str | None, footprint_svg: str | None):
+        """Sauvegarde le symbole et/ou le footprint EasyEDA (SVG) en base."""
+        db = get_db()
+        fields, values = [], []
+        if symbol_svg is not None:
+            fields.append("symbol_svg = ?")
+            values.append(symbol_svg)
+        if footprint_svg is not None:
+            fields.append("footprint_svg = ?")
+            values.append(footprint_svg)
+        if fields:
+            values.append(component_id)
+            db.execute(f"UPDATE components SET {', '.join(fields)} WHERE id = ?", values)
+            db.commit()
+
+    @staticmethod
+    def save_easyeda_pngs(component_id: int, symbol_png: str | None, footprint_png: str | None):
+        """Sauvegarde les chemins des PNGs EasyEDA en base."""
+        db = get_db()
+        fields, values = [], []
+        if symbol_png is not None:
+            fields.append("symbol_png = ?")
+            values.append(symbol_png)
+        if footprint_png is not None:
+            fields.append("footprint_png = ?")
+            values.append(footprint_png)
+        if fields:
+            values.append(component_id)
+            db.execute(f"UPDATE components SET {', '.join(fields)} WHERE id = ?", values)
             db.commit()
 
     @staticmethod

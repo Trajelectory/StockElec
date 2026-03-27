@@ -90,7 +90,10 @@ class ProjectModel:
             FROM project_components pc
             JOIN components c ON c.id = pc.component_id
             WHERE pc.project_id = ?
-            ORDER BY c.description
+            ORDER BY
+                CASE WHEN c.category IS NULL OR c.category = '' THEN 1 ELSE 0 END,
+                c.category,
+                c.description
             """,
             (project_id,),
         ).fetchall()

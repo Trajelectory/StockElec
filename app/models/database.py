@@ -131,4 +131,9 @@ def init_db(app):
         if "image_path" not in proj_cols:
             db.execute("ALTER TABLE projects ADD COLUMN image_path TEXT")
 
+        # Migration components : symbole et footprint EasyEDA (chemins PNG)
+        for col in ("symbol_svg", "footprint_svg", "symbol_png", "footprint_png"):
+            if col not in existing_cols:
+                db.execute(f"ALTER TABLE components ADD COLUMN {col} TEXT")
+
         db.commit()

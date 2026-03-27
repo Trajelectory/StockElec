@@ -5,6 +5,8 @@
 <div class="page-header">
     <a href="{{ url_for('components.index') }}" class="btn-back">← Retour</a>
     <div class="page-header-actions">
+        <a href="{{ url_for('components.label', component_id=component.id) }}"
+           class="btn btn-secondary" target="_blank" title="Imprimer l'étiquette">🏷️ Étiquette</a>
         <a href="{{ url_for('components.edit', component_id=component.id) }}" class="btn btn-primary">✏️ Modifier</a>
         <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
               style="display:inline" onsubmit="return confirm('Supprimer ?')">
@@ -15,21 +17,64 @@
 
 <div class="detail-card">
     <div class="detail-top">
-        <div class="detail-image-wrap">
-            {% if component.image_path %}
-                <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
-                     alt="{{ component.description }}" class="detail-image"
-                     onclick="openLightbox(this.src)"/>
-                <p class="detail-image-hint">Cliquer pour agrandir</p>
-            {% else %}
-                <div class="detail-image-placeholder">
-                    <span>📷</span><p>Pas d'image</p>
-                    {% if component.lcsc_part_number %}
-                    <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
-                            onclick="enrichComponent({{ component.id }})">Récupérer depuis LCSC</button>
-                    {% endif %}
-                </div>
+        <!-- Galerie : image produit + symbole + footprint -->
+        <div class="detail-gallery">
+
+            <!-- Image produit -->
+            <div class="gallery-item" id="gallery-photo">
+                {% if component.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
+                         alt="{{ component.description }}"
+                         onclick="openImgLightbox(this.src, 'Photo — {{ component.description|e }}')"
+                         title="Photo du composant"/>
+                {% else %}
+                    <div class="gallery-empty">
+                        <span>📷</span>
+                        {% if component.lcsc_part_number %}
+                        <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
+                                onclick="enrichComponent({{ component.id }})">Récupérer</button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                <span class="gallery-label">Photo</span>
+            </div>
+
+            {% if component.lcsc_part_number %}
+            <!-- Symbole schématique -->
+            <div class="gallery-item" id="gallery-symbol">
+                {% if component.symbol_png %}
+                    <img src="{{ url_for('components.easyeda_png_file', filename=component.symbol_png.split('easyeda_pngs/')|last) }}"
+                         alt="Symbole {{ component.lcsc_part_number }}"
+                         onclick="openImgLightbox(this.src, 'Symbole — {{ component.description|e }}')"
+                         title="Cliquer pour agrandir"/>
+                {% else %}
+                    <div class="gallery-loading" id="sym-placeholder"
+                         onclick="loadPngs()" title="Cliquer pour charger">
+                        <span class="gallery-icon">〜</span>
+                        <span class="gallery-load-hint">Cliquer pour charger</span>
+                    </div>
+                {% endif %}
+                <span class="gallery-label">Symbole</span>
+            </div>
+
+            <!-- Footprint PCB -->
+            <div class="gallery-item" id="gallery-footprint">
+                {% if component.footprint_png %}
+                    <img src="{{ url_for('components.easyeda_png_file', filename=component.footprint_png.split('easyeda_pngs/')|last) }}"
+                         alt="Footprint {{ component.lcsc_part_number }}"
+                         onclick="openImgLightbox(this.src, 'Footprint — {{ component.description|e }}')"
+                         title="Cliquer pour agrandir"/>
+                {% else %}
+                    <div class="gallery-loading" id="fp-placeholder"
+                         onclick="loadPngs()" title="Cliquer pour charger">
+                        <span class="gallery-icon">⬡</span>
+                        <span class="gallery-load-hint">Cliquer pour charger</span>
+                    </div>
+                {% endif %}
+                <span class="gallery-label">Footprint</span>
+            </div>
             {% endif %}
+
         </div>
         <div class="detail-header">
             <h1 class="detail-title">{{ component.description or '—' }}</h1>
@@ -139,15 +184,20 @@
     </div>
 </div>
 
-<!-- Lightbox -->
+<!-- Lightbox unifiée (photo + SVG) -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-    <div class="lightbox-inner" onclick="event.stopPropagation()">
-        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <div class="lightbox-inner lightbox-inner-lg" onclick="event.stopPropagation()">
+        <div class="lightbox-header">
+            <span id="lightbox-title" class="lightbox-title"></span>
+            <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        </div>
         <img id="lightbox-img" src="" alt=""/>
     </div>
 </div>
 
 <script>
+const LCSC_REF = {{ (component.lcsc_part_number or '')|tojson }};
+
 function adjustQty(id, delta, btn) {
     btn.disabled = true;
     fetch(`/component/${id}/adjust`, {
@@ -165,13 +215,76 @@ function adjustQty(id, delta, btn) {
         btn.disabled = false;
     });
 }
-function openLightbox(src) {
-    document.getElementById('lightbox-img').src = src;
+
+// ── Lightbox image ───────────────────────────────────────────────────
+function openImgLightbox(src, title) {
+    document.getElementById('lightbox-img').src    = src;
+    document.getElementById('lightbox-title').textContent = title || '';
     document.getElementById('lightbox').classList.add('open');
 }
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
 document.addEventListener('keydown', e => { if (e.key==='Escape') closeLightbox(); });
 
+// ── Chargement des PNGs EasyEDA ───────────────────────────────────────
+function loadPngs() {
+    if (!LCSC_REF) return;
+
+    // Feedback de chargement sur les deux vignettes
+    ['sym-placeholder','fp-placeholder'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.querySelector('.gallery-load-hint').textContent = '⏳ Chargement…';
+    });
+
+    fetch(`/api/easyeda-pngs/${encodeURIComponent(LCSC_REF)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.ok) {
+                ['sym-placeholder','fp-placeholder'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.querySelector('.gallery-load-hint').textContent = '— Non disponible';
+                });
+                return;
+            }
+
+            // Symbole
+            if (data.symbol_png) {
+                _replacePlaceholderWithImg(
+                    'sym-placeholder', 'gallery-symbol',
+                    '/easyeda-pngs/' + data.symbol_png.split('easyeda_pngs/').pop(),
+                    'Symbole — ' + LCSC_REF
+                );
+            }
+            // Footprint
+            if (data.footprint_png) {
+                _replacePlaceholderWithImg(
+                    'fp-placeholder', 'gallery-footprint',
+                    '/easyeda-pngs/' + data.footprint_png.split('easyeda_pngs/').pop(),
+                    'Footprint — ' + LCSC_REF
+                );
+            }
+        })
+        .catch(() => {
+            ['sym-placeholder','fp-placeholder'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.querySelector('.gallery-load-hint').textContent = '❌ Erreur réseau';
+            });
+        });
+}
+
+function _replacePlaceholderWithImg(phId, itemId, src, title) {
+    const ph   = document.getElementById(phId);
+    const item = document.getElementById(itemId);
+    if (!ph || !item) return;
+
+    const img = document.createElement('img');
+    img.src   = src;
+    img.alt   = title;
+    img.title = 'Cliquer pour agrandir';
+    img.onclick = () => openImgLightbox(src, title);
+    ph.replaceWith(img);
+}
+
+// ── Enrichissement LCSC ──────────────────────────────────────────────
 function enrichComponent(id) {
     const btn = document.getElementById('enrich-btn');
     btn.textContent = '⏳ Récupération…'; btn.disabled = true;

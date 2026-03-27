@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Étiquette — {{ component.description or component.manufacture_part_number }}</title>
+    <style>
+
+    /* ═══════════════════════════════════════════════════════════════
+       INTERFACE (page sombre — masquée à l'impression)
+       ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        background: #1a1d27;
+        color: #e2e4ec;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2rem 1rem;
+        gap: 1.5rem;
+    }
+
+    .toolbar {
+        display: flex; gap: .75rem; align-items: center;
+        background: #20232f; border: 1px solid #2e3140;
+        border-radius: 8px; padding: .75rem 1.25rem;
+        width: 100%; max-width: 760px;
+        flex-wrap: wrap;
+    }
+    .toolbar h1 { font-size: 1rem; flex: 1; color: #4f8ef7; min-width: 200px; }
+    .btn {
+        padding: .45rem 1rem; border-radius: 6px; border: none;
+        font-size: .9rem; cursor: pointer; font-weight: 500;
+        text-decoration: none; display: inline-flex; align-items: center; gap: .4rem;
+    }
+    .btn-print  { background: #4f8ef7; color: #fff; }
+    .btn-back   { background: #20232f; color: #7c82a0; border: 1px solid #2e3140; }
+    .btn-print:hover { filter: brightness(1.15); }
+
+    .print-options {
+        background: #20232f; border: 1px solid #2e3140;
+        border-radius: 8px; padding: 1rem 1.25rem;
+        width: 100%; max-width: 760px;
+    }
+    .print-options h2 { font-size: .9rem; color: #e2e4ec; margin-bottom: .75rem; }
+    .options-row { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end; }
+    .opt-group { display: flex; flex-direction: column; gap: .3rem; }
+    .opt-group label { font-size: .8rem; color: #7c82a0; }
+    .opt-group input, .opt-group select {
+        padding: .35rem .6rem;
+        background: #1a1d27; border: 1px solid #2e3140;
+        border-radius: 4px; color: #e2e4ec; font-size: .85rem;
+    }
+    .copies-row { display: flex; gap: .5rem; align-items: center; }
+    .copies-row input { width: 70px; }
+    .hint {
+        margin-top: .75rem; font-size: .75rem; color: #7c82a0; line-height: 1.5;
+    }
+
+    .preview-area { width: 100%; max-width: 760px; }
+    .labels-grid {
+        display: flex; flex-wrap: wrap; gap: 8px;
+        justify-content: flex-start;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       🏷️  ÉTIQUETTE — MODIFIE ICI POUR CHANGER LE RENDU
+       ═══════════════════════════════════════════════════════════════
+
+       Format physique cible : 6cm × 3cm (paysage)
+       À 96 dpi : 1cm ≈ 37.8px  →  width: 227px, height: 113px
+       À l'impression c'est forcé en mm via @media print.
+
+       Structure de l'étiquette :
+       ┌──────────────┬─────────────────────────┬──────────┐
+       │  .lbl-img    │      .lbl-body           │ .lbl-qr  │
+       │  (image)     │  description, refs, etc. │ (QR svg) │
+       └──────────────┴─────────────────────────┴──────────┘
+    ═══════════════════════════════════════════════════════════════ */
+
+    .label {
+        width:  227px;   /* 6cm à 96dpi */
+        height: 113px;   /* 3cm à 96dpi */
+        background: #ffffff;
+        display: flex;
+        overflow: hidden;
+        border-radius: 4px;
+        box-shadow: 0 3px 12px rgba(0,0,0,.4);
+        border: 1px solid #ddd;
+        cursor: default;
+    }
+
+    /* ── Colonne gauche : image du composant ──────────────────────── */
+    .lbl-img {
+        width: 76px;           /* ← Modifie pour changer la largeur de l'image */
+        flex-shrink: 0;
+        background: #f8f8f8;
+        border-right: 1px solid #e8e8e8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 4px;
+    }
+    .lbl-img img {
+        width: 64px;           /* ← Taille de l'image */
+        height: 64px;
+        object-fit: contain;
+        display: block;
+    }
+    .lbl-img-empty {
+        font-size: 1.8rem;
+        opacity: .2;
+    }
+
+    /* ── Colonne centrale : texte ─────────────────────────────────── */
+    .lbl-body {
+        flex: 1;
+        padding: 5px 4px 5px 7px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+        color: #111;
+        min-width: 0;          /* Important pour que text-overflow fonctionne */
+    }
+
+    .lbl-desc {
+        font-size: 6.5px;      /* ← Taille de la description principale */
+        font-weight: 700;
+        line-height: 1.3;
+        color: #111;
+        /* Tronque après 3 lignes */
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .lbl-refs {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        margin-top: 1px;
+    }
+    .lbl-ref {
+        font-size: 5.5px;      /* ← Taille des références */
+        color: #333;
+        font-family: 'Courier New', monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .lbl-ref-label {
+        color: #999;
+        font-size: 5px;
+    }
+
+    .lbl-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        margin-top: 2px;
+    }
+    /* ── Badges — modifie couleurs ici ───────────────────────────── */
+    .lbl-badge {
+        font-size: 5px;        /* ← Taille des badges */
+        padding: 1px 3px;
+        border-radius: 2px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .b-pkg  { background: #ebebeb; color: #444; }
+    .b-rohs { background: #d4f0dd; color: #1a6b35; }
+    .b-qty  { background: #d0e8ff; color: #0050a0; }
+    .b-loc  { background: #fff3cc; color: #7a5c00; }
+    .b-cat  { background: #efe8ff; color: #5b21b6; }
+
+    .lbl-price {
+        font-size: 5.5px;      /* ← Taille du prix */
+        color: #777;
+        margin-top: 1px;
+    }
+
+    /* ── Colonne droite : QR code ─────────────────────────────────── */
+    .lbl-qr {
+        width: 48px;           /* ← Largeur de la zone QR */
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        padding: 3px;
+        border-left: 1px solid #ebebeb;
+        background: #fff;
+    }
+    .lbl-qr img {
+        width:  40px;          /* ← Taille du QR code affiché */
+        height: 40px;
+        display: block;
+        image-rendering: pixelated;
+    }
+    .lbl-qr-ref {
+        font-size: 4.5px;      /* ← Taille du texte sous le QR */
+        color: #999;
+        text-align: center;
+        word-break: break-all;
+        line-height: 1.2;
+        max-width: 42px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       🖨️  IMPRESSION — ces règles s'appliquent uniquement à l'impression
+       Toutes les dimensions sont en mm pour être précises.
+       ═══════════════════════════════════════════════════════════════ */
+    @media print {
+        @page { size: A4 portrait; margin: 8mm; }
+
+        body, .preview-area { background: white !important; padding: 0 !important; }
+        .toolbar, .print-options { display: none !important; }
+
+        .labels-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2mm;           /* ← Espacement entre étiquettes à l'impression */
+            justify-content: flex-start;
+        }
+
+        /* Dimensions exactes à l'impression */
+        .label {
+            width:  60mm !important;   /* ← Largeur */
+            height: 30mm !important;   /* ← Hauteur */
+            box-shadow: none !important;
+            border: 0.3mm solid #ccc !important;
+            border-radius: 0.5mm !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .lbl-img        { width: 20mm !important; padding: 1mm !important; }
+        .lbl-img img    { width: 17mm !important; height: 17mm !important; }
+        .lbl-body       { padding: 1.5mm 1mm 1.5mm 2mm !important; }
+        .lbl-desc       { font-size: 2.1mm !important; }
+        .lbl-ref        { font-size: 1.7mm !important; }
+        .lbl-ref-label  { font-size: 1.4mm !important; }
+        .lbl-badge      { font-size: 1.4mm !important; padding: 0.3mm 0.8mm !important; }
+        .lbl-price      { font-size: 1.6mm !important; }
+        .lbl-qr         { width: 13mm !important; padding: 1mm !important; }
+        .lbl-qr img     { width: 11mm !important; height: 11mm !important; }
+        .lbl-qr-ref     { font-size: 1.1mm !important; max-width: 12mm !important; }
+    }
+
+    </style>
+</head>
+<body>
+
+<!-- ── Toolbar ─────────────────────────────────────────────────── -->
+<div class="toolbar">
+    <h1>🏷️ {{ component.description or component.manufacture_part_number or component.lcsc_part_number }}</h1>
+    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn btn-back">← Retour</a>
+    <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
+</div>
+
+<!-- ── Options ─────────────────────────────────────────────────── -->
+<div class="print-options">
+    <h2>⚙️ Options d'impression</h2>
+    <div class="options-row">
+        <div class="opt-group">
+            <label>Nombre de copies</label>
+            <div class="copies-row">
+                <input type="number" id="copies" value="1" min="1" max="100" onchange="buildLabels()"/>
+                <span style="color:#e2e4ec;font-size:.85rem">étiquette(s)</span>
+            </div>
+        </div>
+        <div class="opt-group">
+            <label>Informations affichées</label>
+            <select id="info-level" onchange="buildLabels()">
+                <option value="full">Toutes les infos</option>
+                <option value="minimal">Minimal (description + QR)</option>
+            </select>
+        </div>
+    </div>
+    <p class="hint">
+        💡 Dans le dialogue d'impression, désactive les <strong>en-têtes/pieds de page</strong>
+        et règle les marges à <strong>minimum</strong>.
+        Format : <strong>A4 portrait</strong>.
+        Pour modifier la mise en page des étiquettes, édite <code>templates/components/label.html</code>
+        — les sections à modifier sont clairement commentées.
+    </p>
+</div>
+
+<!-- ── Prévisualisation ─────────────────────────────────────────── -->
+<div class="preview-area">
+    <div class="labels-grid" id="labels-grid"></div>
+</div>
+
+<!-- QR code pré-généré côté serveur (pas de JS externe nécessaire) -->
+<script>
+const QR_DATA_URL = {{ qr_data_url|tojson }};
+
+const DATA = {
+    description:  {{ (component.description or '')|tojson }},
+    lcsc:         {{ (component.lcsc_part_number or '')|tojson }},
+    mfr_part:     {{ (component.manufacture_part_number or '')|tojson }},
+    manufacturer: {{ (component.manufacturer or '')|tojson }},
+    package:      {{ (component.package or '')|tojson }},
+    rohs:         {{ (component.rohs or '')|tojson }},
+    quantity:     {{ component.quantity }},
+    unit_price:   {{ component.unit_price or 'null' }},
+    location:     {{ (component.location or '')|tojson }},
+    category:     {{ (component.category or '')|tojson }},
+    {% if component.image_path %}
+    image_url: {{ url_for('components.component_image', filename=component.image_path.split('images/')|last)|tojson }},
+    {% else %}
+    image_url: null,
+    {% endif %}
+};
+
+function buildLabels() {
+    const copies    = Math.max(1, Math.min(100, parseInt(document.getElementById('copies').value) || 1));
+    const infoLevel = document.getElementById('info-level').value;
+    const grid      = document.getElementById('labels-grid');
+    grid.innerHTML  = '';
+    for (let i = 0; i < copies; i++) {
+        grid.appendChild(makeLabel(infoLevel));
+    }
+}
+
+function makeLabel(infoLevel) {
+    const label = el('div', 'label');
+
+    // ── Image ──────────────────────────────────────────────────────
+    const imgWrap = el('div', 'lbl-img');
+    if (DATA.image_url) {
+        const img = el('img');
+        img.src = DATA.image_url;
+        img.alt = DATA.description;
+        img.onerror = () => { imgWrap.innerHTML = '<span class="lbl-img-empty">⚡</span>'; };
+        imgWrap.appendChild(img);
+    } else {
+        imgWrap.innerHTML = '<span class="lbl-img-empty">⚡</span>';
+    }
+
+    // ── Corps ──────────────────────────────────────────────────────
+    const body = el('div', 'lbl-body');
+
+    const desc = el('div', 'lbl-desc');
+    desc.textContent = DATA.description || DATA.mfr_part || DATA.lcsc || '—';
+    body.appendChild(desc);
+
+    if (infoLevel === 'full') {
+        const refs = el('div', 'lbl-refs');
+        if (DATA.lcsc)         refs.appendChild(ref('LCSC', DATA.lcsc));
+        if (DATA.mfr_part)     refs.appendChild(ref('MFR ', DATA.mfr_part));
+        if (DATA.manufacturer) refs.appendChild(ref('MFG ', DATA.manufacturer));
+        body.appendChild(refs);
+
+        const badges = el('div', 'lbl-badges');
+        if (DATA.package)      badges.appendChild(badge(DATA.package,        'b-pkg'));
+        if (DATA.rohs==='YES') badges.appendChild(badge('RoHS',              'b-rohs'));
+                               badges.appendChild(badge('Qté: '+DATA.quantity,'b-qty'));
+        if (DATA.location)     badges.appendChild(badge('📍 '+DATA.location, 'b-loc'));
+        if (DATA.category) {
+            const cat = DATA.category.includes(' / ')
+                ? DATA.category.split(' / ').pop()
+                : DATA.category;
+            badges.appendChild(badge(cat, 'b-cat'));
+        }
+        body.appendChild(badges);
+
+        if (DATA.unit_price) {
+            const price = el('div', 'lbl-price');
+            price.textContent = parseFloat(DATA.unit_price).toFixed(4) + ' € / pièce';
+            body.appendChild(price);
+        }
+    }
+
+    // ── QR code ────────────────────────────────────────────────────
+    const qrWrap = el('div', 'lbl-qr');
+    const qrImg  = el('img');
+    qrImg.src = QR_DATA_URL;    // Data URL SVG générée côté serveur
+    qrImg.alt = 'QR';
+    qrWrap.appendChild(qrImg);
+
+    const qrRef = el('div', 'lbl-qr-ref');
+    qrRef.textContent = DATA.lcsc || 'Fiche';
+    qrWrap.appendChild(qrRef);
+
+    label.appendChild(imgWrap);
+    label.appendChild(body);
+    label.appendChild(qrWrap);
+    return label;
+}
+
+// ── Helpers DOM ────────────────────────────────────────────────────
+function el(tag, cls) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    return e;
+}
+function ref(labelText, value) {
+    const d = el('div', 'lbl-ref');
+    d.innerHTML = '<span class="lbl-ref-label">' + labelText + ' </span>' + esc(value);
+    return d;
+}
+function badge(text, cls) {
+    const s = el('span', 'lbl-badge ' + cls);
+    s.textContent = text;
+    return s;
+}
+function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+buildLabels();
+</script>
+</body>
+</html>

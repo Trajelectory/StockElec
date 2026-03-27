@@ -96,6 +96,28 @@ Formats KiCad reconnus automatiquement :
 - bom2csv avec séparateur `;`
 - Noms de colonnes LCSC reconnus : `LCSC Part Number`, `LCSC Part #`, `LCSC`, `Supplier Part Number`
 
+### 🏷️ Étiquettes imprimables
+
+Depuis la fiche d'un composant, le bouton **🏷️ Étiquette** ouvre une page dédiée :
+- Format **6cm × 3cm** (paysage), optimisé `@media print`
+- Contenu : image du composant, description, références (LCSC, MFR, fabricant), badges (package, RoHS, quantité, emplacement, catégorie), prix, **QR code**
+- Le QR code pointe vers la fiche du composant — scannable depuis un téléphone sur le même réseau
+- Choix du nombre de copies (1 à 100) et du niveau d'information (complet / minimal)
+- QR code généré **côté serveur en Python pur** (zéro dépendance externe, fonctionne hors ligne)
+
+**Pour personnaliser les étiquettes**, édite `app/templates/components/label.html` — toutes les sections CSS sont commentées avec les propriétés à modifier.
+
+### 🏷️ Impression d'étiquettes en masse
+
+Depuis le tableau principal, il est possible de sélectionner plusieurs composants et d'imprimer leurs étiquettes en une seule fois :
+
+- **Cases à cocher** sur chaque ligne du tableau
+- **Case en en-tête** pour tout sélectionner / désélectionner d'un coup
+- Workflow typique : filtrer par catégorie → cocher l'en-tête → imprimer toutes les étiquettes de la catégorie
+- Dès qu'au moins un composant est coché, une **barre flottante** apparaît en bas de l'écran avec le bouton **🏷️ Imprimer les étiquettes**
+- La page d'impression (`/labels?ids=1,2,3...`) affiche toutes les étiquettes avec un choix du nombre de **copies par étiquette** (1 à 20)
+- Un résumé liste les composants sélectionnés avec leur miniature avant impression
+
 ### 📋 Historique des mouvements
 
 Toutes les opérations sont tracées automatiquement :
@@ -161,11 +183,12 @@ stock_composants/
     │   └── component_view.py           # Couche Vue — appels render_template
     │
     ├── controllers/
-    │   ├── component_controller.py     # Routes stock, import, enrichissement, alertes
+    │   ├── component_controller.py     # Routes stock, import, enrichissement, alertes, étiquettes
     │   └── project_controller.py       # Routes projets, BOM KiCad, débit/restitution
     │
     ├── services/
-    │   └── lcsc_scraper.py             # Scraping wmsc.lcsc.com, téléchargement images
+    │   ├── lcsc_scraper.py             # Scraping wmsc.lcsc.com, téléchargement images
+    │   └── qr_generator.py             # Générateur QR code SVG (Python pur, sans dépendance)
     │
     ├── templates/
     │   ├── base.html                   # Layout commun (navbar, flash messages)
@@ -179,6 +202,8 @@ stock_composants/
     │   │   ├── import.html             # Import CSV drag & drop
     │   │   ├── alerts.html             # Page alertes stock bas
     │   │   ├── history.html            # Historique global des mouvements
+    │   │   ├── label.html              # Étiquette imprimable 6×3cm + QR code (1 composant)
+    │   │   ├── labels_print.html       # Impression multi-étiquettes (sélection depuis le tableau)
     │   │   └── settings.html           # Page paramètres
     │   └── projects/
     │       ├── index.html              # Liste des projets (cartes avec image)
@@ -227,8 +252,28 @@ Les migrations sont appliquées **à chaud** au démarrage : si tu as une ancien
 | `GET /api/lcsc-preview?ref=C149504` | Prévisualisation LCSC sans enregistrement |
 | `POST /component/<id>/adjust` | Ajustement rapide de stock (`{"delta": +/-N}`) |
 | `POST /enrich/<id>` | Relance l'enrichissement LCSC pour un composant |
+| `GET /component/<id>/label` | Page étiquette imprimable (1 composant) |
+| `GET /labels?ids=1,2,3` | Page impression multi-étiquettes |
 | `POST /projects/<id>/components/<id>/use` | Débite le stock pour un projet |
 | `POST /projects/<id>/components/<id>/return` | Restitue au stock depuis un projet |
+
+---
+
+## Personnalisation des étiquettes
+
+Le fichier `app/templates/components/label.html` est entièrement commenté.  
+Les principales propriétés à modifier :
+
+| Sélecteur CSS | Propriété | Effet |
+|---|---|---|
+| `.label` | `width` / `height` | Format à l'écran (px) |
+| `@media print .label` | `width` / `height` | Format à l'impression (mm) |
+| `.lbl-img` | `width` | Largeur de la zone image |
+| `.lbl-desc` | `font-size` | Taille de la description |
+| `.lbl-ref` | `font-size` | Taille des références |
+| `.lbl-badge` | `font-size` | Taille des badges |
+| `.b-pkg` `.b-rohs` etc. | `background` / `color` | Couleurs des badges |
+| `.lbl-qr` | `width` | Largeur de la zone QR |
 
 ---
 
@@ -237,14 +282,22 @@ Les migrations sont appliquées **à chaud** au démarrage : si tu as une ancien
 **Les catégories et images ne se remplissent pas après l'import**  
 Vérifie que Flask tourne bien avec `use_reloader=False` (déjà configuré dans `run.py`). Les logs dans le terminal doivent afficher des lignes `[LCSC] C149504 — enrichi : [...]`. Si tu vois des erreurs réseau, c'est que LCSC est inaccessible ou a changé son endpoint.
 
-**Tester l'endpoint LCSC manuellement**  
+**Tester l'endpoint LCSC manuellement**
 ```bash
 python debug_lcsc.py
 ```
 Affiche la réponse JSON brute pour `C149504` et vérifie quels champs sont disponibles.
 
 **La BOM KiCad n'est pas reconnue**  
-L'analyse échoue si aucune colonne LCSC n'est trouvée. Dans ce cas, un message d'erreur liste les colonnes détectées. Il faut que tes composants KiCad aient un champ `LCSC Part Number` (ou variante) renseigné. Dans KiCad, édite les propriétés de tes symboles et ajoute ce champ.
+L'analyse échoue si aucune colonne LCSC n'est trouvée. Dans ce cas, un message d'erreur liste les colonnes détectées. Il faut que tes composants KiCad aient un champ `LCSC Part Number` (ou variante) renseigné dans les propriétés des symboles.
+
+**Le QR code de l'étiquette ne fonctionne pas sur mobile**  
+Le QR code pointe vers `http://127.0.0.1:5000/...` qui n'est accessible que depuis la machine locale. Pour scanner depuis un téléphone, lance Flask sur l'IP du réseau local :
+```python
+# Dans run.py, remplace app.run(...) par :
+app.run(debug=True, use_reloader=False, host='0.0.0.0')
+```
+Puis utilise `http://192.168.x.x:5000` comme adresse de base.
 
 **Réinitialiser la base de données**  
 Supprime simplement `instance/stock.db` et relance l'app. Les images dans `instance/images/` et `instance/project_images/` peuvent être conservées.
