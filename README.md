@@ -3,9 +3,6 @@
 Application de gestion de stock pour composants électroniques, pensée pour les makers et hobbyistes.  
 Développée avec **Flask + SQLite**, architecture **MVC**.
 
-<img width="1920" height="1625" alt="index" src="https://github.com/user-attachments/assets/9796cb91-694f-405d-80a8-ea508e4d8705" />
-
-
 ---
 
 ## Installation
