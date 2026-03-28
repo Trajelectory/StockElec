@@ -193,3 +193,47 @@
 | v1.12 | Page impression blanche | `False` Python → `false` JS (`\| tojson`) |
 | v1.14 | `TypeError: adjust_quantity() got unexpected kwarg 'note'` | Résidu `note=` retiré |
 | v1.15 | Page édition sans layout (colonne unique) | CSS `add-layout` déplacé dans `style.css` |
+
+---
+
+## v1.19 — Catégories personnalisées
+
+- Nouvelle page **⚙️ Paramètres → 🗂️ Gérer les catégories** (`/categories`)
+- Création de groupes et sous-catégories personnalisées (IDs négatifs, sans conflit avec LCSC)
+- Suppression individuelle (sous-catégorie) ou en masse (groupe entier + enfants)
+- Les composants liés à une catégorie supprimée sont remis sans catégorie
+- Les catégories custom apparaissent immédiatement dans les selects Ajouter/Éditer
+- Les catégories LCSC restent intouchables
+- Suggestion automatique des groupes existants via `<datalist>`
+- Interface épurée : arborescence avec ligne verticale, boutons discrets (rouge au survol)
+
+---
+
+## v1.20 — Upload d'image manuelle
+
+- Champ **🖼️ Image** dans les formulaires Ajouter et Éditer
+- Prévisualisation instantanée avant upload (FileReader JS)
+- Formats acceptés : JPG, PNG, WEBP
+- Sauvegarde dans `instance/images/` — même dossier que les images LCSC
+- Utile pour les composants hors LCSC (vis, fils, modules Arduino, etc.)
+- Si un enrichissement LCSC se déclenche ensuite, l'image LCSC remplace la manuelle
+
+---
+
+## v1.21 — Améliorations diverses
+
+### Alertes flash
+- Classes `.alert-success`, `.alert-info`, `.alert-warning`, `.alert-danger` restaurées
+- Avaient été supprimées par erreur lors du nettoyage CSS v1.15 (générées dynamiquement par Flask)
+
+### Pagination
+- Ajout de l'option **5 par page** dans le tableau stock (en plus de 25/50/100)
+
+### EasyEDA — liste des composants manquants
+- La section EasyEDA dans les paramètres affiche désormais la liste détaillée des composants sans symbole/footprint
+- Chaque ligne : nom cliquable vers la fiche, référence LCSC, badges ✗ symbole / ✗ footprint
+- Liste scrollable, limitée à 220px
+
+### Corrections de bugs
+- `NameError: new_qty is not defined` dans `ComponentModel.update()` — variable résiduelle remplacée par `int(data.get("quantity") or 0)`
+- `scrollIntoView('add-form')` dans `applyPreview()` supprimé — élément inexistant depuis la fusion des blocs
