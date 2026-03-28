@@ -27,7 +27,7 @@ def index():
     order    = request.args.get("order", "asc")
     page     = max(int(request.args.get("page", 1) or 1), 1)
     per_page = int(request.args.get("per_page", ITEMS_PER_PAGE_DEFAULT) or ITEMS_PER_PAGE_DEFAULT)
-    if per_page not in (25, 50, 100):
+    if per_page not in (5, 25, 50, 100):
         per_page = ITEMS_PER_PAGE_DEFAULT
 
     # Filtre "alertes seulement"
@@ -89,6 +89,47 @@ def adjust(component_id):
 
 
 # ------------------------------------------------------------------ #
+#  Gestion des catégories personnalisées
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/categories", methods=["GET", "POST"])
+def categories():
+    from ..models.category import CategoryModel
+    from ..models.database import get_db
+
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        if action == "create":
+            parent = request.form.get("parent_name", "").strip()
+            child  = request.form.get("child_name", "").strip() or None
+            if parent:
+                CategoryModel.create_custom(parent, child)
+                flash(f"✅ Catégorie créée.", "success")
+            else:
+                flash("Le nom du groupe est obligatoire.", "danger")
+
+        elif action == "delete":
+            cat_id = int(request.form.get("category_id", 0))
+            if cat_id < 0:
+                CategoryModel.delete_custom(cat_id)
+                flash("🗑️ Catégorie supprimée.", "success")
+            else:
+                flash("Impossible de supprimer une catégorie LCSC.", "danger")
+
+        return redirect(url_for("components.categories"))
+
+    custom_cats = CategoryModel.get_custom()
+    # Groupe par parent pour l'affichage
+    groups = {}
+    for c in custom_cats:
+        parent = c["parent_name"] or c["name"]
+        groups.setdefault(parent, []).append(c)
+
+    return render_template("components/categories.html", groups=groups)
+
+
+# ------------------------------------------------------------------ #
 #  Ajout manuel
 # ------------------------------------------------------------------ #
 
@@ -96,7 +137,11 @@ def adjust(component_id):
 def add():
     if request.method == "POST":
         data    = _form_to_dict(request.form)
-        comp_id = ComponentModel.create(data)
+        # Gère l'upload d'image manuelle (utile pour composants hors LCSC)
+        uploaded = _save_component_image(request.files.get("image_file"))
+        if uploaded:
+            data["image_path"] = uploaded
+            ComponentModel.update(comp_id, data)
 
         lcsc_num = data.get("lcsc_part_number")
         if lcsc_num:
@@ -319,6 +364,27 @@ def detail(component_id):
 
 
 # ------------------------------------------------------------------ #
+#  Helpers image composant
+# ------------------------------------------------------------------ #
+
+def _save_component_image(file_storage) -> str | None:
+    """Sauvegarde une image uploadée pour un composant, retourne le chemin relatif ou None."""
+    if not file_storage or file_storage.filename == "":
+        return None
+    ext = os.path.splitext(file_storage.filename)[-1].lower()
+    if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        return None
+    images_dir = os.path.abspath(
+        os.path.join(component_bp.root_path, "..", "..", "instance", "images")
+    )
+    os.makedirs(images_dir, exist_ok=True)
+    import uuid as _uuid
+    filename = f"{_uuid.uuid4().hex}{ext}"
+    file_storage.save(os.path.join(images_dir, filename))
+    return f"images/{filename}"
+
+
+# ------------------------------------------------------------------ #
 #  Édition / Suppression
 # ------------------------------------------------------------------ #
 
@@ -331,7 +397,11 @@ def edit(component_id):
 
     if request.method == "POST":
         data = _form_to_dict(request.form)
-        if not data.get("image_path"):
+        # Gère l'upload d'image manuelle
+        uploaded = _save_component_image(request.files.get("image_file"))
+        if uploaded:
+            data["image_path"] = uploaded
+        elif not data.get("image_path"):
             data["image_path"] = comp.image_path
         if not data.get("datasheet_url"):
             data["datasheet_url"] = comp.datasheet_url
@@ -688,6 +758,15 @@ def settings():
                   OR footprint_png IS NULL OR footprint_png = '')"""
     ).fetchone()[0]
 
+    no_easyeda_list = db.execute(
+        """SELECT id, description, lcsc_part_number, symbol_png, footprint_png
+           FROM components
+           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+             AND (symbol_png IS NULL OR symbol_png = ''
+                  OR footprint_png IS NULL OR footprint_png = '')
+           ORDER BY description"""
+    ).fetchall()
+
     # Taille des fichiers
     instance_path = os.path.abspath(
         os.path.join(component_bp.root_path, "..", "..", "instance")
@@ -721,7 +800,8 @@ def settings():
         "n_no_image":   n_no_image,
         "n_no_cat":     n_no_cat,
         "n_to_enrich":  n_to_enrich,
-        "n_no_easyeda": n_no_easyeda,
+        "n_no_easyeda":    n_no_easyeda,
+        "no_easyeda_list": [dict(r) for r in no_easyeda_list],
         "db_size":      fmt_size(db_size),
         "img_size":     fmt_size(img_size),
         "prj_size":     fmt_size(prj_size),

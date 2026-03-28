@@ -105,22 +105,15 @@ class CategoryModel:
     @staticmethod
     def get_grouped_for_stock() -> list[dict]:
         """
-        Retourne les catégories réellement utilisées dans le stock,
-        groupées hiérarchiquement pour les <optgroup> HTML.
-
-        Résultat : [
-          { "group": "Resistors", "options": [
-              {"value": "Resistors / Chip Resistor - Surface Mount",
-               "label": "Chip Resistor - Surface Mount"},
-              ...
-          ]},
-          { "group": None,   # catégories sans parent détecté
-            "options": [...] }
-        ]
+        Retourne les catégories utilisées dans le stock + toutes les catégories
+        custom (ID < 0), groupées pour les <optgroup> HTML.
         """
         db = get_db()
 
-        # Toutes les catégories distinctes présentes dans le stock
+        groups: dict[str, list] = {}
+        NO_GROUP = "__none__"
+
+        # 1. Catégories déjà utilisées dans le stock
         rows = db.execute(
             """
             SELECT DISTINCT c.category
@@ -129,18 +122,9 @@ class CategoryModel:
             ORDER BY c.category
             """
         ).fetchall()
-        all_paths = [r["category"] for r in rows]
 
-        if not all_paths:
-            return []
-
-        # Pour chaque full_path, essaie de trouver le groupe parent
-        # en cherchant dans la table categories
-        groups: dict[str, list] = {}   # group_name -> [option, ...]
-        NO_GROUP = "__none__"
-
-        for path in all_paths:
-            # Cherche dans la table categories si on a un parent connu
+        for row in rows:
+            path = row["category"]
             cat_row = db.execute(
                 """
                 SELECT c.name, p.name AS parent_name
@@ -155,7 +139,6 @@ class CategoryModel:
                 group = cat_row["parent_name"]
                 label = cat_row["name"]
             elif " / " in path:
-                # Fallback : split sur " / "
                 parts = path.split(" / ", 1)
                 group = parts[0]
                 label = parts[1]
@@ -163,9 +146,44 @@ class CategoryModel:
                 group = NO_GROUP
                 label = path
 
-            if group not in groups:
-                groups[group] = []
-            groups[group].append({"value": path, "label": label})
+            groups.setdefault(group, [])
+            if not any(o["value"] == path for o in groups[group]):
+                groups[group].append({"value": path, "label": label})
+
+        # 2. Ajoute toutes les catégories custom (ID < 0) même si pas encore utilisées
+        custom_rows = db.execute(
+            """
+            SELECT c.id, c.name, c.full_path, c.parent_id, p.name AS parent_name
+            FROM categories c
+            LEFT JOIN categories p ON p.id = c.parent_id
+            WHERE c.id < 0
+            ORDER BY p.name NULLS LAST, c.name
+            """
+        ).fetchall()
+
+        # Collecte les IDs parents qui ont des enfants custom
+        parent_ids_with_children = {
+            c["parent_id"] for c in custom_rows if c["parent_id"] is not None
+        }
+
+        for c in custom_rows:
+            if c["parent_id"] is None:
+                # Groupe racine : ne l'ajoute que s'il n'a aucun enfant custom
+                if c["id"] not in parent_ids_with_children:
+                    path  = c["full_path"] or c["name"]
+                    label = c["name"]
+                    group = NO_GROUP
+                    groups.setdefault(group, [])
+                    if not any(o["value"] == path for o in groups[group]):
+                        groups[group].append({"value": path, "label": label})
+            else:
+                # Sous-catégorie : toujours affichée
+                path  = c["full_path"]
+                label = c["name"]
+                group = c["parent_name"] or NO_GROUP
+                groups.setdefault(group, [])
+                if not any(o["value"] == path for o in groups[group]):
+                    groups[group].append({"value": path, "label": label})
 
         # Construit la liste finale, groupes triés, NO_GROUP en dernier
         result = []
@@ -184,3 +202,86 @@ class CategoryModel:
             "SELECT DISTINCT full_path FROM categories WHERE full_path IS NOT NULL ORDER BY full_path"
         ).fetchall()
         return [r["full_path"] for r in rows]
+
+    @staticmethod
+    def create_custom(parent_name: str, child_name: str | None = None) -> int:
+        """
+        Crée une catégorie personnalisée (ID négatif pour éviter les collisions LCSC).
+        Retourne l'ID créé.
+        """
+        db = get_db()
+        # Trouve le plus petit ID (négatif) disponible
+        row = db.execute("SELECT MIN(id) FROM categories").fetchone()
+        min_id = row[0] or 0
+        new_id = min(min_id - 1, -1)
+
+        parent_name = parent_name.strip()
+        if child_name:
+            child_name = child_name.strip()
+
+        # Cherche ou crée le parent
+        parent_row = db.execute(
+            "SELECT id FROM categories WHERE name = ? AND parent_id IS NULL",
+            (parent_name,)
+        ).fetchone()
+
+        if parent_row:
+            parent_id = parent_row["id"]
+        else:
+            parent_id = new_id
+            db.execute(
+                "INSERT INTO categories (id, parent_id, name, full_path) VALUES (?, NULL, ?, ?)",
+                (parent_id, parent_name, parent_name)
+            )
+            new_id -= 1
+
+        if child_name:
+            full_path = f"{parent_name} / {child_name}"
+            db.execute(
+                "INSERT INTO categories (id, parent_id, name, full_path) VALUES (?, ?, ?, ?)",
+                (new_id, parent_id, child_name, full_path)
+            )
+            db.commit()
+            return new_id
+        else:
+            db.commit()
+            return parent_id
+
+    @staticmethod
+    def delete_custom(category_id: int):
+        """Supprime une catégorie custom (ID négatif uniquement). Met à jour les composants."""
+        db = get_db()
+        cat = db.execute("SELECT * FROM categories WHERE id = ?", (category_id,)).fetchone()
+        if not cat or cat["id"] >= 0:
+            return  # Ne supprime jamais les catégories LCSC
+
+        full_path = cat["full_path"]
+        # Réinitialise la catégorie des composants qui l'utilisent
+        db.execute(
+            "UPDATE components SET category = NULL, category_id = NULL WHERE category = ?",
+            (full_path,)
+        )
+        # Supprime les enfants si c'est un parent
+        children = db.execute(
+            "SELECT id FROM categories WHERE parent_id = ?", (category_id,)
+        ).fetchall()
+        for child in children:
+            if child["id"] < 0:
+                db.execute("DELETE FROM categories WHERE id = ?", (child["id"],))
+        db.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+        db.commit()
+
+    @staticmethod
+    def get_custom() -> list[dict]:
+        """Retourne toutes les catégories personnalisées (ID < 0)."""
+        db = get_db()
+        rows = db.execute(
+            """
+            SELECT c.id, c.name, c.full_path, c.parent_id, p.name AS parent_name
+            FROM categories c
+            LEFT JOIN categories p ON p.id = c.parent_id
+            WHERE c.id < 0
+            ORDER BY p.name NULLS LAST, c.name
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]

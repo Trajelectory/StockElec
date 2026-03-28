@@ -183,7 +183,7 @@ class ComponentModel:
                 data.get("package"),
                 data.get("description"),
                 data.get("rohs"),
-                new_qty,
+                int(data.get("quantity") or 0),
                 int(data.get("min_stock") or 0),
                 _to_float(data.get("unit_price")),
                 _to_float(data.get("ext_price")),

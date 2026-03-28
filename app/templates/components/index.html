@@ -67,7 +67,7 @@
     <p class="result-count">{{ total }} composant(s) — page {{ page }}/{{ total_pages }}</p>
     <div class="per-page-wrap">
         <span>Afficher&nbsp;</span>
-        {% for n in [25, 50, 100] %}
+        {% for n in [5, 25, 50, 100] %}
             <a href="{{ url_for('components.index', search=search, category=selected_category, sort_by=sort_by, order=order, page=1, per_page=n, low_stock='1' if low_only else '') }}"
                class="per-page-btn {% if per_page == n %}active{% endif %}">{{ n }}</a>
         {% endfor %}

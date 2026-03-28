@@ -53,6 +53,27 @@ a:hover { color: var(--accent-hover); }
 .alert {
     padding: .75rem 1rem; border-radius: var(--radius);
     margin-bottom: 1rem; font-size: .9rem;
+    border: 1px solid transparent;
+}
+.alert-success {
+    background: rgba(76,175,80,.12);
+    border-color: rgba(76,175,80,.35);
+    color: #4caf50;
+}
+.alert-info {
+    background: rgba(79,142,247,.12);
+    border-color: rgba(79,142,247,.35);
+    color: #4f8ef7;
+}
+.alert-warning {
+    background: rgba(255,152,0,.12);
+    border-color: rgba(255,152,0,.35);
+    color: #ff9800;
+}
+.alert-danger {
+    background: rgba(244,67,54,.12);
+    border-color: rgba(244,67,54,.35);
+    color: #f44336;
 }
 
 /* -- Page header -- */
@@ -1515,4 +1536,71 @@ tr:has(.row-check:checked) td { background: rgba(79,142,247,.06); }
     height: 1px;
     background: var(--border);
     margin: .85rem 0;
+}
+
+/* ── Upload image composant ─────────────────────────────────────── */
+.img-upload-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.img-upload-preview {
+    width: 80px; height: 80px;
+    object-fit: contain;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    flex-shrink: 0;
+}
+.img-upload-placeholder {
+    width: 80px; height: 80px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: .3rem; font-size: 1.4rem; opacity: .4;
+    flex-shrink: 0;
+}
+.img-upload-controls {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+}
+.img-upload-btn { cursor: pointer; }
+.img-upload-hint {
+    font-size: .72rem;
+    color: var(--text-muted);
+}
+
+/* ── Liste composants sans EasyEDA ─────────────────────────────── */
+.easyeda-missing-list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: .25rem;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.easyeda-missing-row {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .4rem .75rem;
+    font-size: .8rem;
+    border-bottom: 1px solid var(--border);
+}
+.easyeda-missing-row:last-child { border-bottom: none; }
+.easyeda-missing-row:hover { background: var(--bg-surface); }
+.easyeda-missing-name {
+    flex: 1; color: var(--text);
+    text-decoration: none; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.easyeda-missing-name:hover { color: var(--accent); }
+.easyeda-missing-ref {
+    font-family: monospace; font-size: .72rem;
+    color: var(--accent); flex-shrink: 0;
+}
+.easyeda-missing-status {
+    display: flex; gap: .25rem; flex-shrink: 0;
 }

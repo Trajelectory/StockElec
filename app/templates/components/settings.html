@@ -141,20 +141,51 @@
             </form>
         </div>
 
+        <!-- Catégories -->
+        <div class="settings-card">
+            <div class="settings-card-title">🗂️ Catégories personnalisées</div>
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                Crée, organise et supprime tes catégories personnalisées pour les composants hors LCSC.
+            </p>
+            <a href="{{ url_for('components.categories') }}" class="btn btn-primary">
+                🗂️ Gérer les catégories
+            </a>
+        </div>
+
         <!-- EasyEDA en masse -->
         <div class="settings-card">
             <div class="settings-card-title">🖼️ Symboles &amp; Footprints EasyEDA</div>
             {% if stats and stats.n_no_easyeda > 0 %}
-            <p class="settings-hint" style="margin-bottom:.75rem">
+            <p class="settings-hint" style="margin-bottom:.6rem">
                 <strong class="color-warn">{{ stats.n_no_easyeda }} composant(s)</strong>
                 ont une référence LCSC mais n'ont pas encore leur symbole ou footprint téléchargé.
             </p>
+            <!-- Liste des composants concernés -->
+            <div class="easyeda-missing-list">
+                {% for c in stats.no_easyeda_list %}
+                <div class="easyeda-missing-row">
+                    <a href="{{ url_for('components.detail', component_id=c.id) }}"
+                       class="easyeda-missing-name" target="_blank">
+                        {{ c.description or c.lcsc_part_number }}
+                    </a>
+                    <span class="easyeda-missing-ref">{{ c.lcsc_part_number }}</span>
+                    <span class="easyeda-missing-status">
+                        {% if not c.symbol_png %}
+                            <span class="badge" style="background:rgba(244,67,54,.12);color:#f44336;font-size:.65rem">✗ symbole</span>
+                        {% endif %}
+                        {% if not c.footprint_png %}
+                            <span class="badge" style="background:rgba(244,67,54,.12);color:#f44336;font-size:.65rem">✗ footprint</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
             {% else %}
             <p class="settings-hint" style="margin-bottom:.75rem">
                 <span class="color-ok">✅ Tous les symboles et footprints sont téléchargés.</span>
             </p>
             {% endif %}
-            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
                 <form method="post">
                     <input type="hidden" name="action" value="easyeda_all"/>
                     <button type="submit" class="btn btn-primary"

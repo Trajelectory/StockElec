@@ -16,7 +16,7 @@
 {% endif %}
 
 <!-- ══ Formulaire ════════════════════════════════════════════════════ -->
-<form method="post" action="{{ url_for('components.add') }}" id="add-form">
+<form method="post" action="{{ url_for('components.add') }}" id="add-form" enctype="multipart/form-data">
 <input type="hidden" name="datasheet_url" id="f-datasheet"/>
 
 <div class="add-layout">
@@ -100,6 +100,26 @@
                         <option value="YES">✅ YES</option>
                         <option value="NO">❌ NO</option>
                     </select>
+                </div>
+            </div>
+
+            <!-- Image manuelle (optionnel, utile pour composants hors LCSC) -->
+            <div class="add-field-full">
+                <label class="add-label">🖼️ Image <span class="add-hint-inline">optionnel</span></label>
+                <div class="img-upload-wrap">
+                    <div class="img-upload-placeholder" id="img-preview-empty">
+                        <span>📷</span><span style="font-size:.75rem;color:var(--text-muted)">Aucune image</span>
+                    </div>
+                    <img src="" class="img-upload-preview" id="img-preview" style="display:none" alt=""/>
+                    <div class="img-upload-controls">
+                        <label class="btn btn-secondary btn-sm img-upload-btn">
+                            📂 Choisir une image
+                            <input type="file" name="image_file" id="image_file"
+                                   accept=".jpg,.jpeg,.png,.webp" hidden
+                                   onchange="previewImage(this)"/>
+                        </label>
+                        <span class="img-upload-hint">JPG, PNG ou WEBP — ignoré si l'import LCSC récupère une image</span>
+                    </div>
                 </div>
             </div>
 
@@ -271,7 +291,6 @@ function applyPreview() {
     const qtyInput = document.getElementById('f-quantity');
     qtyInput.focus();
     qtyInput.select();
-    document.getElementById('add-form').scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 function autoCalcTotal() {
@@ -304,6 +323,18 @@ function setVal(id, val) {
     } else {
         el.value = val;
     }
+}
+
+function previewImage(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const preview = document.getElementById('img-preview');
+        const empty   = document.getElementById('img-preview-empty');
+        if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
+        if (empty)   { empty.style.display = 'none'; }
+    };
+    reader.readAsDataURL(input.files[0]);
 }
 </script>
 {% endblock %}

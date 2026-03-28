@@ -7,7 +7,7 @@
     <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← Retour</a>
 </div>
 
-<form method="post" action="{{ url_for('components.edit', component_id=component.id) }}" id="edit-form">
+<form method="post" action="{{ url_for('components.edit', component_id=component.id) }}" id="edit-form" enctype="multipart/form-data">
 
 <div class="add-layout">
 
@@ -55,6 +55,31 @@
                         <option value="YES" {% if component.rohs == 'YES' %}selected{% endif %}>✅ YES</option>
                         <option value="NO"  {% if component.rohs == 'NO'  %}selected{% endif %}>❌ NO</option>
                     </select>
+                </div>
+            </div>
+
+            <!-- Image manuelle -->
+            <div class="add-inner-sep"></div>
+            <div class="add-field-full">
+                <label class="add-label">🖼️ Image du composant</label>
+                <div class="img-upload-wrap">
+                    {% if component.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
+                         class="img-upload-preview" id="img-preview" alt=""/>
+                    {% else %}
+                    <div class="img-upload-placeholder" id="img-preview-empty">
+                        <span>📷</span><span style="font-size:.75rem;color:var(--text-muted)">Aucune image</span>
+                    </div>
+                    {% endif %}
+                    <div class="img-upload-controls">
+                        <label class="btn btn-secondary btn-sm img-upload-btn">
+                            📂 Choisir une image
+                            <input type="file" name="image_file" id="image_file"
+                                   accept=".jpg,.jpeg,.png,.webp" hidden
+                                   onchange="previewImage(this)"/>
+                        </label>
+                        <span class="img-upload-hint">JPG, PNG ou WEBP — remplace l'image existante</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -149,5 +174,17 @@ function autoCalcTotal() {
 }
 document.getElementById('f-quantity').addEventListener('input', autoCalcTotal);
 autoCalcTotal();
+
+function previewImage(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        const preview = document.getElementById('img-preview');
+        const empty   = document.getElementById('img-preview-empty');
+        if (preview) { preview.src = e.target.result; preview.style.display = 'block'; }
+        if (empty)   { empty.style.display = 'none'; }
+    };
+    reader.readAsDataURL(input.files[0]);
+}
 </script>
 {% endblock %}
