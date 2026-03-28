@@ -3,7 +3,17 @@
 Application de gestion de stock de composants électroniques pour makers et hobbyistes.
 Développée avec **Flask + SQLite**, architecture **MVC**, thème sombre.
 
-![C2326](https://github.com/user-attachments/assets/4b2f03ce-ccde-4ce1-a423-be80b11c394d)
+<p align="center">
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+    <a href="#"> <img src="https://placehold.co/300x200" width="300" height="200"> </a>
+</p>
 
 
 ---
