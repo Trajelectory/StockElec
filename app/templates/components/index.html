@@ -56,10 +56,10 @@
     </select>
     {% if low_only %}
         <input type="hidden" name="low_stock" value="1"/>
-        <a href="{{ url_for('components.index') }}" class="btn btn-secondary">✕ Alertes seules</a>
+        <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">✕ Alertes seules</a>
     {% endif %}
     <button type="submit" class="btn btn-primary">Filtrer</button>
-    <a href="{{ url_for('components.index') }}" class="btn btn-secondary">Réinitialiser</a>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">Réinitialiser</a>
 </form>
 
 {% if components %}
@@ -68,7 +68,7 @@
     <div class="per-page-wrap">
         <span>Afficher&nbsp;</span>
         {% for n in [5, 25, 50, 100] %}
-            <a href="{{ url_for('components.index', search=search, category=selected_category, sort_by=sort_by, order=order, page=1, per_page=n, low_stock='1' if low_only else '') }}"
+            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, page=1, per_page=n, low_stock='1' if low_only else '') }}"
                class="per-page-btn {% if per_page == n %}active{% endif %}">{{ n }}</a>
         {% endfor %}
         <span>&nbsp;par page</span>
@@ -134,18 +134,16 @@
                 <td class="td-secondary td-category">{{ c.category or '—' }}</td>
 
                 <!-- Quantité avec ajustement rapide -->
-                <td class="td-qty-wrap">
-                    <div class="qty-control" id="qty-ctrl-{{ c.id }}">
+                <td class="td-qty-wrap" style="vertical-align:middle;text-align:center">
+                    <div style="display:flex;align-items:center;gap:.3rem;justify-content:center">
                         <button class="qty-btn" onclick="adjustQty({{ c.id }}, -1, this)" title="Retirer 1">−</button>
                         <span class="qty-value {% if c.quantity == 0 %}qty-zero{% elif c.is_low_stock %}qty-low{% endif %}"
                               id="qty-{{ c.id }}">{{ c.quantity }}</span>
                         <button class="qty-btn" onclick="adjustQty({{ c.id }}, +1, this)" title="Ajouter 1">+</button>
+                        {% if c.min_stock > 0 %}
+                        <span class="min-stock-pip" id="ms-{{ c.id }}" title="Seuil d'alerte : {{ c.min_stock }}">⚡{{ c.min_stock }}</span>
+                        {% endif %}
                     </div>
-                    {% if c.min_stock > 0 %}
-                        <div class="min-stock-pip" id="ms-{{ c.id }}" title="Seuil d'alerte : {{ c.min_stock }}">
-                            ⚡{{ c.min_stock }}
-                        </div>
-                    {% endif %}
                 </td>
                 <td class="td-price">{% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}</td>
                 <td class="td-secondary">{{ c.location or '—' }}</td>
@@ -166,8 +164,8 @@
 {% if total_pages > 1 %}
 <nav class="pagination">
     {% if page > 1 %}
-        <a href="{{ url_for('components.index', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=1) }}" class="page-btn">«</a>
-        <a href="{{ url_for('components.index', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page-1) }}" class="page-btn">‹</a>
+        <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=1) }}" class="page-btn">«</a>
+        <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page-1) }}" class="page-btn">‹</a>
     {% else %}
         <span class="page-btn disabled">«</span>
         <span class="page-btn disabled">‹</span>
@@ -178,13 +176,13 @@
             {% if loop.index > 1 and range(1, total_pages+1)|list|select("lt", p)|list|last < p - 1 %}
                 <span class="page-ellipsis">…</span>
             {% endif %}
-            <a href="{{ url_for('components.index', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=p) }}"
+            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=p) }}"
                class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
         {% endif %}
     {% endfor %}
     {% if page < total_pages %}
-        <a href="{{ url_for('components.index', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page+1) }}" class="page-btn">›</a>
-        <a href="{{ url_for('components.index', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=total_pages) }}" class="page-btn">»</a>
+        <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page+1) }}" class="page-btn">›</a>
+        <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=total_pages) }}" class="page-btn">»</a>
     {% else %}
         <span class="page-btn disabled">›</span>
         <span class="page-btn disabled">»</span>

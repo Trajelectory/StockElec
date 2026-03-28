@@ -1,0 +1,137 @@
+/* ── Barre de stats stock ───────────────────────────────────────── */
+.stock-stats-bar {
+    display: flex; align-items: center; gap: 0;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: .75rem 1.25rem;
+    margin-bottom: 1.1rem; flex-wrap: wrap;
+}
+.stock-stat {
+    display: flex; flex-direction: column; align-items: flex-start;
+    padding: 0 1.1rem;
+}
+.stock-stat:first-child { padding-left: 0; }
+.stock-stat-val {
+    font-size: 1.4rem; font-weight: 800; line-height: 1;
+    color: var(--text); letter-spacing: -.02em;
+}
+.stock-stat-lbl {
+    font-size: .72rem; color: var(--text-muted);
+    font-weight: 500; margin-top: .15rem;
+}
+.stock-stat-sep {
+    width: 1px; height: 32px;
+    background: var(--border); margin: 0 .1rem;
+}
+
+/* ── Filtres / Toolbar table ────────────────────────────────────── */
+.table-toolbar {
+    display: flex; align-items: center; gap: .6rem;
+    margin-bottom: .85rem; flex-wrap: wrap;
+}
+.search-input-wrap { position: relative; flex: 1; min-width: 180px; }
+.search-input-wrap .form-input { padding-left: 2rem; }
+.search-icon {
+    position: absolute; left: .6rem; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted); font-size: .85rem; pointer-events: none;
+}
+.filter-group { display: flex; gap: .4rem; align-items: center; }
+.per-page-wrap { display: flex; align-items: center; gap: .3rem; font-size: .82rem; color: var(--text-muted); }
+.per-page-btn {
+    padding: .22rem .55rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); font-size: .8rem; font-weight: 600;
+    color: var(--text-muted); transition: all .12s; cursor: pointer;
+    background: var(--bg-card);
+}
+.per-page-btn:hover { border-color: var(--accent); color: var(--accent); }
+.per-page-btn.active {
+    background: var(--accent-dim); color: var(--accent);
+    border-color: rgba(124,108,255,.35);
+}
+
+/* ── Pagination ─────────────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; gap: .3rem; margin-top: 1rem; }
+.page-btn {
+    padding: .3rem .65rem; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); font-size: .82rem;
+    color: var(--text-muted); background: var(--bg-card);
+    transition: all .12s; cursor: pointer;
+}
+.page-btn:hover { border-color: var(--accent); color: var(--accent); }
+.page-btn.active {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.page-info { font-size: .78rem; color: var(--text-muted); margin-left: .5rem; }
+
+/* ── Résultats vides ────────────────────────────────────────────── */
+.empty-state {
+    text-align: center; padding: 3.5rem 2rem;
+    color: var(--text-muted);
+}
+.empty-state-icon { font-size: 3rem; margin-bottom: .75rem; opacity: .5; }
+.empty-state-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: .35rem; }
+.empty-state-hint { font-size: .85rem; }
+
+/* ── Sélection multiple (barre flottante) ───────────────────────── */
+.selection-bar {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+    background: var(--bg-card); border: 1px solid var(--accent);
+    box-shadow: var(--accent-glow), var(--shadow);
+    border-radius: var(--radius); padding: .65rem 1rem;
+    display: none; align-items: center; gap: .75rem;
+    z-index: 300; white-space: nowrap;
+    animation: popUp .2s ease;
+}
+@keyframes popUp {
+    from { opacity:0; transform:translateX(-50%) translateY(8px); }
+    to   { opacity:1; transform:translateX(-50%) translateY(0); }
+}
+.selection-bar.visible { display: flex; }
+.selection-count { font-size: .85rem; font-weight: 700; color: var(--accent); }
+
+/* ── Ajustement quantité ────────────────────────────────────────── */
+.qty-control {
+    display: flex; align-items: center; gap: .3rem;
+}
+.td-qty-wrap {
+    vertical-align: middle !important;
+}
+.qty-btn {
+    width: 26px; height: 26px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text-muted);
+    font-size: .9rem; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .12s; padding: 0;
+}
+.qty-btn:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+.qty-val { font-size: 1rem; font-weight: 800; min-width: 2rem; text-align: center; }
+
+/* ── Badge inline (tableau stock) ──────────────────────────────── */
+.badge-xs {
+    display: inline-block; font-size: .62rem; font-weight: 700;
+    padding: .06rem .35rem; border-radius: 3px;
+    vertical-align: middle; margin-left: 2px; letter-spacing: .02em;
+}
+.alert-threshold {
+    font-size: .7rem; color: var(--warning); font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ── Résumé filtres actifs ──────────────────────────────────────── */
+.filter-badge {
+    display: inline-flex; align-items: center; gap: .3rem;
+    background: var(--accent-dim); border: 1px solid rgba(124,108,255,.25);
+    color: var(--accent); border-radius: 1rem;
+    padding: .2rem .65rem; font-size: .78rem; font-weight: 600;
+}
+.filter-badge a { color: var(--accent); font-size: .8rem; }
+
+/* ── Bannière alerte stock bas (accueil) ────────────────────────── */
+.low-stock-banner {
+    background: var(--warning-dim); border: 1px solid rgba(245,158,11,.3);
+    border-left: 3px solid var(--warning);
+    border-radius: var(--radius-sm); padding: .6rem 1rem;
+    margin-bottom: 1rem; font-size: .85rem; color: var(--warning);
+    display: flex; align-items: center; gap: .5rem;
+}

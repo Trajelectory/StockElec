@@ -1,0 +1,80 @@
+/* ── Layout formulaire (add/edit) ───────────────────────────────── */
+.add-layout {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 1.25rem;
+    align-items: start;
+}
+@media (max-width: 820px) {
+    .add-layout { grid-template-columns: 1fr; }
+}
+.add-col-main { display: flex; flex-direction: column; gap: .85rem; }
+.add-col-side  { display: flex; flex-direction: column; gap: .85rem; }
+
+.add-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+}
+.add-section-sticky { position: sticky; top: 70px; }
+.add-section-title {
+    font-size: .72rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--text-muted); margin-bottom: .85rem;
+    display: flex; align-items: center; gap: .4rem;
+}
+.add-section-icon { font-size: .95rem; }
+.add-inner-sep { height: 1px; background: var(--border); margin: .85rem 0; }
+.add-separator { height: 1px; background: var(--border); margin: .65rem 0; }
+
+.add-field      { display: flex; flex-direction: column; gap: .3rem; }
+.add-field-full { display: flex; flex-direction: column; gap: .3rem; }
+.add-label { font-size: .8rem; font-weight: 600; color: var(--text-muted); }
+.add-required { color: var(--danger); }
+.add-hint { font-size: .72rem; color: var(--text-faint); }
+.add-hint-inline {
+    font-size: .72rem; color: var(--accent); font-weight: 600;
+    margin-left: .35rem;
+}
+.add-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.add-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75rem; }
+@media (max-width: 600px) {
+    .add-row-2, .add-row-3 { grid-template-columns: 1fr; }
+}
+.add-qty-input {
+    font-size: 1.6rem !important; font-weight: 800 !important;
+    text-align: center; color: var(--accent) !important;
+    padding: .5rem !important;
+}
+
+/* ── Bandeau confirmation ajout série ───────────────────────────── */
+.add-success-banner {
+    display: flex; align-items: center; gap: .5rem;
+    background: var(--success-dim); border: 1px solid rgba(52,209,126,.3);
+    border-left: 3px solid var(--success);
+    border-radius: var(--radius-sm); padding: .6rem 1rem;
+    font-size: .85rem; color: var(--success);
+    margin-bottom: 1rem; flex-wrap: wrap;
+    animation: slideDown .3s ease;
+}
+.add-success-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+
+/* ── Upload image composant ─────────────────────────────────────── */
+.img-upload-wrap { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.img-upload-preview {
+    width: 72px; height: 72px; object-fit: contain;
+    border-radius: 7px; border: 1px solid var(--border);
+    background: #fff; flex-shrink: 0;
+}
+.img-upload-placeholder {
+    width: 72px; height: 72px;
+    border: 1px dashed var(--border); border-radius: 7px;
+    background: var(--bg-surface);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: .25rem; font-size: 1.3rem; opacity: .4; flex-shrink: 0;
+}
+.img-upload-controls { display: flex; flex-direction: column; gap: .35rem; }
+.img-upload-btn { cursor: pointer; }
+.img-upload-hint { font-size: .72rem; color: var(--text-muted); }

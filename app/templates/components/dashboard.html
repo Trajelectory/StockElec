@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📊 Dashboard</h1>
+    <div style="display:flex;gap:.5rem;align-items:center">
+        <a href="{{ url_for('components.export_csv') }}" class="btn btn-secondary btn-sm">⬇️ Exporter CSV</a>
+        <button class="btn btn-secondary btn-sm" onclick="toggleDashConfig()" id="btn-cfg">⚙️ Configurer</button>
+    </div>
+</div>
+
+<!-- ── Panneau de configuration ──────────────────────────────────── -->
+<div id="dash-config-panel" style="display:none;margin-bottom:1.25rem">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem 1.25rem">
+        <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:.85rem">
+            ⚙️ Widgets — active/désactive et glisse pour réordonner
+        </div>
+        <div id="widget-list" style="display:flex;flex-direction:column;gap:.35rem">
+            {% for w in widgets %}
+            {% set vis = w.visible if w.visible is defined else w.get('visible', w.get('default', true)) %}
+            <div class="dash-widget-row" data-id="{{ w.id }}" draggable="true"
+                 style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:grab;user-select:none">
+                <span style="color:var(--text-faint);font-size:1rem">⠿</span>
+                <span style="flex:1;font-size:.875rem">{{ w.label }}</span>
+                <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.8rem;color:var(--text-muted)">
+                    <input type="checkbox" class="widget-toggle" data-id="{{ w.id }}"
+                           {% if vis %}checked{% endif %}
+                           style="accent-color:var(--accent);width:16px;height:16px"/>
+                    Visible
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:.85rem">
+            <button class="btn btn-primary btn-sm" onclick="saveDashConfig()">💾 Sauvegarder</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleDashConfig()">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Rendu des widgets dans l'ordre configuré ───────────────────── -->
+{%- set ns = namespace() -%}
+{% for w in widgets %}
+{%- set vis = w.get('visible', true) -%}
+{% if vis %}
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# KPIs                                                             #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% if w.id == 'kpis' %}
+<div class="dash-grid" style="margin-bottom:1.25rem">
+    {% set kpis = [
+        ('Composants',    stats.n_components or 0,  'références en stock',   'var(--accent)'),
+        ('Pièces totales',stats.n_total_qty or 0,    'unités en inventaire',  'var(--success)'),
+        ('Valeur stock',  '%.2f €'|format(stats.stock_value or 0), 'valeur estimée', 'var(--warning)'),
+        ('Alertes',       stats.n_alerts or 0,       'sous le seuil',         'var(--danger)'),
+        ('Fabricants',    stats.n_manufacturers or 0,'fournisseurs distincts','var(--info)'),
+        ('Mouvements',    mv_stats.week,              'cette semaine · ' ~ mv_stats.today ~ ' aujourd\'hui', 'var(--accent)'),
+    ] %}
+    {% for label, val, sub, color in kpis %}
+    <div class="dash-card">
+        <div class="dash-card-accent" style="background:{{ color }}"></div>
+        <div class="dash-card-label">{{ label }}</div>
+        <div class="dash-card-val" style="color:{{ color }};{% if label == 'Valeur stock' %}font-size:1.4rem{% endif %}">{{ val }}</div>
+        <div class="dash-card-sub">{{ sub }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# Mouvements                                                       #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% elif w.id == 'movements' %}
+<div style="margin-bottom:1.25rem">
+    <div class="dash-section-title">📋 Derniers mouvements
+        <a href="{{ url_for('components.history') }}" style="margin-left:auto;font-size:.75rem;font-weight:500;color:var(--text-muted)">Voir tout →</a>
+    </div>
+    <div class="table-wrapper">
+        {% if recent_movements %}
+        <table class="data-table">
+            <thead><tr><th>Type</th><th>Composant</th><th class="th-center">Qté</th><th>Date</th></tr></thead>
+            <tbody>
+            {% for m in recent_movements %}
+            {% set t = movement_types.get(m.type, ('?','?','')) %}
+            <tr>
+                <td><span class="badge {{ t[2] }}">{{ t[0] }} {{ t[1] }}</span></td>
+                <td>
+                    <a href="{{ url_for('components.detail', component_id=m.component_id) }}">
+                        {{ (m.description or m.lcsc_part_number or '—')[:40] }}
+                    </a>
+                    {% if m.project_name %}<span class="td-secondary"> · {{ m.project_name }}</span>{% endif %}
+                </td>
+                <td class="td-center td-qty">
+                    <span style="color:{{ 'var(--success)' if m.type == 'in' else ('var(--danger)' if m.type == 'out' else 'var(--info)') }}">
+                        {{ '+' if m.type == 'in' else ('-' if m.type == 'out' else '~') }}{{ m.quantity }}
+                    </span>
+                </td>
+                <td class="td-secondary" style="font-size:.75rem;white-space:nowrap">{{ m.created_at[:16] }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:1.5rem">
+            <div class="empty-state-hint">Aucun mouvement — les +/− apparaîtront ici automatiquement</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# Projets en cours                                                 #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% elif w.id == 'projects' %}
+{% if active_projects %}
+<div style="margin-bottom:1.25rem">
+    <div class="dash-section-title">🗂️ Projets en cours
+        <a href="{{ url_for('projects.index') }}" style="margin-left:auto;font-size:.75rem;font-weight:500;color:var(--text-muted)">Voir tous →</a>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.5rem">
+        {% for p in active_projects %}
+        <a href="{{ url_for('projects.detail', project_id=p.id) }}"
+           style="display:flex;align-items:center;gap:.75rem;padding:.65rem .85rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);transition:border-color .15s;text-decoration:none;color:var(--text)"
+           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            {% if p.image_path %}
+            <img src="{{ url_for('projects.project_image', filename=p.image_path) }}"
+                 style="width:36px;height:36px;object-fit:cover;border-radius:5px;flex-shrink:0"/>
+            {% else %}
+            <div style="width:36px;height:36px;background:var(--bg-surface);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">🗂️</div>
+            {% endif %}
+            <div style="flex:1;min-width:0">
+                <div style="font-weight:700;font-size:.875rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+                <div style="font-size:.75rem;color:var(--text-muted)">{{ p.n_components }} composant(s)</div>
+            </div>
+            <span class="badge badge-blue">en cours</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="card" style="margin-bottom:1.25rem">
+    <div class="card-title">🗂️ Projets en cours</div>
+    <p style="font-size:.85rem;color:var(--text-muted)">Aucun projet en cours.</p>
+</div>
+{% endif %}
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# Top catégories                                                   #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% elif w.id == 'categories' %}
+{% if top_cats %}
+<div class="card" style="margin-bottom:1.25rem">
+    <div class="card-title">🏷️ Top catégories</div>
+    {% set max_cnt = top_cats[0].cnt %}
+    <div style="display:flex;flex-direction:column;gap:.5rem">
+        {% for c in top_cats %}
+        <div style="display:flex;align-items:center;gap:.75rem;font-size:.85rem">
+            <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.category.split(' / ')|last }}</span>
+            <div style="width:120px;height:6px;background:var(--border);border-radius:3px;flex-shrink:0">
+                <div style="width:{{ (c.cnt / max_cnt * 100)|int }}%;height:100%;background:var(--accent);border-radius:3px"></div>
+            </div>
+            <span style="color:var(--text-muted);min-width:28px;text-align:right;font-weight:600">{{ c.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# Derniers ajouts                                                  #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% elif w.id == 'recent' %}
+<div style="margin-bottom:1.25rem">
+    <div class="dash-section-title">✨ Derniers composants ajoutés</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.5rem">
+        {% for c in recent_added %}
+        <a href="{{ url_for('components.detail', component_id=c.id) }}"
+           style="display:flex;align-items:center;gap:.6rem;padding:.55rem .75rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);transition:border-color .15s;text-decoration:none;color:var(--text)"
+           onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            {% if c.image_path %}
+            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                 style="width:30px;height:30px;object-fit:contain;border-radius:4px;background:#fff;flex-shrink:0"/>
+            {% else %}
+            <div style="width:30px;height:30px;background:var(--bg-surface);border-radius:4px;flex-shrink:0"></div>
+            {% endif %}
+            <div style="flex:1;min-width:0">
+                <div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.description or c.lcsc_part_number or '—' }}</div>
+                <div style="font-size:.7rem;color:var(--text-muted)">{{ c.created_at[:10] }}</div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# Plus consommés                                                   #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% elif w.id == 'consumed' %}
+<div style="margin-bottom:1.25rem">
+    <div class="dash-section-title">📤 Plus consommés</div>
+    {% if top_consumed %}
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead><tr><th class="th-img"></th><th>Composant</th><th class="th-right">Sorties totales</th></tr></thead>
+            <tbody>
+            {% for c in top_consumed %}
+            <tr>
+                <td class="td-thumb">
+                    {% if c.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}" class="thumb"/>
+                    {% else %}<div class="thumb-placeholder"><span class="thumb-na">—</span></div>{% endif %}
+                </td>
+                <td><a href="{{ url_for('components.detail', component_id=c.id) }}">{{ (c.description or c.lcsc_part_number or '—')[:45] }}</a></td>
+                <td class="td-right" style="color:var(--danger);font-weight:700">{{ c.total_out }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:1.5rem">
+        <div class="empty-state-hint">Aucune sortie enregistrée pour l'instant</div>
+    </div>
+    {% endif %}
+</div>
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# Alertes stock                                                    #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% elif w.id == 'alerts' %}
+<div class="card" style="margin-bottom:1.25rem">
+    <div class="card-title">🔔 Alertes stock bas
+        <a href="{{ url_for('components.alerts') }}" style="font-size:.75rem;font-weight:500;margin-left:auto">Voir tout →</a>
+    </div>
+    {% if stats.n_alerts > 0 %}
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem;background:var(--danger-dim);border-radius:var(--radius-sm)">
+        <span style="font-size:1.4rem">⚠️</span>
+        <div>
+            <div style="font-weight:700;color:var(--danger)">{{ stats.n_alerts }} composant(s) sous le seuil</div>
+            <a href="{{ url_for('components.alerts') }}" style="font-size:.8rem">Voir les alertes et commander →</a>
+        </div>
+    </div>
+    {% else %}
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem;background:var(--success-dim);border-radius:var(--radius-sm)">
+        <span style="font-size:1.4rem">✅</span>
+        <div style="font-weight:600;color:var(--success)">Tous les stocks sont au-dessus du seuil</div>
+    </div>
+    {% endif %}
+</div>
+
+{# ════════════════════════════════════════════════════════════════ #}
+{# Réapprovisionnement                                              #}
+{# ════════════════════════════════════════════════════════════════ #}
+{% elif w.id == 'reorder' %}
+<div class="card" style="margin-bottom:1.25rem">
+    <div class="card-title">🛒 Réapprovisionnement
+        <a href="{{ url_for('components.reorder') }}" style="font-size:.75rem;font-weight:500;margin-left:auto">Voir la liste →</a>
+    </div>
+    {% if stats.n_alerts > 0 %}
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem;background:var(--warning-dim);border-radius:var(--radius-sm)">
+        <span>⚠️</span>
+        <span style="color:var(--warning);font-weight:600">{{ stats.n_alerts }} composant(s) à commander</span>
+        <a href="{{ url_for('components.reorder') }}" class="btn btn-secondary btn-sm" style="margin-left:auto">🛒 Commander →</a>
+    </div>
+    {% else %}
+    <p style="font-size:.85rem;color:var(--success)">✅ Aucun réapprovisionnement nécessaire</p>
+    {% endif %}
+</div>
+
+{% endif %}
+{% endif %}
+{% endfor %}
+
+<script>
+function toggleDashConfig() {
+    const panel = document.getElementById('dash-config-panel');
+    const btn   = document.getElementById('btn-cfg');
+    const open  = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '✕ Fermer' : '⚙️ Configurer';
+}
+
+// Drag & drop
+let dragSrc = null;
+document.querySelectorAll('.dash-widget-row').forEach(row => {
+    row.addEventListener('dragstart', e => {
+        dragSrc = row;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => row.style.opacity = '.35', 0);
+    });
+    row.addEventListener('dragend', () => {
+        row.style.opacity = '1';
+        dragSrc = null;
+        document.querySelectorAll('.dash-widget-row').forEach(r => r.style.background = '');
+    });
+    row.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!dragSrc || dragSrc === row) return;
+        const list = row.parentNode;
+        const rows = [...list.querySelectorAll('.dash-widget-row')];
+        const srcIdx = rows.indexOf(dragSrc);
+        const tgtIdx = rows.indexOf(row);
+        if (srcIdx < tgtIdx) list.insertBefore(dragSrc, row.nextSibling);
+        else list.insertBefore(dragSrc, row);
+    });
+    row.addEventListener('drop', e => e.preventDefault());
+});
+
+function saveDashConfig() {
+    const btn = document.querySelector('[onclick="saveDashConfig()"]');
+    btn.textContent = '⏳ Sauvegarde…';
+    btn.disabled = true;
+
+    const rows = document.querySelectorAll('.dash-widget-row');
+    const widgets = [...rows].map((row, i) => ({
+        id:      row.dataset.id,
+        label:   row.querySelector('span:nth-child(2)').textContent.trim(),
+        visible: row.querySelector('.widget-toggle').checked,
+        order:   i,
+    }));
+
+    fetch('/dashboard/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({widgets})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) window.location.reload();
+        else { btn.textContent = '❌ Erreur'; btn.disabled = false; }
+    })
+    .catch(() => { btn.textContent = '❌ Erreur réseau'; btn.disabled = false; });
+}
+</script>
+{% endblock %}

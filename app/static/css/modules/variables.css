@@ -1,0 +1,44 @@
+/* ── Variables ──────────────────────────────────────────────────── */
+:root {
+    /* Fond */
+    --bg:          #0b0e18;
+    --bg-surface:  #111520;
+    --bg-card:     #161b2e;
+    --bg-hover:    #1c2340;
+
+    /* Borders */
+    --border:      #252c45;
+    --border-light:#1e2438;
+
+    /* Accent principal — violet/indigo */
+    --accent:       #7c6cff;
+    --accent-hover: #9585ff;
+    --accent-dim:   rgba(124,108,255,.12);
+    --accent-glow:  0 0 24px rgba(124,108,255,.25);
+
+    /* Couleurs sémantiques */
+    --success:    #34d17e;
+    --success-dim: rgba(52,209,126,.12);
+    --warning:    #f59e0b;
+    --warning-dim: rgba(245,158,11,.12);
+    --danger:     #f43f5e;
+    --danger-dim:  rgba(244,63,94,.12);
+    --info:       #38bdf8;
+    --info-dim:    rgba(56,189,248,.12);
+
+    /* Texte */
+    --text:        #e8eaf6;
+    --text-muted:  #6b74a0;
+    --text-faint:  #3d4566;
+
+    /* Typo */
+    --mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+
+    /* Géométrie */
+    --radius:   10px;
+    --radius-sm: 6px;
+    --radius-lg: 14px;
+    --shadow:    0 4px 24px rgba(0,0,0,.5);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,.3);
+}

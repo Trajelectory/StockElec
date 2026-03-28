@@ -1,0 +1,43 @@
+/* ── Navbar ─────────────────────────────────────────────────────── */
+.navbar {
+    display: flex; align-items: center;
+    background: rgba(11,14,24,.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    height: 54px;
+    position: sticky; top: 0; z-index: 200;
+}
+.nav-brand {
+    font-size: 1.05rem; font-weight: 800; color: var(--accent);
+    display: flex; align-items: center; gap: .45rem;
+    letter-spacing: -.02em; margin-right: 1.5rem;
+    white-space: nowrap;
+}
+.nav-brand .nav-icon {
+    font-size: 1.1rem;
+}
+.nav-links {
+    display: flex; align-items: center; gap: .15rem; flex: 1;
+}
+.nav-link {
+    display: flex; align-items: center; gap: .4rem;
+    padding: .35rem .75rem; border-radius: var(--radius-sm);
+    color: var(--text-muted); font-size: .85rem; font-weight: 500;
+    transition: all .15s; white-space: nowrap;
+}
+.nav-link:hover { background: var(--bg-hover); color: var(--text); }
+.nav-link.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(124,108,255,.2);
+}
+.nav-link .nav-emoji { font-size: .95rem; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: .5rem; }
+.nav-badge {
+    background: var(--danger); color: #fff;
+    font-size: .65rem; font-weight: 700;
+    padding: .05rem .4rem; border-radius: 10px;
+    min-width: 18px; text-align: center;
+}

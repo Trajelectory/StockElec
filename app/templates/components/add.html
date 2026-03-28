@@ -4,14 +4,14 @@
 
 {% block content %}
 <div class="page-header">
-    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour au stock</a>
+    <a href="{{ url_for('components.stock') }}" class="btn-back">← Retour au stock</a>
     <h1>➕ Ajouter un composant</h1>
 </div>
 
 {% if request.args.get('added') %}
 <div class="add-success-banner">
     ✅ <strong>{{ request.args.get('added') }}</strong> ajouté avec succès —
-    <a href="{{ url_for('components.index') }}" class="add-success-link">voir le stock →</a>
+    <a href="{{ url_for('components.stock') }}" class="add-success-link">voir le stock →</a>
 </div>
 {% endif %}
 
@@ -207,7 +207,7 @@
             <div class="add-separator"></div>
 
             <button type="submit" class="btn btn-primary btn-full">💾 Enregistrer</button>
-            <a href="{{ url_for('components.index') }}" class="btn btn-secondary btn-full" style="margin-top:.4rem">
+            <a href="{{ url_for('components.stock') }}" class="btn btn-secondary btn-full" style="margin-top:.4rem">
                 Annuler
             </a>
         </div>

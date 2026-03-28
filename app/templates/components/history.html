@@ -3,73 +3,95 @@
 
 {% block content %}
 <div class="page-header">
+    {% if component %}
+    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← Retour</a>
+    <h1>📋 Historique — {{ component.description }}</h1>
+    {% else %}
     <h1>📋 Historique des mouvements</h1>
+    {% endif %}
 </div>
 
-<!-- Stats -->
-<div class="stats-grid" style="margin-bottom:1.5rem">
-    <div class="stat-card">
-        <div class="stat-value">{{ stats.total_movements }}</div>
-        <div class="stat-label">Mouvements total</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value mv-pos">+{{ stats.total_in }}</div>
-        <div class="stat-label">Pièces entrées</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value mv-neg">−{{ stats.total_out }}</div>
-        <div class="stat-label">Pièces sorties</div>
-    </div>
+<!-- Filtres -->
+<div class="table-toolbar" style="margin-bottom:1rem">
+    <form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+        {% if component %}
+        <input type="hidden" name="component_id" value="{{ component.id }}"/>
+        {% endif %}
+        <select name="type" class="form-input" style="width:auto" onchange="this.form.submit()">
+            <option value="">Tous les types</option>
+            {% for key, val in movement_types.items() %}
+            <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>
+                {{ val[0] }} {{ val[1] }}
+            </option>
+            {% endfor %}
+        </select>
+        <select name="limit" class="form-input" style="width:auto" onchange="this.form.submit()">
+            {% for l in [50, 100, 200, 500] %}
+            <option value="{{ l }}" {% if limit == l %}selected{% endif %}>{{ l }} derniers</option>
+            {% endfor %}
+        </select>
+        {% if type_filter or component %}
+        <a href="{{ url_for('components.history') }}" class="btn btn-secondary btn-sm">✕ Réinitialiser</a>
+        {% endif %}
+    </form>
+    <span class="text-muted" style="font-size:.8rem;margin-left:auto">{{ movements|length }} mouvement(s)</span>
 </div>
 
-{% if movements %}
 <div class="table-wrapper">
-    <table class="data-table movement-table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Composant</th>
-                <th>Type</th>
-                <th>Variation</th>
-                <th>Avant</th>
-                <th>Après</th>
-                <th>Projet</th>
-                <th>Note</th>
-            </tr>
-        </thead>
+    {% if movements %}
+    <table class="data-table">
+        <thead><tr>
+            <th>Type</th>
+            <th class="th-img"></th>
+            <th>Composant</th>
+            <th class="th-center">Quantité</th>
+            <th>Note</th>
+            <th>Projet</th>
+            <th>Date</th>
+        </tr></thead>
         <tbody>
         {% for m in movements %}
+        {% set t = movement_types.get(m.type, ('?','?','')) %}
         <tr>
-            <td class="td-secondary mono" style="font-size:.8rem;white-space:nowrap">{{ m.created_at[:16] }}</td>
-            <td>
-                <a href="{{ url_for('components.detail', component_id=m.component_id) }}">
-                    {{ m.component_description or '—' }}
-                </a>
-                {% if m.component_lcsc %}
-                    <span class="td-secondary mono" style="font-size:.75rem"> {{ m.component_lcsc }}</span>
+            <td><span class="badge {{ t[2] }}">{{ t[0] }} {{ t[1] }}</span></td>
+            <td class="td-thumb">
+                {% if m.image_path %}
+                <img src="{{ url_for('components.component_image', filename=m.image_path.split('images/')|last) }}"
+                     class="thumb" loading="lazy"/>
+                {% else %}
+                <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
                 {% endif %}
             </td>
-            <td>{{ m.icon }} {{ m.label }}</td>
-            <td class="td-qty {% if m.is_positive %}mv-pos{% else %}mv-neg{% endif %}">
-                {{ '+' if m.is_positive else '' }}{{ m.qty_change }}
+            <td>
+                <a href="{{ url_for('components.detail', component_id=m.component_id) }}">
+                    {{ m.description or m.lcsc_part_number or '—' }}
+                </a>
+                {% if m.lcsc_part_number %}
+                <span class="td-secondary" style="font-family:var(--mono);font-size:.72rem"> {{ m.lcsc_part_number }}</span>
+                {% endif %}
             </td>
-            <td class="td-qty td-secondary">{{ m.qty_before }}</td>
-            <td class="td-qty">{{ m.qty_after }}</td>
-            <td class="td-secondary">
-                {% if m.project_name %}
-                    <a href="{{ url_for('projects.detail', project_id=m.project_id) }}">{{ m.project_name }}</a>
-                {% else %}—{% endif %}
+            <td class="td-center td-qty">
+                <span style="color:{{ 'var(--success)' if m.type == 'in' else 'var(--danger)' if m.type == 'out' else 'var(--info)' }};font-weight:800">
+                    {{ '+' if m.type == 'in' else '-' if m.type == 'out' else '~' }}{{ m.quantity }}
+                </span>
             </td>
             <td class="td-secondary">{{ m.note or '—' }}</td>
+            <td>
+                {% if m.project_name %}
+                <span class="badge badge-blue">{{ m.project_name }}</span>
+                {% else %}—{% endif %}
+            </td>
+            <td class="td-secondary" style="font-size:.75rem;white-space:nowrap">{{ m.created_at[:16] }}</td>
         </tr>
         {% endfor %}
         </tbody>
     </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <div class="empty-state-title">Aucun mouvement</div>
+        <div class="empty-state-hint">Les entrées/sorties apparaîtront ici automatiquement</div>
+    </div>
+    {% endif %}
 </div>
-{% else %}
-<div class="empty-state">
-    <p class="empty-icon">📭</p>
-    <p>Aucun mouvement enregistré.</p>
-</div>
-{% endif %}
 {% endblock %}

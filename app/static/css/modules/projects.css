@@ -1,0 +1,80 @@
+/* ── Projets ────────────────────────────────────────────────────── */
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px,1fr));
+    gap: 1rem;
+}
+.project-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+    transition: border-color .15s, box-shadow .15s; cursor: pointer;
+    display: flex; flex-direction: column;
+}
+.project-card:hover { border-color: var(--accent); box-shadow: var(--accent-glow); }
+.project-card-img {
+    height: 130px; background: var(--bg-surface);
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+}
+.project-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.project-card-img-placeholder { font-size: 2.5rem; opacity: .25; }
+.project-status-badge {
+    position: absolute; top: .5rem; right: .5rem;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
+.project-card-body { padding: .85rem 1rem; flex: 1; display: flex; flex-direction: column; gap: .35rem; }
+.project-card-title { font-weight: 700; font-size: .92rem; }
+.project-card-footer {
+    padding: .5rem 1rem; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: .75rem; color: var(--text-muted);
+}
+.project-progress-bar {
+    width: 100%; height: 3px; background: var(--border);
+    border-radius: 2px; overflow: hidden; margin-top: .25rem;
+}
+.project-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+
+/* ── BOM ────────────────────────────────────────────────────────── */
+.bom-section { margin-bottom: 1.1rem; }
+.bom-section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .5rem .85rem;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-left: 3px solid; border-radius: var(--radius) var(--radius) 0 0;
+    font-size: .83rem; font-weight: 700;
+}
+.bom-header-ok      { border-left-color: var(--success); }
+.bom-header-low     { border-left-color: var(--warning); }
+.bom-header-missing { border-left-color: var(--danger);  }
+.bom-section-count  {
+    font-size: .75rem; font-weight: 700;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 1rem; padding: .1rem .5rem; color: var(--text-muted);
+}
+.bom-actions { display: flex; align-items: center; gap: .75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.bom-actions-hint { width: 100%; font-size: .8rem; color: var(--text-muted); margin-bottom: .25rem; }
+
+/* ── Import CSV ─────────────────────────────────────────────────── */
+.import-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+@media (max-width: 640px) { .import-cards { grid-template-columns: 1fr; } }
+.import-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.1rem;
+}
+.import-card-title { font-weight: 700; font-size: .85rem; margin-bottom: .5rem; }
+.import-col-tag {
+    display: inline-block; background: var(--bg-surface);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: .1rem .45rem; font-family: var(--mono); font-size: .72rem;
+    margin: .1rem .1rem .1rem 0; color: var(--accent);
+}
+.drop-zone {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 2rem; text-align: center; cursor: pointer;
+    transition: all .2s; color: var(--text-muted);
+}
+.drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.drop-zone.has-file { border-color: var(--success); background: var(--success-dim); color: var(--success); border-style: solid; }
+.drop-zone-icon { font-size: 2rem; margin-bottom: .5rem; }
+.drop-zone-hint { font-size: .8rem; margin-top: .35rem; }

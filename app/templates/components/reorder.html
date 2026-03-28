@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Commandes — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🛒 Réapprovisionnement</h1>
+    {% if items %}
+    <a href="https://www.lcsc.com/cart" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+        🛒 Ouvrir LCSC →
+    </a>
+    {% endif %}
+</div>
+
+{% if items %}
+
+<!-- Résumé -->
+<div class="stock-stats-bar" style="margin-bottom:1.1rem">
+    {% set ruptures = items|selectattr('stock_status','eq','rupture')|list %}
+    {% set bas      = items|selectattr('stock_status','eq','bas')|list %}
+    <div class="stock-stat">
+        <span class="stock-stat-val" style="color:var(--danger)">{{ ruptures|length }}</span>
+        <span class="stock-stat-lbl">En rupture</span>
+    </div>
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val" style="color:var(--warning)">{{ bas|length }}</span>
+        <span class="stock-stat-lbl">Stock bas</span>
+    </div>
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val">{{ items|length }}</span>
+        <span class="stock-stat-lbl">Total à commander</span>
+    </div>
+    {% set total_val = namespace(v=0) %}
+    {% for i in items %}
+        {% if i.unit_price and i.suggested_qty %}
+            {% set total_val.v = total_val.v + i.unit_price * i.suggested_qty %}
+        {% endif %}
+    {% endfor %}
+    {% if total_val.v > 0 %}
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val" style="color:var(--warning)">{{ "%.2f"|format(total_val.v) }} €</span>
+        <span class="stock-stat-lbl">Estimation commande</span>
+    </div>
+    {% endif %}
+</div>
+
+<div class="table-wrapper">
+    <table class="data-table">
+        <thead><tr>
+            <th></th>
+            <th class="th-img"></th>
+            <th>Composant</th>
+            <th>Réf. LCSC</th>
+            <th class="th-center">En stock</th>
+            <th class="th-center">Seuil</th>
+            <th class="th-center">Suggéré</th>
+            <th class="th-right">Prix unit.</th>
+            <th>Commander</th>
+        </tr></thead>
+        <tbody>
+        {% for item in items %}
+        <tr class="{{ 'order-row-urgent' if item.stock_status == 'rupture' }}">
+            <td>
+                {% if item.stock_status == 'rupture' %}
+                <span class="badge badge-red">⚠ Rupture</span>
+                {% else %}
+                <span class="badge badge-orange">↓ Bas</span>
+                {% endif %}
+            </td>
+            <td class="td-thumb">
+                {% if item.image_path %}
+                <img src="{{ url_for('components.component_image', filename=item.image_path.split('images/')|last) }}"
+                     class="thumb" loading="lazy"/>
+                {% else %}
+                <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('components.detail', component_id=item.id) }}">
+                    {{ item.description or item.manufacture_part_number or '—' }}
+                </a>
+                {% if item.manufacturer %}
+                <div class="td-secondary" style="font-size:.75rem">{{ item.manufacturer }}</div>
+                {% endif %}
+            </td>
+            <td>
+                {% if item.lcsc_part_number %}
+                <a href="https://www.lcsc.com/product-detail/{{ item.lcsc_part_number }}.html"
+                   target="_blank" class="td-mono" style="font-size:.78rem">
+                    {{ item.lcsc_part_number }}
+                </a>
+                {% else %}
+                <span class="td-secondary">—</span>
+                {% endif %}
+            </td>
+            <td class="td-center td-qty" style="color:{{ 'var(--danger)' if item.stock_status == 'rupture' else 'var(--warning)' }}">
+                {{ item.quantity }}
+            </td>
+            <td class="td-center td-secondary">{{ item.min_stock or '—' }}</td>
+            <td class="td-center td-qty" style="color:var(--accent)">
+                {{ item.suggested_qty if item.suggested_qty > 0 else '?' }}
+            </td>
+            <td class="td-right td-secondary" style="font-family:var(--mono);font-size:.8rem">
+                {% if item.unit_price %}{{ "%.4f"|format(item.unit_price) }} €{% else %}—{% endif %}
+            </td>
+            <td>
+                {% if item.lcsc_part_number %}
+                <a href="https://www.lcsc.com/search?q={{ item.lcsc_part_number }}"
+                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                    🛒 LCSC
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="empty-state" style="padding:4rem">
+    <div class="empty-state-icon">🎉</div>
+    <div class="empty-state-title">Stock au beau fixe !</div>
+    <div class="empty-state-hint">Aucun composant n'est en rupture ou sous le seuil d'alerte</div>
+</div>
+{% endif %}
+{% endblock %}

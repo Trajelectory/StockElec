@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour au stock</a>
+    <a href="{{ url_for('components.stock') }}" class="btn-back">← Retour au stock</a>
     <h1>📥 Importer un fichier CSV</h1>
 </div>
 
@@ -37,7 +37,7 @@
                 <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
                     ⚡ Importer
                 </button>
-                <a href="{{ url_for('components.index') }}" class="btn btn-secondary">Annuler</a>
+                <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">Annuler</a>
                 <span class="import-hint" id="import-hint">
                     Sélectionne un fichier CSV pour commencer
                 </span>

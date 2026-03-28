@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+{% block title %}Plan Gridfinity — StockElec{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ────────────────────────────────────────────────────── -->
+<div class="page-header">
+    <h1>📦 Gridfinity</h1>
+    <div style="display:flex;gap:.5rem;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="toggleConfig()">⚙️ Gérer les plateaux</button>
+        <button class="btn btn-primary btn-sm" id="btn-save" onclick="saveAll()">💾 Sauvegarder</button>
+    </div>
+</div>
+
+<!-- ── Panel config ───────────────────────────────────────────────── -->
+<div id="config-panel" style="display:none;margin-bottom:1.25rem">
+    <div class="card">
+        <div class="card-title">⚙️ Plateaux</div>
+        <div id="plateau-list" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.85rem">
+            {% for p in config.plateaux %}
+            <div class="plateau-cfg-row"
+                 style="display:flex;align-items:center;gap:.6rem;padding:.45rem .75rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                <input type="text" placeholder="ID" value="{{ p.id }}"
+                       class="form-input cfg-pid" style="width:52px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono)"/>
+                <input type="text" placeholder="Nom du plateau" value="{{ p.label }}"
+                       class="form-input cfg-plabel" style="flex:1"/>
+                <span style="font-size:.78rem;color:var(--text-muted)">Col.</span>
+                <input type="number" value="{{ p.cols }}" min="1" max="20"
+                       class="form-input cfg-pcols" style="width:52px;text-align:center"/>
+                <span style="font-size:.78rem;color:var(--text-muted)">Rng.</span>
+                <input type="number" value="{{ p.rows }}" min="1" max="20"
+                       class="form-input cfg-prows" style="width:52px;text-align:center"/>
+                <button onclick="removePlateau(this)" class="btn btn-danger btn-sm">🗑</button>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="addPlateau()">➕ Ajouter un plateau</button>
+            <button class="btn btn-primary btn-sm" onclick="saveConfig()">💾 Appliquer</button>
+            <span style="font-size:.75rem;color:var(--text-muted)">
+                💡 L'ID + n° de case devient l'emplacement dans le stock (ex: A3, B12)
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tabs de sélection de plateau ──────────────────────────────── -->
+<div style="display:flex;align-items:stretch;gap:0;margin-bottom:1.25rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem;overflow-x:auto">
+    {% for p in config.plateaux %}
+    <button class="gf-tab {% if loop.first %}gf-tab-active{% endif %}"
+            data-pid="{{ p.id }}"
+            onclick="switchTab('{{ p.id }}')"
+            style="display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.5rem 1rem;border:none;background:{% if loop.first %}var(--accent){% else %}transparent{% endif %};color:{% if loop.first %}#fff{% else %}var(--text-muted){% endif %};border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap;min-width:90px">
+        <span style="font-weight:800;font-size:.9rem;font-family:var(--mono)">{{ p.id }}</span>
+        <span style="font-size:.7rem;opacity:.85">{{ p.label }}</span>
+        <span class="gf-tab-count" data-pid="{{ p.id }}" style="font-size:.65rem;opacity:.7">{{ p.cols }}×{{ p.rows }}</span>
+    </button>
+    {% endfor %}
+</div>
+
+<!-- ── Indicateur stats du plateau actif ─────────────────────────── -->
+<div id="plateau-stats" style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;font-size:.82rem;color:var(--text-muted)">
+    <span id="stat-nom" style="font-weight:700;color:var(--text)"></span>
+    <span id="stat-dims"></span>
+    <span id="stat-fill"></span>
+    <div style="flex:1;height:4px;background:var(--border);border-radius:2px;max-width:200px">
+        <div id="stat-bar" style="height:100%;background:var(--accent);border-radius:2px;transition:width .3s;width:0%"></div>
+    </div>
+</div>
+
+<!-- ── Grille du plateau actif ───────────────────────────────────── -->
+<div id="gf-grid-container">
+    {% for p in config.plateaux %}
+    <div class="gf-plateau" data-pid="{{ p.id }}" style="display:{% if loop.first %}flex{% else %}none{% endif %};justify-content:center">
+        <div class="gf-grid" data-pid="{{ p.id }}" data-cols="{{ p.cols }}" data-rows="{{ p.rows }}"
+             style="display:grid;grid-template-columns:repeat({{ p.cols }}, 88px);gap:6px">
+            {% for i in range(p.rows * p.cols) %}
+            {% set cell_id = p.id ~ (i + 1) %}
+            {% set comp_id = assignments.get(cell_id) %}
+            {% set comp = components | selectattr('id', 'equalto', comp_id) | first if comp_id else none %}
+            <div class="gf-cell {% if comp %}gf-filled{% endif %}"
+                 data-cell="{{ cell_id }}"
+                 data-pid="{{ p.id }}"
+                 onclick="openPopup('{{ cell_id }}')"
+                 title="{{ cell_id }}{% if comp %} — {{ comp.description or comp.lcsc_part_number }}{% endif %}">
+
+                <span class="gf-cell-id">{{ cell_id }}</span>
+
+                {% if comp %}
+                    {% if comp.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=comp.image_path.split('images/')|last) }}"
+                         class="gf-cell-img"/>
+                    {% else %}
+                    <span class="gf-cell-icon">📦</span>
+                    {% endif %}
+                    <span class="gf-cell-name">{{ (comp.description or comp.lcsc_part_number or '?')[:28] }}</span>
+                    <span class="gf-cell-qty">{{ comp.quantity }} pcs</span>
+                {% else %}
+                    <span class="gf-cell-plus">+</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ── Popup sélecteur ───────────────────────────────────────────── -->
+<div id="cell-popup" onclick="if(event.target===this)closePopup()"
+     style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.75);align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;width:500px;max-width:95vw;height:560px;display:flex;flex-direction:column;gap:.75rem;box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;gap:.75rem">
+            <div>
+                <div style="font-weight:800;font-size:1rem" id="popup-title">Case A1</div>
+                <div style="font-size:.75rem;color:var(--text-muted)" id="popup-current">Vide</div>
+            </div>
+            <span id="popup-remaining" style="margin-left:auto;font-size:.75rem;color:var(--text-muted)"></span>
+            <button onclick="closePopup()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1">✕</button>
+        </div>
+        <input type="text" id="popup-search" class="form-input"
+               placeholder="🔍 Chercher un composant, une référence LCSC…"
+               oninput="filterPopup(this.value)"/>
+        <div id="popup-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.2rem;padding-right:.25rem"></div>
+        <div style="display:flex;gap:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">
+            <button class="btn btn-danger btn-sm" onclick="clearCell()">🗑️ Vider la case</button>
+            <button class="btn btn-secondary btn-sm" onclick="closePopup()" style="margin-left:auto">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Cellules Gridfinity ───────────────────────────────────────── */
+.gf-cell {
+    width: 88px; height: 88px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 2px; padding: 5px;
+    transition: border-color .15s, background .15s, transform .1s;
+    position: relative; overflow: hidden;
+}
+.gf-cell:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(124,108,255,.2); }
+.gf-cell.gf-filled { border-color: var(--accent); background: var(--accent-dim); }
+.gf-cell.gf-filled:hover { background: rgba(124,108,255,.18); }
+
+.gf-cell-id {
+    position: absolute; top: 4px; left: 5px;
+    font-size: .58rem; font-weight: 800;
+    font-family: var(--mono); letter-spacing: .02em;
+    color: var(--text-faint);
+}
+.gf-cell.gf-filled .gf-cell-id { color: var(--accent); }
+
+.gf-cell-img {
+    width: 40px; height: 40px;
+    object-fit: contain; border-radius: 5px;
+    background: #fff; margin-top: 8px; flex-shrink: 0;
+}
+.gf-cell-icon { font-size: 1.5rem; margin-top: 8px; }
+.gf-cell-plus { font-size: 1.6rem; opacity: .1; margin-top: 8px; }
+.gf-cell-name {
+    font-size: .52rem; font-weight: 600;
+    color: var(--text); text-align: center; line-height: 1.25;
+    word-break: break-word;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; max-width: 80px;
+}
+.gf-cell-qty { font-size: .58rem; color: var(--accent); font-weight: 700; }
+</style>
+
+<script>
+const COMPONENTS  = {{ components | tojson }};
+let   assignments = {{ assignments | tojson }};
+let   currentCell = null;
+let   activePid   = '{{ config.plateaux[0].id if config.plateaux else "" }}';
+const CONFIG      = {{ config | tojson }};
+
+// ── Tabs ─────────────────────────────────────────────────────────
+function switchTab(pid) {
+    activePid = pid;
+    // Grilles
+    document.querySelectorAll('.gf-plateau').forEach(el => {
+        el.style.display = el.dataset.pid === pid ? 'flex' : 'none';
+    });
+    // Tabs
+    document.querySelectorAll('.gf-tab').forEach(btn => {
+        const active = btn.dataset.pid === pid;
+        btn.style.background = active ? 'var(--accent)' : 'transparent';
+        btn.style.color = active ? '#fff' : 'var(--text-muted)';
+    });
+    updateStats(pid);
+}
+
+function updateStats(pid) {
+    const p = CONFIG.plateaux.find(x => x.id === pid);
+    if (!p) return;
+    const total    = p.cols * p.rows;
+    const filled   = Object.entries(assignments).filter(([k,v]) => k.startsWith(pid) && v).length;
+    const pct      = total ? Math.round(filled / total * 100) : 0;
+    document.getElementById('stat-nom').textContent  = p.label;
+    document.getElementById('stat-dims').textContent = `${p.cols}×${p.rows} cases`;
+    document.getElementById('stat-fill').textContent = `${filled}/${total} occupées · ${pct}%`;
+    document.getElementById('stat-bar').style.width  = pct + '%';
+}
+
+// ── Popup ────────────────────────────────────────────────────────
+function openPopup(cellId) {
+    currentCell = cellId;
+    const compId = assignments[cellId];
+    const comp   = compId ? COMPONENTS.find(c => c.id == compId) : null;
+    document.getElementById('popup-title').textContent   = `Case ${cellId}`;
+    document.getElementById('popup-current').textContent = comp
+        ? `Actuellement : ${comp.description || comp.lcsc_part_number}`
+        : 'Case vide';
+    // Compteur composants non placés
+    const placed = new Set(Object.values(assignments).map(v => String(v)));
+    const remaining = COMPONENTS.filter(c => !placed.has(String(c.id))).length;
+    document.getElementById('popup-remaining').textContent = `${remaining} composant${remaining > 1 ? 's' : ''} sans emplacement`;
+    document.getElementById('popup-search').value = '';
+    filterPopup('');
+    const popup = document.getElementById('cell-popup');
+    popup.style.display = 'flex';
+    setTimeout(() => document.getElementById('popup-search').focus(), 60);
+}
+
+function closePopup() {
+    document.getElementById('cell-popup').style.display = 'none';
+    currentCell = null;
+}
+
+function filterPopup(q) {
+    const lq   = q.toLowerCase();
+    const list = document.getElementById('popup-list');
+    const cur  = assignments[currentCell];
+    const alreadyPlaced = new Set(Object.values(assignments).map(v => String(v)));
+    const filtered = COMPONENTS.filter(c =>
+        // Garde le composant actuellement assigné à cette case
+        String(c.id) === String(assignments[currentCell])
+        // Ou ceux qui ne sont pas encore placés
+        || !alreadyPlaced.has(String(c.id))
+    ).filter(c =>
+        !q
+        || (c.description || '').toLowerCase().includes(lq)
+        || (c.lcsc_part_number || '').toLowerCase().includes(lq)
+        || (c.manufacture_part_number || '').toLowerCase().includes(lq)
+        || (c.package || '').toLowerCase().includes(lq)
+    ).slice(0, 50);
+
+    if (!filtered.length) {
+        list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem">Aucun résultat</div>';
+        return;
+    }
+
+    list.innerHTML = filtered.map(c => {
+        const isCur = cur == c.id;
+        // Trouve si ce composant est déjà placé ailleurs
+        const placed = Object.entries(assignments).find(([k,v]) => v == c.id && k !== currentCell);
+        return `<div onclick="selectComp(${c.id})"
+            style="display:flex;align-items:center;gap:.65rem;padding:.45rem .6rem;border-radius:7px;cursor:pointer;
+                   background:${isCur ? 'var(--accent-dim)' : 'transparent'};
+                   border:1px solid ${isCur ? 'var(--accent)' : 'transparent'};transition:background .1s"
+            onmouseover="this.style.background='${isCur ? 'var(--accent-dim)' : 'var(--bg-hover)'}'"
+            onmouseout="this.style.background='${isCur ? 'var(--accent-dim)' : 'transparent'}'">
+            ${c.image_path
+                ? `<img src="/images/${c.image_path.split('images/').pop()}" style="width:36px;height:36px;object-fit:contain;border-radius:5px;background:#fff;flex-shrink:0"/>`
+                : `<div style="width:36px;height:36px;background:var(--bg-surface);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">📦</div>`}
+            <div style="flex:1;min-width:0">
+                <div style="font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${isCur ? 'var(--accent)' : 'var(--text)'}">
+                    ${c.description || c.manufacture_part_number || '—'}
+                </div>
+                <div style="font-size:.7rem;color:var(--text-muted);display:flex;gap:.5rem;margin-top:1px">
+                    <span style="font-family:var(--mono)">${c.lcsc_part_number || ''}</span>
+                    ${c.package ? `<span class="badge badge-gray" style="font-size:.6rem">${c.package}</span>` : ''}
+                    <span style="color:${c.quantity < 5 ? 'var(--warning)' : 'var(--text-muted)'}">${c.quantity} pcs</span>
+                    ${placed ? `<span style="color:var(--info);font-size:.65rem">📍 ${placed[0]}</span>` : ''}
+                </div>
+            </div>
+            ${isCur ? '<span style="color:var(--accent);font-size:1rem;flex-shrink:0">✓</span>' : ''}
+        </div>`;
+    }).join('');
+}
+
+function selectComp(compId) {
+    if (!currentCell) return;
+    // Retire l'ancienne assignation de ce composant
+    for (const [k, v] of Object.entries(assignments)) {
+        if (v == compId && k !== currentCell) delete assignments[k];
+    }
+    assignments[currentCell] = compId;
+    const cell = currentCell;
+    closePopup();
+    refreshCell(cell);
+    updateStats(activePid);
+    updateTabCount(activePid);
+    // Sauvegarde immédiate en BDD
+    autoSave();
+}
+
+function clearCell() {
+    if (!currentCell) return;
+    delete assignments[currentCell];
+    const cell = currentCell;
+    closePopup();
+    refreshCell(cell);
+    updateStats(activePid);
+    updateTabCount(activePid);
+    autoSave();
+}
+
+// ── Rafraîchit une cellule ────────────────────────────────────────
+function refreshCell(cellId) {
+    const cell   = document.querySelector(`.gf-cell[data-cell="${cellId}"]`);
+    if (!cell) return;
+    const compId = assignments[cellId];
+    const comp   = compId ? COMPONENTS.find(c => c.id == compId) : null;
+
+    cell.className = 'gf-cell' + (comp ? ' gf-filled' : '');
+    cell.title = cellId + (comp ? ' — ' + (comp.description || comp.lcsc_part_number) : '');
+
+    // Reconstruit le contenu
+    const idSpan = cell.querySelector('.gf-cell-id');
+    cell.innerHTML = '';
+    const id = document.createElement('span');
+    id.className = 'gf-cell-id';
+    id.textContent = cellId;
+    cell.appendChild(id);
+
+    if (comp) {
+        if (comp.image_path) {
+            const img = document.createElement('img');
+            img.src = '/images/' + comp.image_path.split('images/').pop();
+            img.className = 'gf-cell-img';
+            cell.appendChild(img);
+        } else {
+            const ic = document.createElement('span');
+            ic.className = 'gf-cell-icon';
+            ic.textContent = '📦';
+            cell.appendChild(ic);
+        }
+        const name = document.createElement('span');
+        name.className = 'gf-cell-name';
+        name.textContent = (comp.description || comp.lcsc_part_number || '?').slice(0, 28);
+        cell.appendChild(name);
+        const qty = document.createElement('span');
+        qty.className = 'gf-cell-qty';
+        qty.textContent = comp.quantity + ' pcs';
+        cell.appendChild(qty);
+    } else {
+        const plus = document.createElement('span');
+        plus.className = 'gf-cell-plus';
+        plus.textContent = '+';
+        cell.appendChild(plus);
+    }
+}
+
+function updateTabCount(pid) {
+    const p = CONFIG.plateaux.find(x => x.id === pid);
+    if (!p) return;
+    const total  = p.cols * p.rows;
+    const filled = Object.entries(assignments).filter(([k,v]) => k.startsWith(pid) && v).length;
+    const el = document.querySelector(`.gf-tab-count[data-pid="${pid}"]`);
+    if (el) el.textContent = filled ? `${filled}/${total}` : `${p.cols}×${p.rows}`;
+}
+
+// ── Config plateaux ───────────────────────────────────────────────
+function toggleConfig() {
+    const p = document.getElementById('config-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function addPlateau() {
+    const list = document.getElementById('plateau-list');
+    const div  = document.createElement('div');
+    div.className = 'plateau-cfg-row';
+    div.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.45rem .75rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)';
+    div.innerHTML = `
+        <input type="text" placeholder="ID" value="" class="form-input cfg-pid" style="width:52px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono)"/>
+        <input type="text" placeholder="Nom du plateau" value="Nouveau plateau" class="form-input cfg-plabel" style="flex:1"/>
+        <span style="font-size:.78rem;color:var(--text-muted)">Col.</span>
+        <input type="number" value="5" min="1" max="20" class="form-input cfg-pcols" style="width:52px;text-align:center"/>
+        <span style="font-size:.78rem;color:var(--text-muted)">Rng.</span>
+        <input type="number" value="4" min="1" max="20" class="form-input cfg-prows" style="width:52px;text-align:center"/>
+        <button onclick="removePlateau(this)" class="btn btn-danger btn-sm">🗑</button>
+    `;
+    list.appendChild(div);
+}
+
+function removePlateau(btn) {
+    if (!confirm('Supprimer ce plateau et ses assignations ?')) return;
+    btn.closest('.plateau-cfg-row').remove();
+}
+
+function saveConfig() {
+    const rows = document.querySelectorAll('.plateau-cfg-row');
+    const plateaux = [...rows].map(r => ({
+        id:    r.querySelector('.cfg-pid').value.toUpperCase().trim() || 'X',
+        label: r.querySelector('.cfg-plabel').value.trim() || 'Plateau',
+        cols:  parseInt(r.querySelector('.cfg-pcols').value) || 5,
+        rows:  parseInt(r.querySelector('.cfg-prows').value) || 4,
+    }));
+    fetch('/gridfinity/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({config: {plateaux}, assignments})
+    }).then(() => window.location.reload());
+}
+
+// ── Auto-save silencieux ──────────────────────────────────────────
+let _saveTimer = null;
+function autoSave() {
+    // Indicateur discret
+    const btn = document.getElementById('btn-save');
+    btn.textContent = '⏳ Sauvegarde…';
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+        fetch('/gridfinity/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({assignments})
+        })
+        .then(r => r.json())
+        .then(() => {
+            btn.textContent = '✅ Sauvegardé';
+            setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 1800);
+        })
+        .catch(() => { btn.textContent = '💾 Sauvegarder'; });
+    }, 600);
+}
+
+// ── Sauvegarde manuelle ───────────────────────────────────────────
+function saveAll() {
+    const btn = document.getElementById('btn-save');
+    btn.textContent = '⏳ Sauvegarde…';
+    btn.disabled = true;
+    fetch('/gridfinity/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({assignments})
+    })
+    .then(r => r.json())
+    .then(() => {
+        btn.textContent = '✅ Sauvegardé !';
+        setTimeout(() => { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; }, 2000);
+    })
+    .catch(() => { btn.textContent = '❌ Erreur'; btn.disabled = false; });
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopup(); });
+updateStats(activePid);
+CONFIG.plateaux.forEach(p => updateTabCount(p.id));
+</script>
+{% endblock %}

@@ -203,6 +203,19 @@
             </div>
         </div>
 
+        <!-- Historique -->
+        <div class="settings-card">
+            <div class="settings-card-title">📋 Historique des mouvements</div>
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                Supprime tous les mouvements enregistrés (entrées, sorties, ajustements).
+                Le stock lui-même n'est pas affecté.
+            </p>
+            <form method="post" onsubmit="return confirm('Vider tout l'historique ? Cette action est irréversible.')">
+                <input type="hidden" name="action" value="clear_history"/>
+                <button type="submit" class="btn btn-danger">🗑️ Vider l'historique</button>
+            </form>
+        </div>
+
         <!-- Nettoyage -->
         <div class="settings-card">
             <div class="settings-card-title">🧹 Nettoyage</div>

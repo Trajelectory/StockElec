@@ -1,0 +1,115 @@
+/* ── Dashboard (v2) ─────────────────────────────────────────────── */
+.dash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+    gap: 1rem; margin-bottom: 1.25rem;
+}
+.dash-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.1rem 1.25rem;
+    display: flex; flex-direction: column; gap: .35rem;
+    position: relative; overflow: hidden;
+    transition: border-color .15s;
+}
+.dash-card:hover { border-color: var(--accent); }
+.dash-card-accent {
+    position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+}
+.dash-card-label { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+.dash-card-val {
+    font-size: 2.2rem; font-weight: 900; line-height: 1;
+    letter-spacing: -.04em;
+}
+.dash-card-sub { font-size: .78rem; color: var(--text-muted); }
+.dash-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
+@media (max-width: 820px) { .dash-row { grid-template-columns: 1fr; } }
+.dash-section-title {
+    font-size: .72rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .1em; color: var(--text-muted);
+    margin-bottom: .65rem; display: flex; align-items: center; gap: .4rem;
+}
+
+/* ── Historique mouvements (v2) ─────────────────────────────────── */
+.mv-badge-in  { background: var(--success-dim); color: var(--success); }
+.mv-badge-out { background: var(--danger-dim);  color: var(--danger);  }
+.mv-badge-adj { background: var(--info-dim);    color: var(--info);    }
+.mv-badge-init { background: var(--warning-dim); color: var(--warning); }
+
+/* ── Commandes / réapprovisionnement (v2) ───────────────────────── */
+.order-row-urgent { background: rgba(244,63,94,.05); }
+.order-row-urgent:hover { background: rgba(244,63,94,.08) !important; }
+
+/* ── Catégories custom ──────────────────────────────────────────── */
+.catmgr-group { margin-bottom: .25rem; }
+.catmgr-group-header {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .65rem .75rem; background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+}
+.catmgr-group-icon { font-size: 1rem; }
+.catmgr-group-name { font-weight: 700; font-size: .92rem; flex: 1; }
+.catmgr-count {
+    font-size: .72rem; color: var(--text-muted);
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 1rem; padding: .1rem .5rem;
+}
+.catmgr-del-form { display: inline-flex; }
+.catmgr-del-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: .8rem;
+    padding: .25rem .45rem; border-radius: 4px;
+    transition: background .12s, color .12s; white-space: nowrap;
+}
+.catmgr-del-btn:hover { background: var(--danger-dim); color: var(--danger); }
+.catmgr-group-header .catmgr-del-btn { font-size: .75rem; }
+.catmgr-children {
+    margin: .3rem 0 .3rem 1.5rem;
+    border-left: 2px solid var(--border); padding-left: .75rem;
+    display: flex; flex-direction: column; gap: .2rem;
+}
+.catmgr-child {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .35rem .5rem; border-radius: 4px;
+    font-size: .85rem; transition: background .1s;
+}
+.catmgr-child:hover { background: var(--bg-surface); }
+.catmgr-child-name { font-weight: 500; min-width: 100px; }
+.catmgr-child-path { color: var(--text-muted); font-size: .72rem; flex: 1; font-family: var(--mono); }
+.catmgr-tip { font-size: .75rem; color: var(--text-muted); line-height: 1.5; }
+
+/* ── EasyEDA manquants ──────────────────────────────────────────── */
+.easyeda-missing-list {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    overflow: hidden; margin-bottom: .25rem;
+    max-height: 220px; overflow-y: auto;
+}
+.easyeda-missing-row {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .4rem .75rem; font-size: .8rem;
+    border-bottom: 1px solid var(--border);
+}
+.easyeda-missing-row:last-child { border-bottom: none; }
+.easyeda-missing-row:hover { background: var(--bg-surface); }
+.easyeda-missing-name { flex: 1; color: var(--text); text-decoration: none; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.easyeda-missing-name:hover { color: var(--accent); }
+.easyeda-missing-ref { font-family: var(--mono); font-size: .72rem; color: var(--accent); flex-shrink: 0; }
+.easyeda-missing-status { display: flex; gap: .25rem; flex-shrink: 0; }
+
+/* ── Divers ─────────────────────────────────────────────────────── */
+.stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr));
+    gap: .75rem; margin-bottom: 1rem;
+}
+.stat-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: .9rem 1rem; text-align: center;
+}
+.stat-value { font-size: 1.8rem; font-weight: 800; }
+.stat-label { font-size: .75rem; color: var(--text-muted); }
+
+.mono { font-family: var(--mono); }
+.text-muted { color: var(--text-muted); }
+.text-success { color: var(--success); }
+.text-danger  { color: var(--danger);  }
+.text-warning { color: var(--warning); }
+.text-accent  { color: var(--accent);  }

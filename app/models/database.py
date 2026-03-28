@@ -121,4 +121,26 @@ def init_db(app):
             if col not in existing_cols:
                 db.execute(f"ALTER TABLE components ADD COLUMN {col} TEXT")
 
-        db.commit()
+        _migrate_v2(db)
+
+
+def _migrate_v2(db):
+    """Migrations v2.0 — historique des mouvements."""
+    # Vérifie si la table existe avec le bon schéma
+    cols = {r[1] for r in db.execute("PRAGMA table_info(stock_movements)").fetchall()}
+    if cols and "quantity" not in cols:
+        # Ancienne table sans la colonne quantity — on la recrée
+        db.execute("DROP TABLE IF EXISTS stock_movements")
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS stock_movements (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            component_id INTEGER NOT NULL,
+            type         TEXT NOT NULL,
+            quantity     INTEGER NOT NULL,
+            note         TEXT,
+            project_id   INTEGER,
+            created_at   TEXT DEFAULT (datetime('now','localtime')),
+            FOREIGN KEY(component_id) REFERENCES components(id) ON DELETE CASCADE
+        )
+    """)
+    db.commit()

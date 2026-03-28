@@ -1,0 +1,17 @@
+/* ── Étiquettes ─────────────────────────────────────────────────── */
+.lbl-img { display:flex; align-items:center; justify-content:center; background:#fff; flex-shrink:0; }
+.lbl-img img { object-fit:contain; }
+.lbl-body { flex:1; overflow:hidden; display:flex; flex-direction:column; justify-content:center; gap:1px; }
+.lbl-desc { font-weight:700; line-height:1.2; word-break:break-word; }
+.lbl-ref { font-family:'Courier New',monospace; }
+.lbl-ref-label { font-size:.55rem; color:#888; text-transform:uppercase; letter-spacing:.05em; }
+.lbl-badges { display:flex; flex-wrap:wrap; gap:1px; margin-top:1px; }
+.lbl-badge { border-radius:2px; font-weight:700; }
+.lbl-price { font-family:'Courier New',monospace; }
+.lbl-qr { display:flex; align-items:center; justify-content:center; background:#fff; flex-shrink:0; }
+.lbl-qr img { object-fit:contain; }
+.b-pkg,.b-rohs,.b-qty,.b-loc,.b-cat { color:#fff; }
+.lbl-lcsc,.lbl-mfr,.lbl-mfg,.lbl-price {}
+
+/* ── Alertes stock bas ──────────────────────────────────────────── */
+.alerts-table .alert-row td { color: var(--warning); }

@@ -20,7 +20,31 @@ component_bp = Blueprint("components", __name__)
 # ------------------------------------------------------------------ #
 
 @component_bp.route("/")
-def index():
+def home():
+    """Page d'accueil — barre de recherche + derniers composants."""
+    from ..models.database import get_db
+    db = get_db()
+
+    stats = db.execute("""
+        SELECT COUNT(*) AS n_components,
+               SUM(quantity) AS n_total_qty,
+               SUM(CASE WHEN min_stock > 0 AND quantity <= min_stock THEN 1 ELSE 0 END) AS n_alerts
+        FROM components
+    """).fetchone()
+
+    recent = db.execute("""
+        SELECT id, description, manufacture_part_number, lcsc_part_number,
+               package, quantity, min_stock, unit_price, image_path
+        FROM components
+        ORDER BY created_at DESC LIMIT 5
+    """).fetchall()
+
+    return render_template("components/home.html",
+        stats=stats, recent=recent)
+
+
+@component_bp.route("/stock")
+def stock():
     search   = request.args.get("search", "").strip()
     category = request.args.get("category", "").strip()
     sort_by  = request.args.get("sort_by", "description")
@@ -78,6 +102,12 @@ def adjust(component_id):
 
     result = ComponentModel.adjust_quantity(component_id, delta)
     if result["ok"]:
+        # Enregistre le mouvement
+        try:
+            from ..models.movement import MovementModel
+            MovementModel.record(component_id, "in" if delta > 0 else "out", abs(delta))
+        except Exception:
+            pass
         comp = ComponentModel.get_by_id(component_id)
         return jsonify({
             "ok":       True,
@@ -86,6 +116,95 @@ def adjust(component_id):
             "min_stock": comp.min_stock,
         })
     return jsonify({"ok": False, "error": result["error"]}), 400
+
+
+# ------------------------------------------------------------------ #
+#  Export CSV du stock (v2)
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/export/csv")
+def export_csv():
+    import csv, io
+    from ..models.database import get_db
+    db = get_db()
+    rows = db.execute("""
+        SELECT lcsc_part_number, manufacture_part_number, manufacturer,
+               description, package, rohs, quantity, min_stock,
+               unit_price, ext_price, category, location, notes,
+               datasheet_url, created_at
+        FROM components ORDER BY description
+    """).fetchall()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["LCSC", "Réf. fab.", "Fabricant", "Description", "Package",
+                     "RoHS", "Quantité", "Seuil alerte", "Prix unit.", "Prix total",
+                     "Catégorie", "Emplacement", "Notes", "Datasheet", "Créé le"])
+    for r in rows:
+        writer.writerow(list(r))
+
+    from flask import Response
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=stockelec_export.csv"}
+    )
+
+
+# ------------------------------------------------------------------ #
+#  Historique des mouvements (v2)
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/history")
+def history():
+    from ..models.movement import MovementModel
+    from ..models.database import get_db
+    db = get_db()
+
+    component_id = request.args.get("component_id", type=int)
+    type_filter  = request.args.get("type", "")
+    limit        = int(request.args.get("limit", 200))
+
+    movements = MovementModel.get_recent(limit=limit, component_id=component_id)
+    if type_filter:
+        movements = [m for m in movements if m["type"] == type_filter]
+
+    # Pour le filtre par composant
+    component = None
+    if component_id:
+        comp = db.execute("SELECT id, description FROM components WHERE id=?", (component_id,)).fetchone()
+        component = dict(comp) if comp else None
+
+    return render_template("components/history.html",
+        movements=movements, component=component,
+        type_filter=type_filter, limit=limit,
+        movement_types=__import__('app.models.movement', fromlist=['MovementModel']).MovementModel.TYPES
+    )
+
+
+# ------------------------------------------------------------------ #
+#  Commandes / Réapprovisionnement (v2)
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/reorder")
+def reorder():
+    from ..models.database import get_db
+    db = get_db()
+
+    # Composants sous le seuil ou sans stock, avec ref LCSC
+    rows = db.execute("""
+        SELECT id, description, lcsc_part_number, manufacture_part_number,
+               manufacturer, quantity, min_stock, unit_price, image_path,
+               CASE WHEN quantity = 0 THEN 'rupture'
+                    WHEN quantity <= min_stock THEN 'bas'
+                    ELSE 'ok' END AS stock_status,
+               MAX(0, min_stock * 3 - quantity) AS suggested_qty
+        FROM components
+        WHERE (quantity = 0 OR (min_stock > 0 AND quantity <= min_stock))
+        ORDER BY quantity ASC, description
+    """).fetchall()
+
+    return render_template("components/reorder.html", items=[dict(r) for r in rows])
 
 
 # ------------------------------------------------------------------ #
@@ -198,7 +317,7 @@ def import_csv():
             flash(f"🔍 Récupération LCSC en cours pour {len(component_ids)} composant(s)…", "info")
             _enrich_async(component_ids)
 
-        return redirect(url_for("components.index"))
+        return redirect(url_for("components.stock"))
 
     return ComponentView.render_import()
 
@@ -314,7 +433,7 @@ def labels_print():
 
     if not ids:
         flash("Aucun composant sélectionné.", "warning")
-        return redirect(url_for("components.index"))
+        return redirect(url_for("components.stock"))
 
     from ..models.settings import SettingsModel as _SM
     _configured = _SM.get("base_url", "").strip().rstrip("/")
@@ -335,7 +454,7 @@ def labels_print():
 
     if not components_data:
         flash("Aucun composant trouvé.", "warning")
-        return redirect(url_for("components.index"))
+        return redirect(url_for("components.stock"))
 
     # Charge la config étiquette
     from ..models.settings import SettingsModel
@@ -357,7 +476,7 @@ def detail(component_id):
     comp = ComponentModel.get_by_id(component_id)
     if comp is None:
         flash("Composant introuvable.", "danger")
-        return redirect(url_for("components.index"))
+        return redirect(url_for("components.stock"))
     from ..models.project import ProjectModel
     projects_using = ProjectModel.get_projects_for_component(component_id)
     return ComponentView.render_detail(comp, projects_using=projects_using)
@@ -393,7 +512,7 @@ def edit(component_id):
     comp = ComponentModel.get_by_id(component_id)
     if comp is None:
         flash("Composant introuvable.", "danger")
-        return redirect(url_for("components.index"))
+        return redirect(url_for("components.stock"))
 
     if request.method == "POST":
         data = _form_to_dict(request.form)
@@ -417,7 +536,7 @@ def edit(component_id):
 def delete(component_id):
     ComponentModel.delete(component_id)
     flash("Composant supprimé.", "success")
-    return redirect(url_for("components.index"))
+    return redirect(url_for("components.stock"))
 
 
 # ------------------------------------------------------------------ #
@@ -608,6 +727,14 @@ def settings():
                 flash(f"🔍 Enrichissement lancé pour {len(ids)} composant(s).", "info")
             else:
                 flash("✅ Tous les composants sont déjà enrichis.", "success")
+
+        # ── Vider l'historique des mouvements ───────────────────────
+        elif action == "clear_history":
+            db = get_db()
+            count = db.execute("SELECT COUNT(*) FROM stock_movements").fetchone()[0]
+            db.execute("DELETE FROM stock_movements")
+            db.commit()
+            flash(f"🗑️ Historique vidé — {count} mouvement(s) supprimé(s).", "success")
 
         # ── Nettoyage images orphelines ──────────────────────────────
         elif action == "clean_images":
@@ -869,3 +996,64 @@ def _enrich_async(component_ids):
                 delay=0.5,
             )
     threading.Thread(target=worker, daemon=True).start()
+
+
+# ------------------------------------------------------------------ #
+#  Plan Gridfinity
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/gridfinity")
+def gridfinity():
+    from ..models.database import get_db
+    import json as _json
+    db = get_db()
+
+    # Config des plateaux (sauvegardée en settings)
+    raw = SettingsModel.get("gridfinity_config", "")
+    try:
+        config = _json.loads(raw) if raw else {"plateaux": [
+            {"id": "A", "label": "Plateau A", "cols": 5, "rows": 4},
+        ]}
+    except Exception:
+        config = {"plateaux": [{"id": "A", "label": "Plateau A", "cols": 5, "rows": 4}]}
+
+    # Assignations case → composant
+    raw_assign = SettingsModel.get("gridfinity_assign", "")
+    try:
+        assignments = _json.loads(raw_assign) if raw_assign else {}
+    except Exception:
+        assignments = {}
+
+    # Tous les composants pour le sélecteur
+    components = db.execute("""
+        SELECT id, description, manufacture_part_number, lcsc_part_number,
+               package, quantity, image_path, location
+        FROM components ORDER BY description
+    """).fetchall()
+
+    return render_template("components/gridfinity.html",
+        config=config,
+        assignments=assignments,
+        components=[dict(c) for c in components],
+    )
+
+
+@component_bp.route("/gridfinity/save", methods=["POST"])
+def gridfinity_save():
+    import json as _json
+    data = request.get_json() or {}
+
+    if "config" in data:
+        SettingsModel.set("gridfinity_config", _json.dumps(data["config"]))
+    if "assignments" in data:
+        SettingsModel.set("gridfinity_assign", _json.dumps(data["assignments"]))
+        # Met aussi à jour le champ location des composants
+        from ..models.database import get_db
+        db = get_db()
+        for cell_id, comp_id in data["assignments"].items():
+            if comp_id:
+                db.execute("UPDATE components SET location=? WHERE id=?",
+                           (cell_id, comp_id))
+        db.commit()
+
+    return jsonify({"ok": True})

@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h1>🔔 Composants sous seuil d'alerte</h1>
-    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour</a>
+    <a href="{{ url_for('components.stock') }}" class="btn-back">← Retour</a>
 </div>
 
 {% if components %}
@@ -62,7 +62,7 @@
 <div class="empty-state">
     <p class="empty-icon">✅</p>
     <p>Tous les composants sont au-dessus de leur seuil d'alerte.</p>
-    <a href="{{ url_for('components.index') }}" class="btn btn-primary">Retour au stock</a>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">Retour au stock</a>
 </div>
 {% endif %}
 

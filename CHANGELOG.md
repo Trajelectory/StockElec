@@ -1,239 +1,130 @@
-# Changelog — StockElec
+# Changelog — StockElectory
 
 ---
 
-## v1.0 — Base de l'application
+## v2.0 — Refonte majeure 🎉
 
+> Release publique. Réécriture complète du design, nouvelles fonctionnalités atelier, plan Gridfinity.
+
+### 🎨 Design system v2
+- Nouveau design sombre violet/indigo (`#7c6cff`) — fini le bleu
+- Typographie **Inter** (Google Fonts) avec poids 800 pour les titres
+- Navbar avec backdrop blur, liens actifs avec bordure subtile
+- Boutons, badges et alertes redessinés de zéro
+- CSS modulaire : `style.css` de 40 lignes avec `@import` vers 15 modules dans `modules/`
+
+### 🏠 Page d'accueil repensée
+- Grande barre de recherche centrée (style Google) avec soumission automatique au bout de 400ms
+- Compteurs discrets : références, pièces totales, alertes
+- 5 raccourcis rapides (Stock, Ajouter, Projets, Alertes, Commander)
+- Tableau des 5 derniers composants ajoutés, pleine largeur
+- Route `/` → page d'accueil, `/stock` → tableau complet
+
+### 📋 Historique des mouvements
+- Table `stock_movements` en base — chaque +/− enregistré automatiquement
+- Page `/history` filtrable par type (entrée / sortie / ajustement) et par limite
+- Types : 📥 Entrée, 📤 Sortie, 🔧 Ajustement, 🌱 Initialisation
+
+### 🛒 Réapprovisionnement
+- Page `/reorder` : liste automatique des composants en rupture ou sous le seuil
+- Quantité suggérée (3× le seuil), prix estimé de la commande, liens directs LCSC
+
+### ⬇️ Export CSV
+- Un clic pour télécharger tout le stock en `.csv` (`/export/csv`)
+
+### 📦 Plan Gridfinity ⭐ *nouveauté*
+- Page visuelle pour planifier l'organisation physique de son atelier
+- Grille de cases cliquables représentant les plateaux Gridfinity imprimés en 3D
+- Plusieurs plateaux configurables (ID, nom, colonnes × rangées)
+- Navigation par **tabs** — un onglet par plateau, affichage instantané sans rechargement
+- Barre de progression : taux d'occupation de chaque plateau
+- Popup de recherche et d'assignation — n'affiche que les composants sans emplacement
+- Sauvegarde automatique en BDD dès l'assignation, mise à jour du champ `location`
+
+### ⚙️ Paramètres
+- Bouton **🗑️ Vider l'historique** avec confirmation
+- Vider l'historique ne touche pas au stock
+
+### 🔧 Serveur de production
+- Remplacement du serveur de développement Flask par **Waitress**
+- Démarrage propre, sans warning, avec fallback automatique si Waitress absent
+- `pip install waitress` pour l'activer
+
+### 🐛 Bugs corrigés
+| Composant | Bug | Correction |
+|---|---|---|
+| CSS | `.td-qty-wrap { display:flex }` cassait l'alignement vertical | Supprimé du `legacy.css` |
+| CSS | `.proj-cat-row { display:flex }` cassait le tableau projets | Supprimé du `legacy.css` |
+| Dashboard | `{% continue %}` non supporté Jinja2 | Remplacé par `{% if vis %}` |
+| Migration DB | Table `stock_movements` sans colonne `quantity` | Détection et recréation automatique |
+| Navbar | Lien brand pointait vers route supprimée | Corrigé vers `components.home` |
+| Étiquettes | Aperçu affichait l'image brute sans structure | Reconstruction HTML inline |
+
+---
+
+## v1.x — Historique complet
+
+<details>
+<summary>Voir l'historique des versions 1.x</summary>
+
+## v1.0 — Base de l'application
 - Architecture **Flask + SQLite + MVC**
 - Tableau paginé, recherche, tri multi-colonnes
 - Import CSV LCSC (format export commande)
 - Ajout / édition / suppression de composants
-- Fiche détail complète
-- Thème sombre
-
----
+- Fiche détail complète — thème sombre
 
 ## v1.1 — Enrichissement LCSC
-
 - Service `lcsc_scraper.py` : scraping `wmsc.lcsc.com`
 - Récupération automatique catégorie, image, datasheet
 - Thread daemon avec pause ~0.6s entre requêtes
-- Bouton 📷 pour relancer manuellement
-
----
 
 ## v1.2 — Déduplication et pagination
-
 - Déduplication à l'import par référence LCSC (UNIQUE en base)
 - Pagination (25 / 50 / 100 par page)
 
----
-
 ## v1.3 — Ajout rapide depuis LCSC
-
 - Bloc "⚡ Import rapide LCSC" : saisie ref → prévisualisation → pré-remplissage
-- Route `GET /api/lcsc-preview?ref=C149504`
-
----
 
 ## v1.4 — Projets et alertes stock
-
 - CRUD projets avec image bannière
 - Vérification disponibilité en temps réel, boutons Débiter / Restituer (AJAX)
-- Champ `min_stock`, page 🔔 Alertes + bandeau rouge accueil
-- Boutons +/− AJAX dans le tableau et sur la fiche détail
-
----
+- Champ `min_stock`, page 🔔 Alertes + bandeau rouge
 
 ## v1.5 — Catégories hiérarchiques
-
-- Filtre avec `<optgroup>` par sous-catégorie
-- Macro Jinja `category_select.html` réutilisable
-
----
+- Filtre avec `<optgroup>` par sous-catégorie, macro Jinja réutilisable
 
 ## v1.6 — Import BOM KiCad
-
-- Upload CSV KiCad → rapport ✅/⚠️/❌/—
-- Formats reconnus : KiCad 7/8, plugin JLCPCB, bom2csv
-
----
+- Upload CSV KiCad → rapport ✅/⚠️/❌
+- Formats : KiCad 7/8, plugin JLCPCB, bom2csv
 
 ## v1.7 — Images de projets
-
-- Upload + prévisualisation dans le formulaire
-- Cartes projet avec bannière image
-
----
+- Upload + prévisualisation, cartes projet avec bannière
 
 ## v1.8 — Étiquettes imprimables + QR code
-
-- Route `GET /labels?ids=1,2,3` : impression multi-étiquettes
-- QR code généré **en Python pur** (`qr_generator.py`), zéro CDN externe
-- Cases à cocher multi-sélection dans le tableau + barre flottante
-
----
+- Route `/labels?ids=1,2,3` : impression multi-étiquettes
+- QR code généré en Python pur (`qr_generator.py`), zéro CDN externe
+- Multi-sélection dans le tableau + barre flottante
 
 ## v1.9 — Symbole & Footprint EasyEDA
-
 - Téléchargement PNG symbole + footprint, cache dans `instance/easyeda_pngs/`
-- Galerie sur la fiche détail (Photo / Symbole / Footprint)
-- Lightbox unifiée, clic pour charger à la demande
-
----
+- Galerie sur la fiche détail, lightbox unifiée
 
 ## v1.10 — Support export panier LCSC
-
 - Import CSV format `export_cart_*.csv` détecté automatiquement
 
----
-
 ## v1.11 — Refonte page projet
-
-- Tableau unique colonnes alignées, barre de stats compacte, formulaire rétractable
-- Boutons d'action épurés, images cliquables → lightbox
-
----
+- Tableau unique, barre de stats compacte, formulaire rétractable
 
 ## v1.12 — Configuration des étiquettes
-
 - Page `/label-settings` avec aperçu en temps réel
 - Format, couleurs, tailles de police, 11 toggles on/off
-- Config sauvegardée en base, appliquée à l'impression via CSS Jinja
 
----
+## v1.13 — Paramètres enrichis
+- Nom de l'application, sauvegarde ZIP, stats base, enrichissement en masse
 
-## v1.13 — Page Paramètres enrichie
+## v1.14 à v1.21 — Corrections et ajouts divers
+- Mode ajout en série, catégories personnalisées, upload d'image manuelle
+- Téléchargement EasyEDA en masse + réconciliation, nettoyages CSS
 
-- Nom de l'application, adresse de base QR codes, seuil d'alerte par défaut
-- Sauvegarde ZIP, stats base, enrichissement en masse, nettoyage images
-
----
-
-## v1.14 — Nettoyage du code
-
-- Suppression `movement.py`, `history.html`, `qr.js`, table `stock_movements`
-- Suppression API officielle LCSC, `save_easyeda_svgs()`, `get_categories()`
-- Correction `adjust_quantity()` — résidu `note=` retiré
-
----
-
-## v1.15 — Refonte visuelle complète
-
-### Page stock
-- Barre de stats compacte (4 chiffres inline), badges RoHS/DS inline, seuil ⚡ discret
-
-### Formulaires ajout / édition
-- Layout deux colonnes : infos à gauche, stock/prix sticky à droite
-- Grille 3 colonnes pour les références, calcul auto prix total
-- Bloc "Import rapide LCSC" intégré dans la colonne principale (même largeur que les sections)
-
-### Fiche composant
-- Galerie : grande photo (180×180) + 2 vignettes symbole/footprint côte à côte
-- Champs vides masqués, datasheet en badge violet, ref LCSC cliquable
-- Valeur totale en stock calculée, toolbar supprimée (actions dans la sidebar)
-
-### Page import CSV
-- Deux cartes format (commande + panier), zone de drop améliorée
-- Warning API obsolète supprimé, bouton désactivé sans fichier
-
-### Page projets (liste)
-- Grille `auto-fill` responsive, badge statut sur l'image, cartes hauteur uniforme
-
-### Rapport BOM KiCad
-- Barre de stats compacte, en-têtes de section avec bordure colorée
-
-### Page impression étiquettes
-- Toolbar compacte tout-en-un, bloc "Composants sélectionnés" supprimé
-- Étiquettes plus grandes (4.8x), grille auto-fill
-
-### CSS global
-- 46Ko → 40Ko — 52 blocs et classes morts supprimés
-- CSS formulaire centralisé dans `style.css`
-
----
-
-## v1.16 — Mode ajout en série
-
-- Après validation, reste sur la page d'ajout au lieu de rediriger vers le stock
-- Bandeau vert animé "✅ [Composant] ajouté — voir le stock →"
-- Lien direct vers le stock depuis le bandeau
-
----
-
-## v1.17 — Téléchargement EasyEDA en masse + réconciliation
-
-### Téléchargement en masse
-- Bouton dans ⚙️ Paramètres → "🖼️ Télécharger les manquants"
-- Lance un thread en arrière-plan (0.5s entre requêtes)
-- Compteur des composants sans symbole/footprint
-
-### Réconciliation
-- Bouton "🔗 Réconcilier avec les fichiers" dans les paramètres
-- Scanne `instance/easyeda_pngs/` et met à jour les colonnes manquantes en base
-- Résout le cas où les fichiers existent physiquement mais ne sont pas référencés en DB
-
----
-
-## v1.18 — Nettoyage final
-
-- Suppression des fichiers de debug : `debug_lcsc.py`, `debug_easyeda.py`
-- Racine du projet réduite à l'essentiel : `run.py`, `requirements.txt`, `README.md`, `CHANGELOG.md`, `app/`
-
----
-
-## Corrections de bugs notables
-
-| Version | Bug | Correction |
-|---|---|---|
-| v1.1 | Thread enrichissement tué par le reloader | `use_reloader=False` dans `run.py` |
-| v1.8 | QR code manquant sur les copies 2, 3… | Génération serveur Python pur |
-| v1.10 | Import panier LCSC : champs vides | Mapping `LCSC#` → `lcsc_part_number` |
-| v1.12 | Config étiquettes ignorée à l'impression | CSS généré dynamiquement par Jinja |
-| v1.12 | Page impression blanche | `False` Python → `false` JS (`\| tojson`) |
-| v1.14 | `TypeError: adjust_quantity() got unexpected kwarg 'note'` | Résidu `note=` retiré |
-| v1.15 | Page édition sans layout (colonne unique) | CSS `add-layout` déplacé dans `style.css` |
-
----
-
-## v1.19 — Catégories personnalisées
-
-- Nouvelle page **⚙️ Paramètres → 🗂️ Gérer les catégories** (`/categories`)
-- Création de groupes et sous-catégories personnalisées (IDs négatifs, sans conflit avec LCSC)
-- Suppression individuelle (sous-catégorie) ou en masse (groupe entier + enfants)
-- Les composants liés à une catégorie supprimée sont remis sans catégorie
-- Les catégories custom apparaissent immédiatement dans les selects Ajouter/Éditer
-- Les catégories LCSC restent intouchables
-- Suggestion automatique des groupes existants via `<datalist>`
-- Interface épurée : arborescence avec ligne verticale, boutons discrets (rouge au survol)
-
----
-
-## v1.20 — Upload d'image manuelle
-
-- Champ **🖼️ Image** dans les formulaires Ajouter et Éditer
-- Prévisualisation instantanée avant upload (FileReader JS)
-- Formats acceptés : JPG, PNG, WEBP
-- Sauvegarde dans `instance/images/` — même dossier que les images LCSC
-- Utile pour les composants hors LCSC (vis, fils, modules Arduino, etc.)
-- Si un enrichissement LCSC se déclenche ensuite, l'image LCSC remplace la manuelle
-
----
-
-## v1.21 — Améliorations diverses
-
-### Alertes flash
-- Classes `.alert-success`, `.alert-info`, `.alert-warning`, `.alert-danger` restaurées
-- Avaient été supprimées par erreur lors du nettoyage CSS v1.15 (générées dynamiquement par Flask)
-
-### Pagination
-- Ajout de l'option **5 par page** dans le tableau stock (en plus de 25/50/100)
-
-### EasyEDA — liste des composants manquants
-- La section EasyEDA dans les paramètres affiche désormais la liste détaillée des composants sans symbole/footprint
-- Chaque ligne : nom cliquable vers la fiche, référence LCSC, badges ✗ symbole / ✗ footprint
-- Liste scrollable, limitée à 220px
-
-### Corrections de bugs
-- `NameError: new_qty is not defined` dans `ComponentModel.update()` — variable résiduelle remplacée par `int(data.get("quantity") or 0)`
-- `scrollIntoView('add-form')` dans `applyPreview()` supprimé — élément inexistant depuis la fusion des blocs
+</details>

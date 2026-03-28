@@ -4,41 +4,56 @@
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>{% block title %}{{ app_name or 'StockElec' }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
 </head>
 <body>
 
 <nav class="navbar">
-    <a class="nav-brand" href="{{ url_for('components.index') }}">
-        <span class="nav-icon">⚡</span> {{ app_name or 'StockElec' }}
+    <a class="nav-brand" href="{{ url_for('components.home') }}">
+        <span class="nav-icon">⚡</span>
+        {{ app_name or 'StockElec' }}
     </a>
     <div class="nav-links">
-        <a href="{{ url_for('components.index') }}"
-           class="nav-link {% if request.endpoint == 'components.index' %}active{% endif %}">
-            📦 Stock
-        </a>
-        <a href="{{ url_for('components.alerts') }}"
-           class="nav-link {% if request.endpoint == 'components.alerts' %}active{% endif %}">
-            🔔 Alertes
-            {# badge dynamique injecté par JS #}
-            <span id="nav-alert-badge" class="nav-badge" style="display:none"></span>
+<a href="{{ url_for('components.stock') }}"
+           class="nav-link {% if request.endpoint == 'components.stock' %}active{% endif %}">
+            <span class="nav-emoji">📦</span> Stock
         </a>
         <a href="{{ url_for('projects.index') }}"
            class="nav-link {% if request.endpoint and request.endpoint.startswith('projects.') %}active{% endif %}">
-            🗂️ Projets
+            <span class="nav-emoji">🗂️</span> Projets
         </a>
-
+        <a href="{{ url_for('components.history') }}"
+           class="nav-link {% if request.endpoint == 'components.history' %}active{% endif %}">
+            <span class="nav-emoji">📋</span> Historique
+        </a>
+        <a href="{{ url_for('components.reorder') }}"
+           class="nav-link {% if request.endpoint == 'components.reorder' %}active{% endif %}">
+            <span class="nav-emoji">🛒</span> Commandes
+        </a>
+        <a href="{{ url_for('components.gridfinity') }}"
+           class="nav-link {% if request.endpoint == 'components.gridfinity' %}active{% endif %}">
+            <span class="nav-emoji">📦</span> Gridfinity
+        </a>
+    </div>
+    <div class="nav-right">
+        <a href="{{ url_for('components.alerts') }}"
+           class="nav-link {% if request.endpoint == 'components.alerts' %}active{% endif %}">
+            <span class="nav-emoji">🔔</span>
+            <span id="nav-alert-badge" class="nav-badge" style="display:none"></span>
+        </a>
         <a href="{{ url_for('components.add') }}"
-           class="nav-link {% if request.endpoint == 'components.add' %}active{% endif %}">
+           class="btn btn-primary btn-sm {% if request.endpoint == 'components.add' %}active{% endif %}">
             ➕ Ajouter
         </a>
         <a href="{{ url_for('components.import_csv') }}"
            class="nav-link {% if request.endpoint == 'components.import_csv' %}active{% endif %}">
-            📥 Importer
+            <span class="nav-emoji">📥</span>
         </a>
         <a href="{{ url_for('components.settings') }}"
            class="nav-link {% if request.endpoint == 'components.settings' %}active{% endif %}">
-            ⚙️
+            <span class="nav-emoji">⚙️</span>
         </a>
     </div>
 </nav>
@@ -49,7 +64,6 @@
             <div class="alert alert-{{ category }}">{{ message }}</div>
         {% endfor %}
     {% endwith %}
-
     {% block content %}{% endblock %}
 </main>
 
