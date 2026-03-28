@@ -1,4 +1,5 @@
 # ⚡ StockElectory
+<img width="1329" height="714" alt="image" src="https://github.com/user-attachments/assets/bd336ca8-5f8f-4ad2-98cb-fd43eb58fcdb" />
 
 **Gestionnaire de stock de composants électroniques pour hobbyistes et makers.**
 
