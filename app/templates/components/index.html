@@ -12,23 +12,26 @@
     {% endif %}
 </div>
 
-<!-- Stats -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-value">{{ stats.total_references }}</div>
-        <div class="stat-label">Références</div>
+<!-- Stats compactes -->
+<div class="stock-stats-bar">
+    <div class="stock-stat">
+        <span class="stock-stat-val">{{ stats.total_references }}</span>
+        <span class="stock-stat-lbl">références</span>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ stats.total_quantity }}</div>
-        <div class="stat-label">Pièces en stock</div>
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val">{{ stats.total_quantity }}</span>
+        <span class="stock-stat-lbl">pièces</span>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ "%.2f"|format(stats.total_value) }} €</div>
-        <div class="stat-label">Valeur totale</div>
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val">{{ "%.2f"|format(stats.total_value) }} €</span>
+        <span class="stock-stat-lbl">valeur totale</span>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ stats.total_manufacturers }}</div>
-        <div class="stat-label">Fabricants</div>
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val">{{ stats.total_manufacturers }}</span>
+        <span class="stock-stat-lbl">fabricants</span>
     </div>
 </div>
 
@@ -118,12 +121,11 @@
                     {% endif %}
                 </td>
                 <td class="td-description">
-                    <a href="{{ url_for('components.detail', component_id=c.id) }}">{{ c.description or '—' }}</a>
-                    {% if c.rohs == 'YES' %}<span class="badge badge-green">RoHS</span>{% endif %}
-                    {% if c.datasheet_url %}
-                        <a href="{{ c.datasheet_url }}" target="_blank" rel="noopener"
-                           class="badge badge-blue" title="Datasheet">DS</a>
-                    {% endif %}
+                    <div class="td-desc-line">
+                        <a href="{{ url_for('components.detail', component_id=c.id) }}" class="td-desc-link">{{ c.description or '—' }}</a>
+                        {% if c.rohs == 'YES' %}<span class="badge badge-green badge-xs">RoHS</span>{% endif %}
+                        {% if c.datasheet_url %}<a href="{{ c.datasheet_url }}" target="_blank" rel="noopener" class="badge badge-blue badge-xs" title="Datasheet">DS</a>{% endif %}
+                    </div>
                 </td>
                 <td class="td-mono">{{ c.manufacture_part_number or '—' }}</td>
                 <td class="td-mono td-secondary">{{ c.lcsc_part_number or '—' }}</td>
@@ -140,8 +142,8 @@
                         <button class="qty-btn" onclick="adjustQty({{ c.id }}, +1, this)" title="Ajouter 1">+</button>
                     </div>
                     {% if c.min_stock > 0 %}
-                        <div class="min-stock-label" id="ms-{{ c.id }}">
-                            seuil : {{ c.min_stock }}
+                        <div class="min-stock-pip" id="ms-{{ c.id }}" title="Seuil d'alerte : {{ c.min_stock }}">
+                            ⚡{{ c.min_stock }}
                         </div>
                     {% endif %}
                 </td>

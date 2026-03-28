@@ -2,6 +2,8 @@
 {% block title %}{{ project.name }} — StockElec{% endblock %}
 
 {% block content %}
+
+<!-- ── En-tête ─────────────────────────────────────────────────────── -->
 <div class="page-header">
     <a href="{{ url_for('projects.index') }}" class="btn-back">← Projets</a>
     <h1>🗂️ {{ project.name }}
@@ -17,33 +19,58 @@
 </div>
 
 {% if project.description %}
-<p style="color:var(--text-muted);margin-bottom:1.5rem">{{ project.description }}</p>
+<p class="project-desc-text">{{ project.description }}</p>
 {% endif %}
 
-<!-- Résumé -->
-<div class="stats-grid" style="margin-bottom:1.5rem">
-    <div class="stat-card">
-        <div class="stat-value">{{ project.component_count }}</div>
-        <div class="stat-label">Références</div>
+<!-- ── Barre de stats ───────────────────────────────────────────────── -->
+{% if components %}
+{% set dispo_ok = [] %}
+{% for pc in components %}{% if pc.stock_quantity >= pc.quantity %}{% set _ = dispo_ok.append(1) %}{% endif %}{% endfor %}
+{% set n_ok    = dispo_ok | length %}
+{% set n_total = components | length %}
+{% set pct     = (n_ok / n_total * 100) | int if n_total > 0 else 0 %}
+{% endif %}
+
+<div class="proj-stats-bar">
+    <div class="proj-stat">
+        <span class="proj-stat-value">{{ project.component_count }}</span>
+        <span class="proj-stat-label">références</span>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ "%.2f"|format(project.total_value or 0) }} €</div>
-        <div class="stat-label">Valeur BOM</div>
+    <div class="proj-stat">
+        <span class="proj-stat-value">{{ "%.2f"|format(project.total_value or 0) }} €</span>
+        <span class="proj-stat-label">valeur BOM</span>
+    </div>
+    {% if components %}
+    <div class="proj-stat">
+        <span class="proj-stat-value {% if n_ok == n_total %}color-ok{% elif n_ok == 0 %}color-err{% else %}color-warn{% endif %}">
+            {{ n_ok }}/{{ n_total }}
+        </span>
+        <span class="proj-stat-label">disponibles</span>
+    </div>
+    <div class="proj-stat proj-stat-wide">
+        <div class="proj-dispo-bar">
+            <div class="proj-dispo-fill {% if pct == 100 %}fill-ok{% elif pct == 0 %}fill-err{% else %}fill-warn{% endif %}"
+                 style="width:{{ pct }}%"></div>
+        </div>
+        <span class="proj-stat-label">{{ pct }}%</span>
+    </div>
+    {% endif %}
+    <div class="proj-stat proj-stat-actions">
+        <a href="{{ url_for('projects.import_bom', project_id=project.id) }}"
+           class="btn btn-primary btn-sm">📋 Importer BOM KiCad</a>
+        <button class="btn btn-secondary btn-sm" onclick="toggleAddForm()" id="btn-add-toggle">
+            ➕ Ajouter un composant
+        </button>
     </div>
 </div>
 
-<!-- Ajouter un composant -->
-<div class="form-card" style="margin-bottom:1.5rem">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-        <h2 class="form-section-title" style="margin-bottom:0">➕ Ajouter un composant</h2>
-        <a href="{{ url_for('projects.import_bom', project_id=project.id) }}"
-           class="btn btn-primary">📋 Importer une BOM KiCad</a>
-    </div>
+<!-- ── Formulaire d'ajout rétractable ───────────────────────────────── -->
+<div class="proj-add-form" id="add-form" style="display:none">
     <form method="post" action="{{ url_for('projects.add_component', project_id=project.id) }}">
         <div class="form-grid">
             <div class="form-group" style="flex:2">
                 <label>Composant</label>
-                <select name="component_id" class="form-input" required id="comp-select">
+                <select name="component_id" class="form-input" required>
                     <option value="">— Choisir —</option>
                     {% for c in all_components %}
                     <option value="{{ c.id }}">{{ c.description or c.manufacture_part_number }} ({{ c.lcsc_part_number or '—' }}) — stock: {{ c.quantity }}</option>
@@ -51,7 +78,7 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>Quantité nécessaire</label>
+                <label>Quantité</label>
                 <input type="number" name="quantity" class="form-input" value="1" min="1"/>
             </div>
             <div class="form-group">
@@ -59,156 +86,177 @@
                 <input type="text" name="notes" class="form-input" placeholder="Optionnel"/>
             </div>
         </div>
-        <div class="form-actions" style="margin-top:1rem">
+        <div style="display:flex;gap:.5rem;margin-top:.75rem">
             <button type="submit" class="btn btn-primary">Ajouter</button>
+            <button type="button" class="btn btn-secondary" onclick="toggleAddForm()">Annuler</button>
         </div>
     </form>
 </div>
 
-<!-- Liste des composants groupés par catégorie -->
+<!-- ── Tableau unique avec séparateurs de catégorie ─────────────────── -->
 {% if components %}
+<div class="table-wrapper">
+<table class="data-table proj-table">
+    <colgroup>
+        <col style="width:44px">   {# image #}
+        <col>                       {# composant (flex) #}
+        <col style="width:90px">   {# LCSC #}
+        <col style="width:140px">  {# Package #}
+        <col style="width:90px">   {# Nécessaire #}
+        <col style="width:90px">   {# En stock #}
+        <col style="width:60px">   {# Dispo #}
+        <col style="width:80px">   {# Prix #}
+        <col style="width:120px">  {# Actions #}
+    </colgroup>
+    <thead>
+        <tr>
+            <th class="th-img"></th>
+            <th>Composant</th>
+            <th>LCSC</th>
+            <th>Package</th>
+            <th class="th-center">Nécessaire</th>
+            <th class="th-center">En stock</th>
+            <th class="th-center">Dispo</th>
+            <th class="th-right">Prix</th>
+            <th class="th-center">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
 
-{# Collecte les catégories uniques dans l'ordre #}
-{% set ns = namespace(current_cat=none) %}
+    {% set ns = namespace(current_cat=none) %}
+    {% for pc in components %}
+        {% set cat = pc.category or '— Sans catégorie' %}
 
-<div class="project-components">
-{% for pc in components %}
-    {% set cat = pc.category or '— Sans catégorie' %}
-
-    {# En-tête de groupe si la catégorie change #}
-    {% if cat != ns.current_cat %}
-        {% if ns.current_cat is not none %}
-            </tbody></table></div>  {# Ferme le tableau précédent #}
-        {% endif %}
+        {# Ligne séparateur de catégorie #}
+        {% if cat != ns.current_cat %}
         {% set ns.current_cat = cat %}
+        {% set cat_len = (components | selectattr('category', 'equalto', pc.category) | list | length)
+                         if pc.category else
+                         (components | selectattr('category', 'none') | list | length) %}
+        <tr class="proj-cat-row">
+            <td colspan="9">
+                <span class="proj-cat-title">{{ cat }}</span>
+                <span class="proj-cat-count">{{ cat_len }} composant{{ 's' if cat_len > 1 }}</span>
+            </td>
+        </tr>
+        {% endif %}
 
-        {# Calcule les stats de la catégorie pour le badge de dispo #}
-        {% set cat_components = components | selectattr('category', 'equalto', pc.category) | list
-           if pc.category else
-           components | selectattr('category', 'none') | list %}
+        {# Ligne composant #}
+        {% set ok = pc.stock_quantity >= pc.quantity %}
+        <tr class="{{ 'row-unavail' if not ok }}">
+            <td class="td-thumb">
+                {% if pc.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=pc.image_path.split('images/')|last) }}"
+                         class="thumb thumb-clickable" loading="lazy" alt=""
+                         onclick="openLightbox(this.src)"
+                         title="Cliquer pour agrandir"/>
+                {% else %}
+                    <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('components.detail', component_id=pc.component_id) }}" class="comp-link">
+                    {{ pc.description or '—' }}
+                </a>
+                {% if pc.notes %}<div class="comp-note">{{ pc.notes }}</div>{% endif %}
+            </td>
+            <td class="td-mono td-secondary td-sm">{{ pc.lcsc_part_number or '—' }}</td>
+            <td><span class="badge badge-gray">{{ pc.package or '—' }}</span></td>
+            <td class="td-center td-qty-bold">{{ pc.quantity }}</td>
+            <td class="td-center td-qty-bold {% if pc.stock_quantity == 0 %}qty-zero{% elif not ok %}qty-low{% endif %}"
+                id="stock-{{ pc.component_id }}">{{ pc.stock_quantity }}</td>
+            <td class="td-center">
+                {% if ok %}<span class="dispo-ok">✓</span>
+                {% else %}<span class="dispo-ko">✗</span>{% endif %}
+            </td>
+            <td class="td-right td-price">
+                {% if pc.unit_price is not none %}{{ "%.2f"|format(pc.unit_price * pc.quantity) }} €
+                {% else %}—{% endif %}
+            </td>
+            <td class="td-actions-compact">
+                {% if pc.lcsc_part_number %}
+                <a href="https://www.lcsc.com/product-detail/{{ pc.lcsc_part_number }}.html"
+                   target="_blank" rel="noopener"
+                   class="action-btn action-lcsc" title="Voir sur LCSC">🛒</a>
+                {% endif %}
+                <button class="action-btn action-use"
+                        onclick="useComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
+                        title="Débiter {{ pc.quantity }} du stock">−</button>
+                <button class="action-btn action-return"
+                        onclick="returnComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
+                        title="Restituer {{ pc.quantity }} au stock">+</button>
+                <form method="post"
+                      action="{{ url_for('projects.remove_component', project_id=project.id, component_id=pc.component_id) }}"
+                      style="display:inline"
+                      onsubmit="return confirm('Retirer ce composant du projet ?')">
+                    <button type="submit" class="action-btn action-del" title="Retirer du projet">🗑</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
 
-        <div class="category-group">
-            <div class="category-group-header">
-                <span class="category-group-title">{{ cat }}</span>
-                <span class="category-group-count">
-                    {{ components | selectattr('category', 'equalto', pc.category) | list | length
-                       if pc.category else
-                       components | selectattr('category', 'none') | list | length }}
-                    composant(s)
-                </span>
-            </div>
-            <div class="table-wrapper" style="border-radius:0 0 var(--radius) var(--radius)">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th class="th-img"></th>
-                        <th>Composant</th>
-                        <th>Réf. LCSC</th>
-                        <th>Package</th>
-                        <th>Qté projet</th>
-                        <th>En stock</th>
-                        <th>Dispo ?</th>
-                        <th>Prix total</th>
-                        <th>Note</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-    {% endif %}
-
-    {# Ligne du composant #}
-    {% set ok = pc.stock_quantity >= pc.quantity %}
-    <tr class="{{ 'row-low' if not ok }}">
-        <td class="td-thumb">
-            {% if pc.image_path %}
-                <img src="{{ url_for('components.component_image', filename=pc.image_path.split('images/')|last) }}"
-                     class="thumb" loading="lazy" alt=""/>
-            {% else %}
-                <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
-            {% endif %}
-        </td>
-        <td>
-            <a href="{{ url_for('components.detail', component_id=pc.component_id) }}">
-                {{ pc.description or '—' }}
-            </a>
-        </td>
-        <td class="td-mono td-secondary">{{ pc.lcsc_part_number or '—' }}</td>
-        <td><span class="badge badge-gray">{{ pc.package or '—' }}</span></td>
-        <td class="td-qty">{{ pc.quantity }}</td>
-        <td class="td-qty {% if pc.stock_quantity == 0 %}qty-zero{% elif not ok %}qty-low{% endif %}"
-            id="stock-{{ pc.component_id }}">{{ pc.stock_quantity }}</td>
-        <td>{% if ok %}<span class="badge badge-green">✓</span>{% else %}<span class="badge badge-red">✗</span>{% endif %}</td>
-        <td class="td-price">
-            {% if pc.unit_price is not none %}{{ "%.2f"|format(pc.unit_price * pc.quantity) }} €{% else %}—{% endif %}
-        </td>
-        <td class="td-secondary">{{ pc.notes or '—' }}</td>
-        <td class="td-actions">
-            {# Lien LCSC #}
-            {% if pc.lcsc_part_number %}
-            <a href="https://www.lcsc.com/product-detail/{{ pc.lcsc_part_number }}.html"
-               target="_blank" rel="noopener"
-               class="btn btn-secondary btn-sm" title="Voir sur LCSC">
-                🛒
-            </a>
-            {% endif %}
-            <!-- Débiter du stock -->
-            <button class="btn btn-secondary btn-sm"
-                    onclick="useComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
-                    title="Débiter {{ pc.quantity }} du stock">🔧 −{{ pc.quantity }}</button>
-            <!-- Restituer au stock -->
-            <button class="btn btn-secondary btn-sm"
-                    onclick="returnComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
-                    title="Remettre {{ pc.quantity }} en stock">↩️ +{{ pc.quantity }}</button>
-            <!-- Retirer du projet -->
-            <form method="post"
-                  action="{{ url_for('projects.remove_component', project_id=project.id, component_id=pc.component_id) }}"
-                  style="display:inline" onsubmit="return confirm('Retirer ce composant du projet ?')">
-                <button type="submit" class="btn-icon" title="Retirer du projet">🗑️</button>
-            </form>
-        </td>
-    </tr>
-
-{% endfor %}
-
-{# Ferme le dernier tableau #}
-{% if ns.current_cat is not none %}
-    </tbody></table></div></div>
-{% endif %}
-
-</div>{# .project-components #}
+    </tbody>
+</table>
+</div>
 
 {% else %}
 <div class="empty-state" style="padding:2rem">
     <p>Aucun composant dans ce projet.</p>
+    <div style="display:flex;gap:.75rem;justify-content:center;margin-top:1rem">
+        <a href="{{ url_for('projects.import_bom', project_id=project.id) }}" class="btn btn-primary">📋 Importer une BOM KiCad</a>
+        <button class="btn btn-secondary" onclick="toggleAddForm()">➕ Ajouter manuellement</button>
+    </div>
 </div>
 {% endif %}
 
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+    <div class="lightbox-inner" onclick="event.stopPropagation()">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <img id="lightbox-img" src="" alt=""/>
+    </div>
+</div>
+
 <script>
+function toggleAddForm() {
+    const form = document.getElementById('add-form');
+    const btn  = document.getElementById('btn-add-toggle');
+    const open = form.style.display === 'none';
+    form.style.display = open ? 'block' : 'none';
+    btn.textContent    = open ? '✕ Fermer' : '➕ Ajouter un composant';
+    if (open) form.querySelector('select').focus();
+}
+
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
 function useComponent(projectId, componentId, qty, btn) {
     if (!confirm(`Débiter ${qty} pièce(s) du stock ?`)) return;
     btn.disabled = true;
     const fd = new FormData(); fd.append('quantity', qty);
     fetch(`/projects/${projectId}/components/${componentId}/use`, {method:'POST', body:fd})
-        .then(r=>r.json())
+        .then(r => r.json())
         .then(data => {
-            if (data.ok) {
-                const el = document.getElementById(`stock-${componentId}`);
-                if (el) el.textContent = data.new_qty;
-            } else alert(data.error);
+            if (data.ok) document.getElementById(`stock-${componentId}`).textContent = data.new_qty;
+            else alert(data.error);
             btn.disabled = false;
         });
 }
 function returnComponent(projectId, componentId, qty, btn) {
-    if (!confirm(`Remettre ${qty} pièce(s) en stock ?`)) return;
+    if (!confirm(`Restituer ${qty} pièce(s) au stock ?`)) return;
     btn.disabled = true;
     const fd = new FormData(); fd.append('quantity', qty);
     fetch(`/projects/${projectId}/components/${componentId}/return`, {method:'POST', body:fd})
-        .then(r=>r.json())
+        .then(r => r.json())
         .then(data => {
-            if (data.ok) {
-                const el = document.getElementById(`stock-${componentId}`);
-                if (el) el.textContent = data.new_qty;
-            } else alert(data.error);
+            if (data.ok) document.getElementById(`stock-${componentId}`).textContent = data.new_qty;
+            else alert(data.error);
             btn.disabled = false;
         });
 }

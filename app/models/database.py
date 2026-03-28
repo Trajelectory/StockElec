@@ -93,21 +93,6 @@ def init_db(app):
                 UNIQUE (project_id, component_id)
             );
 
-            -- Historique des mouvements de stock
-            CREATE TABLE IF NOT EXISTS stock_movements (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                component_id INTEGER NOT NULL,
-                type         TEXT NOT NULL,  -- 'import', 'manual_add', 'manual_remove', 'project_use', 'project_return', 'adjustment'
-                qty_before   INTEGER NOT NULL,
-                qty_change   INTEGER NOT NULL,  -- positif = entrée, négatif = sortie
-                qty_after    INTEGER NOT NULL,
-                project_id   INTEGER,
-                note         TEXT,
-                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (component_id) REFERENCES components(id) ON DELETE CASCADE,
-                FOREIGN KEY (project_id)   REFERENCES projects(id)   ON DELETE SET NULL
-            );
-
             -- Config clé/valeur
             CREATE TABLE IF NOT EXISTS settings (
                 key   TEXT PRIMARY KEY,

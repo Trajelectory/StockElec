@@ -35,24 +35,36 @@
 
     <div class="info-card">
         <h2>📋 Formats supportés</h2>
-        <p>StockElec reconnaît automatiquement les BOM exportées depuis :</p>
-        <ul class="column-list" style="margin-bottom:1rem">
-            <li><strong>KiCad 7 / 8</strong> — via <em>Tools → Edit Symbol Fields → Export</em></li>
-            <li><strong>KiCad + plugin JLCPCB</strong> — colonnes <code>Comment, Designator, Footprint, LCSC Part Number</code></li>
-            <li><strong>KiCad + bom2csv</strong> — séparateur <code>;</code> supporté</li>
+
+        <p style="font-size:.82rem;font-weight:700;color:var(--accent);margin:.5rem 0 .25rem">
+            🛒 Export panier LCSC
+        </p>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.35rem">
+            Fichier <code>export_cart_*.csv</code> téléchargé depuis ton panier LCSC
+        </p>
+        <ul class="column-list" style="margin-bottom:.75rem">
+            <li><code>LCSC#</code> · <code>MPN</code> · <code>Quantity</code></li>
         </ul>
 
-        <p>La colonne LCSC reconnue peut s'appeler :</p>
+        <p style="font-size:.82rem;font-weight:700;color:var(--accent);margin:.5rem 0 .25rem">
+            🔧 BOM KiCad / JLCPCB
+        </p>
+        <ul class="column-list" style="margin-bottom:.75rem">
+            <li><strong>KiCad 7/8</strong> — <em>Tools → Edit Symbol Fields → Export</em></li>
+            <li><strong>Plugin JLCPCB</strong> — <code>Comment, Designator, LCSC Part Number</code></li>
+            <li><strong>bom2csv</strong> — séparateur <code>;</code> supporté</li>
+        </ul>
+
+        <p>Colonne LCSC reconnue sous ces noms :</p>
         <ul class="column-list">
-            <li><code>LCSC Part Number</code></li>
-            <li><code>LCSC Part #</code></li>
-            <li><code>LCSC</code></li>
+            <li><code>LCSC#</code> &nbsp;<code>LCSC Part Number</code></li>
+            <li><code>LCSC Part #</code> &nbsp;<code>LCSC</code></li>
             <li><code>Supplier Part Number</code></li>
         </ul>
 
         <p class="info-note" style="margin-top:.75rem">
-            💡 Assure-toi d'avoir renseigné le champ <strong>LCSC</strong>
-            sur tes composants dans KiCad pour que la comparaison fonctionne.
+            💡 La comparaison se fait sur la référence LCSC —
+            assure-toi que tes composants ont bien un champ LCSC renseigné.
         </p>
     </div>
 </div>

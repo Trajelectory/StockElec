@@ -1,155 +1,196 @@
 # Changelog — StockElec
 
-Historique complet de toutes les fonctionnalités développées.
-
 ---
 
 ## v1.0 — Base de l'application
 
-- Architecture **Flask + SQLite + MVC** (models / views / controllers)
-- **Page d'accueil** : tableau de tous les composants avec stats (références, quantités, valeur totale, fabricants)
-- **Import CSV LCSC** : glisser-déposer ou sélection, colonnes LCSC reconnues automatiquement
-- **Ajout manuel** : formulaire complet (description, référence LCSC, fabricant, package, RoHS, quantité, prix, emplacement, notes)
-- **Fiche détail** : vue complète d'un composant
-- **Édition / suppression** de composants
-- **Recherche** : filtrage par description, référence LCSC, référence fabricant, fabricant, package
-- **Tri** : par description, fabricant, package, quantité, prix, date d'ajout
-- **Catégories** : filtre par catégorie
-- **Emplacement** : champ libre (boîte, tiroir…)
-- **API JSON** : `GET /api/components?search=...`
-- **Thème sombre** avec interface responsive
+- Architecture **Flask + SQLite + MVC**
+- Tableau paginé, recherche, tri multi-colonnes
+- Import CSV LCSC (format export commande)
+- Ajout / édition / suppression de composants
+- Fiche détail complète
+- Thème sombre
 
 ---
 
-## v1.1 — Enrichissement LCSC (scraping)
+## v1.1 — Enrichissement LCSC
 
-- **Service `lcsc_scraper.py`** : scraping de l'endpoint interne `wmsc.lcsc.com/ftps/wm/product/detail`
-- Récupération automatique de la **catégorie**, **sous-catégorie**, **image** et **datasheet** après import
-- **Téléchargement local des images** dans `instance/images/`
-- Enrichissement en **thread d'arrière-plan** avec pause ~0.6s entre requêtes
-- Bouton **📷** dans le tableau pour relancer l'enrichissement manuellement
-- **Table `categories`** en base : arborescence LCSC (id, parent_id, full_path)
-- **Miniatures** des composants dans le tableau (clic pour agrandir — lightbox)
-- **Badge Datasheet** sur les fiches avec lien PDF
+- Service `lcsc_scraper.py` : scraping `wmsc.lcsc.com`
+- Récupération automatique catégorie, image, datasheet
+- Téléchargement local des images dans `instance/images/`
+- Thread daemon avec pause ~0.6s entre requêtes
+- Bouton 📷 pour relancer manuellement
 
 ---
 
 ## v1.2 — Déduplication et pagination
 
-- **Déduplication à l'import** : détection des doublons par référence LCSC (colonne UNIQUE), message d'avertissement listant les références déjà en stock
-- **Pagination** du tableau (25 / 50 / 100 par page) avec navigation numérotée et fenêtre glissante
-- Sélecteur de nombre d'éléments par page persisté dans l'URL
+- Déduplication à l'import par référence LCSC (UNIQUE en base)
+- Pagination (25 / 50 / 100 par page)
 
 ---
 
 ## v1.3 — Ajout rapide depuis LCSC
 
-- **Bloc "⚡ Import rapide LCSC"** en haut du formulaire d'ajout
-- Saisie d'une référence LCSC → prévisualisation instantanée (image, nom, fabricant, catégorie)
-- Pré-remplissage automatique de tous les champs du formulaire
-- Détection si le composant est **déjà en stock** avant même de continuer
-- Déclenchement sur **Entrée** ou clic sur le bouton
-- Route `GET /api/lcsc-preview?ref=C149504` (ne crée rien en base)
+- Bloc "⚡ Import rapide LCSC" : saisie ref → prévisualisation → pré-remplissage
+- Détection doublon avant ajout
+- Route `GET /api/lcsc-preview?ref=C149504`
 
 ---
 
-## v1.4 — Projets, historique, alertes et ajustement rapide
+## v1.4 — Projets et alertes stock
 
 ### Projets
-- **Table `projects`** et **table de liaison `project_components`**
-- CRUD complet : créer, éditer, supprimer des projets (nom, description, statut)
-- Associer des composants à un projet avec quantité nécessaire
-- Vérification de **disponibilité stock** en temps réel (badge ✓ / ✗)
-- Boutons **🔧 Débiter** et **↩️ Restituer** pour ajuster le stock depuis la fiche projet (AJAX)
-- Sur la fiche composant : liste des projets qui l'utilisent
+- CRUD complet avec image bannière (upload JPG/PNG/WEBP)
+- Composants liés avec quantité nécessaire
+- Vérification disponibilité en temps réel
+- Boutons Débiter / Restituer (AJAX)
 
-### Historique des mouvements
-- **Table `stock_movements`** : trace tous les mouvements (import, ajout, retrait, ajustement, projet)
-- Page **📋 Historique** : 200 derniers mouvements avec stats globales (entrées / sorties)
-- Sur la fiche composant : 20 derniers mouvements avec type, delta, avant/après
-
-### Alertes stock bas
-- Champ **`min_stock`** par composant (seuil d'alerte)
-- Page **🔔 Alertes** : liste des composants sous seuil, triés par urgence
-- Bandeau rouge sur l'accueil si des alertes sont actives
-- Ajustement +/− directement depuis la page alertes
-- Disparition en fondu d'une ligne quand le seuil est repassé
+### Alertes
+- Champ `min_stock` par composant
+- Page 🔔 Alertes + bandeau rouge accueil
 
 ### Ajustement rapide
-- Boutons **+** / **−** directement dans le tableau et sur la fiche détail
-- Mise à jour **AJAX instantanée** sans rechargement
-- Chaque ajustement enregistré automatiquement dans l'historique
+- Boutons +/− AJAX dans le tableau et sur la fiche détail
 
 ---
 
 ## v1.5 — Catégories hiérarchiques
 
-- Nouveau filtre avec **`<optgroup>`** HTML : les sous-catégories sont groupées sous leur parent
-- Méthode `CategoryModel.get_grouped_for_stock()` : construit l'arbre uniquement depuis les catégories réellement présentes en stock
-- **Macro Jinja** `partials/category_select.html` : composant réutilisable importé dans index, add et edit
-- Gestion du breadcrumb LCSC `parentCatalogList` : arborescence complète stockée en base
-- Formulaires d'ajout et d'édition : le champ catégorie texte libre remplacé par le select hiérarchique
-- Compatibilité JS : `setVal()` gère les `<select>` pour le pré-remplissage depuis LCSC
+- Filtre avec `<optgroup>` HTML par sous-catégorie
+- Macro Jinja `category_select.html` réutilisable
+- Arborescence LCSC complète en base
 
 ---
 
 ## v1.6 — Import BOM KiCad
 
-- **Route `POST /projects/<id>/import-bom`** : upload d'un CSV KiCad
-- Détection automatique du séparateur (`,` ou `;`)
-- Reconnaissance de multiples noms de colonnes LCSC : `LCSC Part Number`, `LCSC Part #`, `LCSC`, `Supplier Part Number`
-- **Rapport de disponibilité** en 4 catégories :
-  - ✅ En stock (quantité suffisante) — pré-cochés
-  - ⚠️ Stock insuffisant — colonne "Manquant"
-  - ❌ Absent du stock — bouton 🛒 LCSC → pour commander
-  - — Sans référence LCSC
-- Validation sélective : coche les composants à ajouter au projet
-- Détection des composants **déjà dans le projet** (badge ✓, pas de doublon)
-- Bouton **📋 Importer une BOM KiCad** sur la fiche projet
+- Upload CSV KiCad → rapport ✅/⚠️/❌/—
+- Formats reconnus : KiCad 7/8, plugin JLCPCB, bom2csv
+- Colonnes LCSC reconnues : `LCSC Part Number`, `LCSC#`, `LCSC Part #`…
+- Détection doublon dans le projet
 
 ---
 
 ## v1.7 — Images de projets
 
-- Champ **`image_path`** sur la table `projects`
-- Upload d'image (JPG, PNG, WEBP, GIF) sur le formulaire de création/édition
-- Prévisualisation instantanée avant envoi
-- Bouton ✕ pour supprimer l'image courante
-- Images stockées dans `instance/project_images/` avec nom UUID
-- Suppression automatique du fichier quand le projet est supprimé
-- **Cartes projet** redessinées : bannière image (160px), fallback 🔌 si pas d'image
-- Route `GET /projects/project-images/<filename>` pour servir les fichiers
+- Champ `image_path` sur la table `projects`
+- Upload + prévisualisation dans le formulaire
+- Cartes projet avec bannière image (160px)
+- Route serving `instance/project_images/`
 
 ---
 
 ## v1.8 — Étiquettes imprimables + QR code
 
-- Route `GET /component/<id>/label` : page dédiée à l'impression d'étiquettes
-- Format **6×3cm** (paysage), CSS `@media print` avec dimensions en mm
-- Contenu : image, description, références (LCSC/MFR/fabricant), badges (package, RoHS, quantité, emplacement, catégorie), prix
-- **QR code** généré côté serveur en **Python pur** (`app/services/qr_generator.py`) — zéro dépendance externe, zéro CDN, fonctionne hors ligne
-- QR code encodé en SVG + base64 data URL, injecté directement dans le HTML
-- Choix du **nombre de copies** (1 à 100) et du **niveau d'information** (complet / minimal)
-- Template entièrement **commenté** pour faciliter la personnalisation du CSS
-- Bouton **🏷️ Étiquette** sur la fiche détail de chaque composant
+- Route `GET /labels?ids=1,2,3` : impression multi-étiquettes
+- Format 6×3cm par défaut, CSS `@media print` mm
+- QR code généré **en Python pur** (`qr_generator.py`), zéro CDN externe
+- Cases à cocher multi-sélection dans le tableau + barre flottante
+- Bouton 🏷️ sur chaque fiche composant
 
 ---
 
-## v1.9 — Impression d'étiquettes en masse
+## v1.9 — Symbole & Footprint EasyEDA
 
-- **Cases à cocher** sur chaque ligne du tableau principal
-- **Case en en-tête** avec état indéterminé (⊟) pour tout sélectionner / tout désélectionner
-- **Barre d'actions flottante** animée qui apparaît dès qu'au moins un composant est coché :
-  - Affiche le nombre de composants sélectionnés
-  - Bouton **🏷️ Imprimer les étiquettes** → ouvre la page multi-étiquettes dans un nouvel onglet
-  - Bouton **✕ Désélectionner** pour vider la sélection
-- **Page `/labels?ids=1,2,3...`** : impression multi-étiquettes
-  - QR code individuel généré côté serveur pour chaque composant
-  - Choix du nombre de **copies par étiquette** (1 à 20)
-  - Résumé visuel des composants sélectionnés (miniatures + noms) avant impression
-  - Même format 6×3cm et mêmes options que l'étiquette unitaire
-- Route `/component/<id>/label` redirige désormais vers la page multi (rétrocompatible)
-- Workflow typique : *filtrer par catégorie → cocher l'en-tête → 🏷️ Imprimer* = toutes les étiquettes d'une catégorie en 3 clics
+- Appel `easyeda.com/api/products/<ref>/svgs`
+- Téléchargement PNG (symbole via champ `png` EasyEDA, footprint via SVG)
+- Redimensionnement 400×400 avec Pillow, fond blanc
+- Cache dans `instance/easyeda_pngs/`
+- Galerie sur la fiche détail (Photo / Symbole / Footprint)
+- Lightbox unifiée, clic pour charger à la demande
+
+---
+
+## v1.10 — Support export panier LCSC
+
+- Import CSV format `export_cart_*.csv`
+- Détection automatique du format (commande vs panier)
+- Page import BOM mise à jour
+
+---
+
+## v1.11 — Refonte page projet
+
+- Tableau unique avec lignes séparateurs de catégorie (colonnes alignées)
+- Barre de stats compacte avec barre de progression %
+- Formulaire d'ajout rétractable
+- Boutons d'action épurés : 🛒 − + 🗑
+- Images cliquables → lightbox
+
+---
+
+## v1.12 — Configuration des étiquettes
+
+- Page `/label-settings` avec aperçu en temps réel
+- Format, couleurs, tailles de police, 11 toggles on/off
+- Config sauvegardée en base, appliquée à l'impression via CSS Jinja
+
+---
+
+## v1.13 — Page Paramètres enrichie
+
+- Nom de l'application, adresse de base QR codes, seuil d'alerte par défaut
+- Sauvegarde ZIP, stats base, enrichissement en masse, nettoyage images
+
+---
+
+## v1.14 — Nettoyage du code
+
+- Suppression `movement.py`, `history.html`, `qr.js`, table `stock_movements`
+- Suppression `save_easyeda_svgs()`, `get_categories()`, attributs SVG obsolètes
+- Suppression API officielle LCSC jamais utilisée
+- Correction `adjust_quantity()` — résidu `note=` retiré
+
+---
+
+## v1.15 — Refonte visuelle complète
+
+### Page stock (index)
+- **Barre de stats compacte** — 4 chiffres inline avec séparateurs verticaux, remplace les 4 grandes cartes
+- **Badges RoHS/DS inline** — sur la même ligne que la description, plus petits (`badge-xs`)
+- **Seuil d'alerte compact** — `⚡4` discret avec tooltip, remplace le label verbeux
+- **Lignes plus denses** — padding vertical réduit
+
+### Page d'ajout de composant
+- **Layout deux colonnes** — infos à gauche, stock/prix sticky à droite
+- **Grille 3 colonnes** pour les références (LCSC / Réf. fab. / Fabricant)
+- **Calcul auto du prix total** — badge `= 12.50 €` en temps réel
+- **Champ quantité mis en avant** — grand, centré, coloré
+
+### Page d'édition de composant
+- Alignée sur le même layout que la page d'ajout
+- CSS partagé dans `style.css` (plus de styles inline)
+
+### Fiche composant (detail)
+- **Layout deux colonnes** — carte principale + colonne stock sticky
+- **Galerie repensée** — grande photo principale (180×180) + 2 vignettes symbole/footprint côte à côte en dessous
+- **Champs vides masqués** — N° client, emplacement, etc. n'apparaissent que s'ils sont remplis
+- **Datasheet en badge violet** intégré dans la ligne de badges
+- **Référence LCSC cliquable** vers lcsc.com
+- **Valeur totale en stock calculée** automatiquement (prix × quantité)
+- **Toolbar supprimée** — plus de doublons, actions dans la colonne de droite uniquement
+
+### Page import CSV
+- **Deux cartes format** — Export commande + Export panier, colonnes en tags monospace
+- **Zone de drop améliorée** — état "fichier prêt" avec nom et bouton changer
+- **Warning API LCSC obsolète supprimé**
+- **Bouton Importer désactivé** tant qu'aucun fichier n'est sélectionné
+
+### Page projets (liste)
+- **Grille `auto-fill`** — s'adapte à la largeur (4 → 3 → 2 → 1 colonnes)
+- **Badge statut sur l'image** avec `backdrop-filter: blur`
+- **Cartes à hauteur uniforme**
+- **Footer stats repensé** — "Aucun composant" si vide, date alignée à droite
+- **Compteur dans le titre** — badge avec nombre total de projets
+
+### Rapport BOM KiCad
+- Barre de stats compacte en remplacement des grandes cartes
+- En-têtes de section avec bordure colorée (vert/orange/rouge)
+
+### CSS global
+- **46Ko → 40Ko** — 52 blocs et classes mortes supprimés
+- CSS du layout formulaire centralisé dans `style.css`
 
 ---
 
@@ -157,9 +198,10 @@ Historique complet de toutes les fonctionnalités développées.
 
 | Version | Bug | Correction |
 |---|---|---|
-| v1.1 | Thread d'enrichissement tué par le reloader Flask | `use_reloader=False` dans `run.py` |
-| v1.1 | Erreurs silencieuses dans le scraper | Logs `INFO`/`WARNING` sur chaque étape |
-| v1.1 | Clé `data` au lieu de `result` dans la réponse LCSC | Correction après inspection de la vraie réponse JSON |
-| v1.5 | `setVal()` ne fonctionnait pas sur les `<select>` | Gestion explicite des éléments `SELECT` + ajout dynamique d'option |
-| v1.8 | QR code manquant sur les copies 2, 3, 4… | Abandon du CDN + génération serveur en Python pur |
-| v1.8 | Page étiquette blanche (CDN bloqué en local) | QR généré côté serveur, aucune dépendance externe |
+| v1.1 | Thread enrichissement tué par le reloader | `use_reloader=False` dans `run.py` |
+| v1.8 | QR code manquant sur les copies 2, 3… | Génération serveur Python pur |
+| v1.10 | Import panier LCSC : champs vides | Mapping `LCSC#` → `lcsc_part_number` |
+| v1.12 | Config étiquettes ignorée à l'impression | CSS généré dynamiquement par Jinja |
+| v1.12 | Page impression blanche | `False` Python → `false` JS, parenthèses sur `\| tojson` |
+| v1.14 | `TypeError: adjust_quantity() got unexpected kwarg 'note'` | Résidu `note=` retiré |
+| v1.15 | Page édition sans layout (colonne unique) | CSS `add-layout` déplacé dans `style.css` |

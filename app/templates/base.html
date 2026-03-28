@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>{% block title %}StockElec{% endblock %}</title>
+    <title>{% block title %}{{ app_name or 'StockElec' }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
 </head>
 <body>
 
 <nav class="navbar">
     <a class="nav-brand" href="{{ url_for('components.index') }}">
-        <span class="nav-icon">⚡</span> StockElec
+        <span class="nav-icon">⚡</span> {{ app_name or 'StockElec' }}
     </a>
     <div class="nav-links">
         <a href="{{ url_for('components.index') }}"
@@ -27,10 +27,7 @@
            class="nav-link {% if request.endpoint and request.endpoint.startswith('projects.') %}active{% endif %}">
             🗂️ Projets
         </a>
-        <a href="{{ url_for('components.history') }}"
-           class="nav-link {% if request.endpoint == 'components.history' %}active{% endif %}">
-            📋 Historique
-        </a>
+
         <a href="{{ url_for('components.add') }}"
            class="nav-link {% if request.endpoint == 'components.add' %}active{% endif %}">
             ➕ Ajouter

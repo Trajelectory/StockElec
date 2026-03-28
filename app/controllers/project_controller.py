@@ -5,7 +5,6 @@ from werkzeug.utils import secure_filename
 
 from ..models.project import ProjectModel, STATUS_OPTIONS
 from ..models.component import ComponentModel
-from ..models.movement import MovementModel, TYPE_PROJECT_USE, TYPE_PROJECT_RETURN
 
 project_bp = Blueprint("projects", __name__, url_prefix="/projects")
 
@@ -154,12 +153,7 @@ def remove_component(project_id, component_id):
 def use_component(project_id, component_id):
     """Débite le stock et enregistre un mouvement 'project_use'."""
     quantity = request.form.get("quantity", 1, type=int)
-    result   = ComponentModel.adjust_quantity(
-        component_id, -quantity,
-        movement_type=TYPE_PROJECT_USE,
-        project_id=project_id,
-        note=f"Utilisé pour le projet #{project_id}",
-    )
+    result   = ComponentModel.adjust_quantity(component_id, -quantity)
     if result["ok"]:
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
     return jsonify({"ok": False, "error": result["error"]}), 400
@@ -169,12 +163,7 @@ def use_component(project_id, component_id):
 def return_component(project_id, component_id):
     """Recrédite le stock et enregistre un mouvement 'project_return'."""
     quantity = request.form.get("quantity", 1, type=int)
-    result   = ComponentModel.adjust_quantity(
-        component_id, +quantity,
-        movement_type=TYPE_PROJECT_RETURN,
-        project_id=project_id,
-        note=f"Retour depuis le projet #{project_id}",
-    )
+    result   = ComponentModel.adjust_quantity(component_id, +quantity)
     if result["ok"]:
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
     return jsonify({"ok": False, "error": result["error"]}), 400
@@ -264,9 +253,18 @@ def apply_bom(project_id):
 # ------------------------------------------------------------------ #
 
 # Noms de colonnes LCSC reconnus (insensible à la casse)
+# Couvre : export commande LCSC, export panier LCSC, BOM KiCad JLCPCB, etc.
 _LCSC_COLS = [
-    "lcsc part number", "lcsc part #", "lcsc part", "lcsc",
-    "lcsc_part_number", "lcsc#", "supplier part number",
+    # Format export commande LCSC classique
+    "lcsc part number",
+    # Format export panier LCSC (export_cart_*.csv)
+    "lcsc#",
+    # Variantes KiCad/JLCPCB
+    "lcsc part #", "lcsc part", "lcsc",
+    "lcsc_part_number",
+    # Autres variantes
+    "supplier part number", "supplier part #",
+    "lcsc number", "lcsc no",
 ]
 # Noms de colonnes quantité reconnus
 _QTY_COLS = [
@@ -280,6 +278,7 @@ _REF_COLS = [
 # Noms de colonnes valeur/description
 _VAL_COLS = [
     "value", "comment", "description", "val", "designation", "valeur",
+    "mpn",  # export panier LCSC : MPN contient la référence fabricant
 ]
 
 

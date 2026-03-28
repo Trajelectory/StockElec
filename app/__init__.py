@@ -17,15 +17,14 @@ def create_app():
     app.register_blueprint(component_bp)
     app.register_blueprint(project_bp)
 
-    with app.app_context():
+    # Injecte les variables globales disponibles dans tous les templates
+    @app.context_processor
+    def inject_globals():
+        from .models.settings import SettingsModel
         try:
-            from .models.settings import SettingsModel
-            from .services import lcsc_api
-            key    = SettingsModel.get("lcsc_api_key")
-            secret = SettingsModel.get("lcsc_api_secret")
-            if key and secret:
-                lcsc_api.reload_config(key, secret)
+            app_name = SettingsModel.get("app_name", "StockElec") or "StockElec"
         except Exception:
-            pass
+            app_name = "StockElec"
+        return {"app_name": app_name}
 
     return app

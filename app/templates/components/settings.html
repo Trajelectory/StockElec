@@ -6,78 +6,158 @@
     <h1>⚙️ Paramètres</h1>
 </div>
 
-<!-- Statut API LCSC -->
-<div class="settings-status {% if lcsc_configured %}status-ok{% else %}status-warn{% endif %}">
-    {% if lcsc_configured %}
-        ✅ API LCSC configurée et active
-    {% else %}
-        ⚠️ API LCSC non configurée — les enrichissements automatiques (catégorie, image) sont désactivés
-    {% endif %}
-</div>
+<div class="settings-layout">
 
-<div class="form-card">
-    <form method="post" action="{{ url_for('components.settings') }}">
+    <!-- ══ COLONNE GAUCHE ══════════════════════════════════════════ -->
+    <div class="settings-col">
 
-        <div class="form-section">
-            <h2 class="form-section-title">🔑 Clés API LCSC</h2>
-
-            <p class="form-hint">
-                Ces clés sont disponibles dans votre espace
-                <a href="https://www.lcsc.com/agent" target="_blank" rel="noopener">lcsc.com/agent</a>
-                après avoir souscrit au programme partenaire.
-                Elles sont stockées localement dans la base SQLite.
-            </p>
-
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>API Key</label>
-                    <input
-                        type="text"
-                        name="lcsc_api_key"
-                        class="form-input"
-                        value="{{ current.lcsc_api_key }}"
-                        placeholder="Votre clé API LCSC"
-                        autocomplete="off"
-                    />
+        <!-- Paramètres généraux -->
+        <div class="settings-card">
+            <div class="settings-card-title">🏠 Général</div>
+            <form method="post">
+                <input type="hidden" name="action" value="save_general"/>
+                <div class="settings-field">
+                    <label>Nom de l'application</label>
+                    <input type="text" name="app_name" class="cfg-input"
+                           value="{{ current.app_name }}" placeholder="StockElec"/>
+                    <span class="settings-hint">Affiché dans la navbar</span>
                 </div>
-                <div class="form-group">
-                    <label>API Secret</label>
-                    <div class="input-password-wrap">
-                        <input
-                            type="password"
-                            name="lcsc_api_secret"
-                            id="lcsc_api_secret"
-                            class="form-input"
-                            value="{{ current.lcsc_api_secret }}"
-                            placeholder="Votre secret API LCSC"
-                            autocomplete="off"
-                        />
-                        <button type="button" class="btn-eye" onclick="toggleSecret()" title="Afficher/masquer">👁</button>
+                <div class="settings-field">
+                    <label>Adresse de base (pour les QR codes)</label>
+                    <input type="text" name="base_url" class="cfg-input"
+                           value="{{ current.base_url }}"
+                           placeholder="http://192.168.1.50:5000"/>
+                    <span class="settings-hint">
+                        Laisse vide pour utiliser l'adresse automatique.
+                        Utile si tu veux que les QR codes fonctionnent depuis ton téléphone.
+                    </span>
+                </div>
+                <div class="settings-field">
+                    <label>Seuil d'alerte par défaut</label>
+                    <div style="display:flex;align-items:center;gap:.5rem">
+                        <input type="number" name="default_min_stock" class="cfg-input cfg-input-sm"
+                               value="{{ current.default_min_stock }}" min="0" placeholder="0"/>
+                        <span class="settings-hint">pièces — appliqué aux nouveaux composants importés</span>
                     </div>
                 </div>
-            </div>
-
-            <div class="form-hint form-hint-info">
-                <strong>Comment ça fonctionne :</strong>
-                lors d'un import CSV ou d'un ajout manuel avec une référence LCSC,
-                l'application interroge automatiquement l'API LCSC pour récupérer
-                la <strong>catégorie</strong> du composant et télécharger son <strong>image</strong>
-                dans <code>instance/images/</code>.
-                L'opération se fait en arrière-plan, sans bloquer l'interface.
-            </div>
+                <div style="margin-top:.75rem">
+                    <button type="submit" class="btn btn-primary">💾 Sauvegarder</button>
+                </div>
+            </form>
         </div>
 
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">💾 Sauvegarder</button>
-            <a href="{{ url_for('components.index') }}" class="btn btn-secondary">Annuler</a>
+        <!-- Étiquettes -->
+        <div class="settings-card">
+            <div class="settings-card-title">🏷️ Étiquettes</div>
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                Personnalise le format, les couleurs, les informations affichées et les tailles de police.
+            </p>
+            <a href="{{ url_for('components.label_settings') }}" class="btn btn-primary">
+                ⚙️ Configurer les étiquettes
+            </a>
         </div>
-    </form>
+
+        <!-- Sauvegarde -->
+        <div class="settings-card">
+            <div class="settings-card-title">💾 Sauvegarde</div>
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                Télécharge un fichier ZIP contenant la base de données et toutes les images
+                (composants, projets, EasyEDA). Garde ce fichier précieusement !
+            </p>
+            <form method="post">
+                <input type="hidden" name="action" value="backup"/>
+                <button type="submit" class="btn btn-primary">
+                    ⬇️ Télécharger la sauvegarde
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- ══ COLONNE DROITE ══════════════════════════════════════════ -->
+    <div class="settings-col">
+
+        <!-- Infos base de données -->
+        <div class="settings-card">
+            <div class="settings-card-title">📊 Base de données</div>
+            {% if stats %}
+            <div class="settings-stats-grid">
+                <div class="settings-stat">
+                    <span class="settings-stat-val">{{ stats.n_components }}</span>
+                    <span class="settings-stat-lbl">composants</span>
+                </div>
+                <div class="settings-stat">
+                    <span class="settings-stat-val">{{ stats.n_projects }}</span>
+                    <span class="settings-stat-lbl">projets</span>
+                </div>
+                <div class="settings-stat">
+                    <span class="settings-stat-val {% if stats.n_to_enrich > 0 %}color-warn{% else %}color-ok{% endif %}">
+                        {{ stats.n_to_enrich }}
+                    </span>
+                    <span class="settings-stat-lbl">à enrichir</span>
+                </div>
+                <div class="settings-stat">
+                    <span class="settings-stat-val">{{ stats.total_size }}</span>
+                    <span class="settings-stat-lbl">taille totale</span>
+                </div>
+            </div>
+            <div class="settings-size-detail">
+                <span>🗄️ Base SQLite : <strong>{{ stats.db_size }}</strong></span>
+                <span>🖼️ Images composants : <strong>{{ stats.img_size }}</strong></span>
+                <span>📁 Images projets : <strong>{{ stats.prj_size }}</strong></span>
+            </div>
+            {% if stats.n_no_image > 0 or stats.n_no_cat > 0 %}
+            <div class="settings-warn-box">
+                {% if stats.n_no_image > 0 %}
+                <div>⚠️ {{ stats.n_no_image }} composant(s) sans image</div>
+                {% endif %}
+                {% if stats.n_no_cat > 0 %}
+                <div>⚠️ {{ stats.n_no_cat }} composant(s) sans catégorie</div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Enrichissement en masse -->
+        <div class="settings-card">
+            <div class="settings-card-title">🔍 Enrichissement LCSC</div>
+            {% if stats and stats.n_to_enrich > 0 %}
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                <strong class="color-warn">{{ stats.n_to_enrich }} composant(s)</strong>
+                ont une référence LCSC mais n'ont pas encore d'image ou de catégorie.
+            </p>
+            {% else %}
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                <span class="color-ok">✅ Tous les composants sont enrichis.</span>
+            </p>
+            {% endif %}
+            <form method="post">
+                <input type="hidden" name="action" value="enrich_all"/>
+                <button type="submit" class="btn btn-primary"
+                        {% if stats and stats.n_to_enrich == 0 %}disabled{% endif %}>
+                    🔄 Lancer l'enrichissement en masse
+                </button>
+            </form>
+        </div>
+
+        <!-- Nettoyage -->
+        <div class="settings-card">
+            <div class="settings-card-title">🧹 Nettoyage</div>
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                Supprime les images qui ne correspondent plus à aucun composant en base
+                (fichiers laissés après des suppressions de composants).
+            </p>
+            <form method="post"
+                  onsubmit="return confirm('Supprimer les images orphelines ?')">
+                <input type="hidden" name="action" value="clean_images"/>
+                <button type="submit" class="btn btn-secondary">
+                    🗑️ Nettoyer les images orphelines
+                </button>
+            </form>
+        </div>
+
+    </div>
+
 </div>
-
-<script>
-function toggleSecret() {
-    const input = document.getElementById('lcsc_api_secret');
-    input.type = input.type === 'password' ? 'text' : 'password';
-}
-</script>
 {% endblock %}

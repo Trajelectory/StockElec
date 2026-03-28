@@ -3,7 +3,11 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>🗂️ Projets</h1>
+    <h1>🗂️ Projets
+        {% if projects %}
+        <span class="page-count">{{ projects|length }}</span>
+        {% endif %}
+    </h1>
     <a href="{{ url_for('projects.new') }}" class="btn btn-primary">➕ Nouveau projet</a>
 </div>
 
@@ -12,42 +16,190 @@
     {% for p in projects %}
     <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="project-card">
 
-        <!-- Image ou placeholder -->
+        <!-- Bannière image -->
         {% if p.image_path %}
             <div class="project-card-img"
                  style="background-image:url('{{ url_for('projects.project_image', filename=p.image_path) }}')">
+                <span class="project-card-badge badge-status-{{ p.status|replace(' ','-') }}">{{ p.status }}</span>
             </div>
         {% else %}
             <div class="project-card-img project-card-img-empty">
-                <span>🔌</span>
+                <span class="project-card-empty-icon">🔌</span>
+                <span class="project-card-badge badge-status-{{ p.status|replace(' ','-') }}">{{ p.status }}</span>
             </div>
         {% endif %}
 
-        <!-- Contenu -->
+        <!-- Corps -->
         <div class="project-card-body">
-            <div class="project-card-header">
-                <span class="project-name">{{ p.name }}</span>
-                <span class="badge badge-status-{{ p.status|replace(' ','-') }}">{{ p.status }}</span>
-            </div>
+            <div class="project-card-name">{{ p.name }}</div>
+
             {% if p.description %}
-            <p class="project-desc">
-                {{ p.description[:80] }}{% if p.description|length > 80 %}…{% endif %}
+            <p class="project-card-desc">
+                {{ p.description[:75] }}{% if p.description|length > 75 %}…{% endif %}
             </p>
             {% endif %}
+
+            <!-- Footer stats -->
             <div class="project-card-footer">
-                <span>🔩 {{ p.component_count }} composant{{ 's' if p.component_count != 1 }}</span>
-                <span>💶 {{ "%.2f"|format(p.total_value or 0) }} €</span>
-                <span class="td-secondary" style="font-size:.75rem">{{ p.updated_at[:10] }}</span>
+                {% if p.component_count > 0 %}
+                <span class="pcf-stat">
+                    <span class="pcf-icon">🔩</span>
+                    {{ p.component_count }} composant{{ 's' if p.component_count != 1 }}
+                </span>
+                {% if p.total_value %}
+                <span class="pcf-stat">
+                    <span class="pcf-icon">💶</span>
+                    {{ "%.2f"|format(p.total_value) }} €
+                </span>
+                {% endif %}
+                {% else %}
+                <span class="pcf-empty">Aucun composant</span>
+                {% endif %}
+                <span class="pcf-date">{{ p.updated_at[:10] }}</span>
             </div>
         </div>
     </a>
     {% endfor %}
 </div>
+
 {% else %}
 <div class="empty-state">
     <p class="empty-icon">🗂️</p>
-    <p>Aucun projet. Crée ton premier projet pour lier des composants.</p>
-    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">➕ Créer un projet</a>
+    <p>Aucun projet pour l'instant.</p>
+    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">➕ Créer mon premier projet</a>
 </div>
 {% endif %}
+
+<style>
+/* ── Grille projets ─────────────────────────────────────────────── */
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.1rem;
+}
+
+/* ── Carte ──────────────────────────────────────────────────────── */
+.project-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color .15s, transform .12s, box-shadow .15s;
+    height: 100%;  /* toutes les cartes à la même hauteur dans la grille */
+}
+.project-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+
+/* ── Bannière image ─────────────────────────────────────────────── */
+.project-card-img {
+    height: 155px;
+    flex-shrink: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+}
+.project-card-img-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    height: 90px;    /* plus petit quand pas d'image */
+}
+.project-card-empty-icon { font-size: 2rem; opacity: .2; }
+
+/* Badge statut superposé sur l'image */
+.project-card-badge {
+    position: absolute;
+    top: .6rem;
+    right: .6rem;
+    font-size: .7rem;
+    font-weight: 700;
+    padding: .2rem .55rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    backdrop-filter: blur(4px);
+}
+
+/* ── Corps de la carte ──────────────────────────────────────────── */
+.project-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    padding: .85rem 1rem;
+    flex: 1;
+}
+
+.project-card-name {
+    font-weight: 600;
+    font-size: .92rem;
+    line-height: 1.3;
+    color: var(--text);
+}
+
+.project-card-desc {
+    font-size: .78rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    flex: 1;
+    margin: 0;
+}
+
+/* ── Footer stats ───────────────────────────────────────────────── */
+.project-card-footer {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-wrap: wrap;
+    padding-top: .55rem;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    font-size: .75rem;
+}
+
+.pcf-stat {
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    color: var(--text-muted);
+}
+.pcf-icon { font-size: .8rem; }
+
+.pcf-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    opacity: .6;
+}
+
+.pcf-date {
+    margin-left: auto;
+    color: var(--text-muted);
+    opacity: .6;
+    font-size: .7rem;
+    white-space: nowrap;
+}
+
+/* Compteur dans le titre */
+.page-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    font-size: .7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: .1rem .55rem;
+    margin-left: .4rem;
+    vertical-align: middle;
+}
+</style>
 {% endblock %}

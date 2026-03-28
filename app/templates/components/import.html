@@ -8,96 +8,270 @@
 </div>
 
 <div class="import-layout">
-    <!-- Zone de drop -->
-    <div class="form-card">
+
+    <!-- ══ Zone de drop ═════════════════════════════════════════════ -->
+    <div class="import-main">
         <form method="post" action="{{ url_for('components.import_csv') }}"
               enctype="multipart/form-data" id="import-form">
 
             <div class="drop-zone" id="drop-zone">
-                <div class="drop-icon">📂</div>
-                <p class="drop-title">Glissez votre fichier CSV ici</p>
-                <p class="drop-subtitle">ou</p>
-                <label class="btn btn-primary btn-file">
-                    Parcourir…
-                    <input type="file" name="csv_file" id="csv_file" accept=".csv" hidden required/>
-                </label>
-                <p id="file-name" class="file-selected" style="display:none"></p>
+                <div class="drop-content" id="drop-idle">
+                    <div class="drop-icon">📂</div>
+                    <p class="drop-title">Glissez votre fichier CSV ici</p>
+                    <p class="drop-or">ou</p>
+                    <label class="btn btn-primary btn-file">
+                        Parcourir…
+                        <input type="file" name="csv_file" id="csv_file" accept=".csv" hidden required/>
+                    </label>
+                </div>
+                <!-- Fichier sélectionné -->
+                <div class="drop-content drop-selected" id="drop-selected" style="display:none">
+                    <div class="drop-file-icon">📄</div>
+                    <div class="drop-file-name" id="file-name"></div>
+                    <button type="button" class="btn btn-secondary btn-sm"
+                            onclick="clearFile()">✕ Changer</button>
+                </div>
             </div>
 
-            <div class="form-actions" style="margin-top:1.5rem">
-                <button type="submit" class="btn btn-primary btn-lg">⚡ Importer</button>
+            <div class="import-actions" style="margin-top:1rem">
+                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+                    ⚡ Importer
+                </button>
                 <a href="{{ url_for('components.index') }}" class="btn btn-secondary">Annuler</a>
+                <span class="import-hint" id="import-hint">
+                    Sélectionne un fichier CSV pour commencer
+                </span>
             </div>
         </form>
     </div>
 
-    <!-- Aide -->
-    <div class="info-card">
-        <h2>📋 Format attendu</h2>
-        <p>Les fichiers CSV exportés depuis <strong>LCSC</strong> sont directement supportés.</p>
-        <p>Colonnes reconnues :</p>
-        <ul class="column-list">
-            <li><code>LCSC Part Number</code></li>
-            <li><code>Manufacture Part Number</code></li>
-            <li><code>Manufacturer</code></li>
-            <li><code>Customer NO.</code></li>
-            <li><code>Package</code></li>
-            <li><code>Description</code></li>
-            <li><code>RoHS</code></li>
-            <li><code>Quantity</code></li>
-            <li><code>Unit Price(€)</code></li>
-            <li><code>Ext.Price(€)</code></li>
-        </ul>
-        <p class="info-note">💡 Les lignes vides ou sans référence sont ignorées automatiquement.</p>
+    <!-- ══ Aide ══════════════════════════════════════════════════════ -->
+    <div class="import-side">
 
-        <hr/>
+        <!-- Format export commande -->
+        <div class="import-info-card">
+            <div class="import-info-title">📦 Export commande LCSC</div>
+            <p class="import-info-desc">Fichier CSV depuis <strong>lcsc.com → Mes commandes → Exporter</strong></p>
+            <div class="import-cols">
+                <span class="import-col-tag">LCSC Part Number</span>
+                <span class="import-col-tag">Manufacture Part Number</span>
+                <span class="import-col-tag">Manufacturer</span>
+                <span class="import-col-tag">Package</span>
+                <span class="import-col-tag">Description</span>
+                <span class="import-col-tag">Quantity</span>
+                <span class="import-col-tag">Unit Price(€)</span>
+                <span class="import-col-tag">Ext.Price(€)</span>
+            </div>
+        </div>
 
-        {% if lcsc_configured %}
-        <p class="info-note info-note-ok">
-            ✅ <strong>API LCSC active</strong> — après l'import, les catégories et images
-            seront récupérées automatiquement en arrière-plan.
-        </p>
-        {% else %}
-        <p class="info-note info-note-warn">
-            ⚠️ <strong>API LCSC non configurée</strong> — les catégories et images ne seront
-            pas récupérées automatiquement.
-            <a href="{{ url_for('components.settings') }}">Configurer →</a>
-        </p>
-        {% endif %}
+        <!-- Format export panier -->
+        <div class="import-info-card">
+            <div class="import-info-title">🛒 Export panier LCSC</div>
+            <p class="import-info-desc">Fichier <code>export_cart_*.csv</code> depuis ton panier LCSC</p>
+            <div class="import-cols">
+                <span class="import-col-tag">LCSC#</span>
+                <span class="import-col-tag">MPN</span>
+                <span class="import-col-tag">Manufacturer</span>
+                <span class="import-col-tag">Package</span>
+                <span class="import-col-tag">Description</span>
+                <span class="import-col-tag">Quantity</span>
+                <span class="import-col-tag">Unit Price(€)</span>
+                <span class="import-col-tag">Extended Price(€)</span>
+            </div>
+        </div>
 
-        <hr/>
-        <p>Vous préférez saisir un composant manuellement ?</p>
-        <a href="{{ url_for('components.add') }}" class="btn btn-secondary">➕ Ajout manuel</a>
+        <!-- Notes -->
+        <div class="import-notes">
+            <div class="import-note">
+                💡 Les lignes vides ou sans référence LCSC sont ignorées automatiquement.
+            </div>
+            <div class="import-note">
+                🔍 Après l'import, les images et catégories sont enrichies automatiquement depuis LCSC en arrière-plan.
+            </div>
+            <div class="import-note">
+                🔄 Les composants déjà en stock (même référence LCSC) ne sont pas dupliqués.
+            </div>
+        </div>
+
+        <div style="margin-top:.75rem">
+            <a href="{{ url_for('components.add') }}" class="btn btn-secondary" style="width:100%;justify-content:center">
+                ➕ Ajouter manuellement
+            </a>
+        </div>
+
     </div>
 </div>
 
+<style>
+.import-layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.25rem;
+    align-items: start;
+}
+@media (max-width: 800px) {
+    .import-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Zone de drop ───────────────────────────────────────────────── */
+.import-main { display: flex; flex-direction: column; gap: 1rem; }
+
+.drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    padding: 2.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79,142,247,.05);
+}
+.drop-zone.drag-over { border-style: solid; }
+.drop-zone.has-file  { border-color: #4caf50; background: rgba(76,175,80,.05); }
+
+.drop-content { display: flex; flex-direction: column; align-items: center; gap: .6rem; width: 100%; }
+.drop-icon    { font-size: 2.5rem; line-height: 1; }
+.drop-title   { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
+.drop-or      { font-size: .82rem; color: var(--text-muted); margin: 0; }
+
+/* Fichier sélectionné */
+.drop-file-icon { font-size: 2rem; }
+.drop-file-name {
+    font-size: .9rem; font-weight: 600;
+    color: #4caf50; word-break: break-all;
+    max-width: 400px;
+}
+
+/* Actions */
+.import-actions {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+.import-hint {
+    font-size: .8rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* ── Panneau aide ───────────────────────────────────────────────── */
+.import-side {
+    display: flex;
+    flex-direction: column;
+    gap: .85rem;
+}
+
+.import-info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: .9rem 1rem;
+}
+.import-info-title {
+    font-size: .82rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .4rem;
+}
+.import-info-desc {
+    font-size: .78rem;
+    color: var(--text-muted);
+    margin-bottom: .6rem;
+}
+.import-info-desc code {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: .75rem;
+}
+
+.import-cols {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+}
+.import-col-tag {
+    font-size: .7rem;
+    font-family: 'Courier New', monospace;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 6px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.import-notes {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+}
+.import-note {
+    font-size: .78rem;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: .5rem .75rem;
+    line-height: 1.4;
+}
+</style>
+
 <script>
-const dropZone = document.getElementById('drop-zone');
+const dropZone  = document.getElementById('drop-zone');
 const fileInput = document.getElementById('csv_file');
-const fileNameEl = document.getElementById('file-name');
+const submitBtn = document.getElementById('submit-btn');
+const hint      = document.getElementById('import-hint');
+
+function showFile(name) {
+    document.getElementById('drop-idle').style.display    = 'none';
+    document.getElementById('drop-selected').style.display = 'flex';
+    document.getElementById('file-name').textContent       = name;
+    dropZone.classList.add('has-file');
+    submitBtn.disabled  = false;
+    hint.textContent    = `Prêt à importer "${name}"`;
+}
+
+function clearFile() {
+    fileInput.value = '';
+    document.getElementById('drop-idle').style.display     = 'flex';
+    document.getElementById('drop-selected').style.display = 'none';
+    dropZone.classList.remove('has-file');
+    submitBtn.disabled = true;
+    hint.textContent   = 'Sélectionne un fichier CSV pour commencer';
+}
 
 fileInput.addEventListener('change', () => {
-    if (fileInput.files.length) {
-        fileNameEl.textContent = '✅ ' + fileInput.files[0].name;
-        fileNameEl.style.display = 'block';
-    }
+    if (fileInput.files.length) showFile(fileInput.files[0].name);
 });
 
-['dragover', 'dragenter'].forEach(evt => {
-    dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-});
-['dragleave', 'drop'].forEach(evt => {
-    dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
-});
+['dragover','dragenter'].forEach(e =>
+    dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); }));
+['dragleave','drop'].forEach(e =>
+    dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); }));
+
 dropZone.addEventListener('drop', e => {
-    const files = e.dataTransfer.files;
-    if (files.length) {
-        const dt = new DataTransfer();
-        dt.items.add(files[0]);
-        fileInput.files = dt.files;
-        fileNameEl.textContent = '✅ ' + files[0].name;
-        fileNameEl.style.display = 'block';
-    }
+    if (!e.dataTransfer.files.length) return;
+    const file = e.dataTransfer.files[0];
+    const dt = new DataTransfer(); dt.items.add(file);
+    fileInput.files = dt.files;
+    showFile(file.name);
+});
+
+// Clic sur la zone = ouvre le sélecteur
+dropZone.addEventListener('click', e => {
+    if (e.target.closest('button') || e.target === fileInput) return;
+    fileInput.click();
 });
 </script>
 {% endblock %}

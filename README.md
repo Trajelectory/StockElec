@@ -1,163 +1,101 @@
 # StockElec 📦⚡
 
-Application de gestion de stock pour composants électroniques, pensée pour les makers et hobbyistes.  
-Développée avec **Flask + SQLite**, architecture **MVC**.
+Application de gestion de stock de composants électroniques pour makers et hobbyistes.
+Développée avec **Flask + SQLite**, architecture **MVC**, thème sombre.
 
 ---
 
 ## Installation
 
 ```bash
-# 1. Créer et activer un environnement virtuel
+# 1. Environnement virtuel
 python -m venv venv
 source venv/bin/activate        # Linux / macOS
 venv\Scripts\activate           # Windows
 
-# 2. Installer les dépendances
+# 2. Dépendances
 pip install -r requirements.txt
 
-# 3. Lancer l'application
+# 3. Lancer
 python run.py
 ```
 
-L'application est accessible sur **http://127.0.0.1:5000**
+Accessible sur **http://127.0.0.1:5000**
 
-> **Important** : `run.py` lance Flask avec `use_reloader=False`. C'est intentionnel — le reloader de Flask tuerait les threads d'enrichissement LCSC en arrière-plan avant qu'ils terminent.
+> `use_reloader=False` est intentionnel — le reloader de Flask tuerait les threads d'enrichissement LCSC en arrière-plan.
 
 ---
 
 ## Fonctionnalités
 
-### 📦 Gestion du stock
+### 📦 Stock
+- Tableau paginé (25/50/100) avec miniatures, recherche, filtres catégorie, tri
+- Barre de stats compacte (références, pièces, valeur totale, fabricants)
+- Badges RoHS/DS inline, seuil d'alerte discret ⚡
+- Cases à cocher multi-sélection + barre flottante (étiquettes)
+- Ajustement rapide +/− AJAX
 
-- **Tableau paginé** (25 / 50 / 100 par page) avec miniatures des composants
-- **Recherche** par description, référence LCSC, référence fabricant, fabricant, package
-- **Filtres** par catégorie (menu hiérarchique avec optgroup) et tri multi-colonnes
-- **Fiche détail** complète : image grand format, datasheet, catégorie, historique des mouvements, projets liés
-- **Ajout / édition / suppression** de composants
-- **Seuil d'alerte** (`min_stock`) par composant — badge orange + page dédiée 🔔
-
-### ⚡ Ajustement rapide
-
-- Boutons **+** / **−** directement dans le tableau et sur la fiche détail
-- Mise à jour AJAX instantanée, sans rechargement de page
-- Chaque ajustement est automatiquement enregistré dans l'historique
+### ➕ Ajout / Édition
+- Layout deux colonnes : infos à gauche, stock/prix sticky à droite
+- Import rapide LCSC : ref → prévisualisation → pré-remplissage
+- Calcul automatique prix total (quantité × unitaire)
+- Champs vides masqués automatiquement
 
 ### 📥 Import CSV LCSC
+Deux formats détectés automatiquement :
 
-- Glisser-déposer ou sélection de fichier
-- **Déduplication automatique** : les composants déjà en stock (même référence LCSC) sont détectés et listés dans un message d'avertissement, sans être dupliqués
-- Après l'import, enrichissement automatique en arrière-plan (catégories + images) via le scraper LCSC
+| Format | Colonnes clés |
+|---|---|
+| Export commande | `LCSC Part Number`, `Manufacture Part Number`, `Ext.Price(€)` |
+| Export panier (`export_cart_*.csv`) | `LCSC#`, `MPN`, `Extended Price(€)` |
 
-### ➕ Ajout rapide depuis LCSC
-
-Sur la page **Ajouter un composant**, un bloc "⚡ Import rapide LCSC" permet de :
-1. Saisir une référence LCSC (ex: `C149504`) et appuyer sur Entrée
-2. Voir une prévisualisation instantanée (image, nom, fabricant, catégorie)
-3. Cliquer **✓ Utiliser ces données** — tous les champs du formulaire se pré-remplissent
-4. N'avoir plus qu'à saisir la quantité et valider
-
-Détecte aussi si le composant est **déjà en stock** avant de continuer.
+- Drag & drop ou sélection fichier
+- Déduplication automatique par référence LCSC
+- Enrichissement en arrière-plan après import
 
 ### 🔍 Enrichissement LCSC automatique
+Scrape `wmsc.lcsc.com` pour récupérer catégorie, image et datasheet.
+Thread daemon, ~0.6s entre requêtes. Bouton 📷 pour relancer manuellement.
 
-L'application scrape l'endpoint interne LCSC (`wmsc.lcsc.com`) pour récupérer :
-- **Catégorie** et sous-catégorie (ex: `Resistors / Chip Resistor - Surface Mount`)
-- **Image** du composant (téléchargée localement dans `instance/images/`)
-- **Datasheet** (lien PDF)
-
-L'enrichissement se fait **en arrière-plan** (thread daemon) après chaque import CSV ou ajout manuel, avec une pause de ~0.6s entre chaque requête pour ne pas surcharger LCSC. Un bouton 📷 dans le tableau permet de relancer l'enrichissement manuellement sur un composant.
-
-> **Note** : le scraping utilise l'endpoint non-officiel de LCSC. Il peut être soumis à des limitations ou des changements de leur côté.
+### 🖼️ Symbole & Footprint EasyEDA
+Sur la fiche composant : grande photo + 2 vignettes (symbole / footprint) côte à côte.
+Chargement à la demande, cache dans `instance/easyeda_pngs/`, lightbox au clic.
 
 ### 🗂️ Projets
-
-- Créer des projets avec **nom, description, statut** et une **image** (photo PCB, boîtier, schéma…)
-- Les cartes projet affichent l'image en bannière pour une identification visuelle rapide
-- Associer des composants à un projet avec une **quantité nécessaire**
-- Vérification de **disponibilité stock** en temps réel (badge ✓ / ✗)
-- Boutons **🔧 Débiter** et **↩️ Restituer** pour ajuster le stock depuis la fiche projet
-- Sur la fiche d'un composant, liste des projets qui l'utilisent
-
-### 📋 Import BOM KiCad
-
-Depuis la fiche d'un projet, le bouton **📋 Importer une BOM KiCad** permet de :
-1. Déposer un fichier CSV exporté depuis KiCad
-2. Obtenir un **rapport de disponibilité** en 4 catégories :
-   - ✅ **En stock** — quantité suffisante (cochés par défaut)
-   - ⚠️ **Stock insuffisant** — présent mais pas assez, la colonne "Manquant" indique le delta
-   - ❌ **Absent du stock** — avec un bouton 🛒 LCSC → pour commander directement
-   - **—** Sans référence LCSC (connecteurs, DNP…)
-3. Cocher les composants à ajouter et valider en un clic
-
-Formats KiCad reconnus automatiquement :
-- KiCad 7/8 natif (`Tools → Edit Symbol Fields → Export`)
-- Plugin JLCPCB (`Comment, Designator, Footprint, LCSC Part Number`)
-- bom2csv avec séparateur `;`
-- Noms de colonnes LCSC reconnus : `LCSC Part Number`, `LCSC Part #`, `LCSC`, `Supplier Part Number`
+- CRUD avec image bannière, grille auto-fill responsive
+- Tableau composants groupés par catégorie, colonnes alignées
+- Barre de progression disponibilité (n/n %)
+- Formulaire d'ajout rétractable
+- Boutons −/+ AJAX pour débiter/restituer le stock
+- Import BOM KiCad avec rapport ✅/⚠️/❌/—
 
 ### 🏷️ Étiquettes imprimables
+- Impression multi-étiquettes depuis la sélection ou la fiche
+- QR code généré en Python pur (zéro dépendance externe)
+- Copies multiples par étiquette
 
-Depuis la fiche d'un composant, le bouton **🏷️ Étiquette** ouvre une page dédiée :
-- Format **6cm × 3cm** (paysage), optimisé `@media print`
-- Contenu : image du composant, description, références (LCSC, MFR, fabricant), badges (package, RoHS, quantité, emplacement, catégorie), prix, **QR code**
-- Le QR code pointe vers la fiche du composant — scannable depuis un téléphone sur le même réseau
-- Choix du nombre de copies (1 à 100) et du niveau d'information (complet / minimal)
-- QR code généré **côté serveur en Python pur** (zéro dépendance externe, fonctionne hors ligne)
-
-**Pour personnaliser les étiquettes**, édite `app/templates/components/label.html` — toutes les sections CSS sont commentées avec les propriétés à modifier.
-
-### 🏷️ Impression d'étiquettes en masse
-
-Depuis le tableau principal, il est possible de sélectionner plusieurs composants et d'imprimer leurs étiquettes en une seule fois :
-
-- **Cases à cocher** sur chaque ligne du tableau
-- **Case en en-tête** pour tout sélectionner / désélectionner d'un coup
-- Workflow typique : filtrer par catégorie → cocher l'en-tête → imprimer toutes les étiquettes de la catégorie
-- Dès qu'au moins un composant est coché, une **barre flottante** apparaît en bas de l'écran avec le bouton **🏷️ Imprimer les étiquettes**
-- La page d'impression (`/labels?ids=1,2,3...`) affiche toutes les étiquettes avec un choix du nombre de **copies par étiquette** (1 à 20)
-- Un résumé liste les composants sélectionnés avec leur miniature avant impression
-
-### 📋 Historique des mouvements
-
-Toutes les opérations sont tracées automatiquement :
-
-| Type | Déclencheur |
-|---|---|
-| 📥 Import CSV | Import d'un fichier CSV |
-| ➕ Ajout manuel | Création d'un composant avec quantité > 0 |
-| ➖ Retrait manuel | Bouton − dans le tableau |
-| ✏️ Ajustement | Modification de quantité via le formulaire d'édition |
-| 🔧 Utilisé (projet) | Bouton "Débiter" sur un projet |
-| ↩️ Retour (projet) | Bouton "Restituer" sur un projet |
-
-Consultable par composant (fiche détail, 20 derniers) ou globalement (page Historique, 200 derniers).
+### ⚙️ Configuration des étiquettes (`/label-settings`)
+- Format (largeur × hauteur mm), couleurs fond/texte/badges
+- Tailles de police, 11 toggles on/off
+- Aperçu en temps réel avec un vrai composant du stock
+- Config sauvegardée en base, appliquée automatiquement à l'impression
 
 ### 🔔 Alertes stock bas
-
-- Page dédiée listant tous les composants sous leur seuil `min_stock`
-- Bandeau rouge sur l'accueil si des alertes sont actives
-- Ajustement +/− disponible directement sur la page alertes
-- La ligne disparaît en fondu une fois le seuil repassé
+- Seuil `min_stock` par composant
+- Page dédiée + bandeau rouge sur l'accueil
 
 ---
 
-## Format CSV supporté (LCSC)
+## Paramètres (`/settings`)
 
-Le fichier CSV exporté depuis [lcsc.com](https://lcsc.com) → *Orders* → *Export* est importé directement.
-
-| Colonne CSV | Champ en base |
+| Section | Contenu |
 |---|---|
-| `LCSC Part Number` | `lcsc_part_number` (clé unique) |
-| `Manufacture Part Number` | `manufacture_part_number` |
-| `Manufacturer` | `manufacturer` |
-| `Customer NO.` | `customer_no` |
-| `Package` | `package` |
-| `Description` | `description` |
-| `RoHS` | `rohs` |
-| `Quantity` | `quantity` |
-| `Unit Price(€)` | `unit_price` |
-| `Ext.Price(€)` | `ext_price` |
+| 🏠 Général | Nom de l'app (navbar), adresse de base QR codes, seuil d'alerte par défaut |
+| 🏷️ Étiquettes | Lien vers `/label-settings` |
+| 💾 Sauvegarde | ZIP complet (base + images) |
+| 📊 Stats | Composants, projets, tailles, alertes de complétude |
+| 🔍 Enrichissement | Relance sur tous les composants incomplets |
+| 🧹 Nettoyage | Supprime les images orphelines |
 
 ---
 
@@ -166,81 +104,63 @@ Le fichier CSV exporté depuis [lcsc.com](https://lcsc.com) → *Orders* → *Ex
 ```
 stock_composants/
 ├── run.py                              # Point d'entrée (debug=True, use_reloader=False)
-├── requirements.txt                    # flask, requests
-├── debug_lcsc.py                       # Script de diagnostic endpoint LCSC
+├── requirements.txt
 └── app/
-    ├── __init__.py                     # Factory Flask (create_app), chargement config
-    │
+    ├── __init__.py                     # Factory Flask, context_processor app_name
     ├── models/
-    │   ├── database.py                 # Connexion SQLite, schéma, migrations à chaud
+    │   ├── database.py                 # SQLite, schéma, migrations à chaud
     │   ├── component.py                # CRUD composants, pagination, déduplication
-    │   ├── category.py                 # Arborescence catégories LCSC, optgroups
+    │   ├── category.py                 # Arborescence catégories LCSC
     │   ├── project.py                  # CRUD projets, liaison composants
-    │   ├── movement.py                 # Historique des mouvements de stock
-    │   └── settings.py                 # Configuration clé/valeur (persistée en DB)
-    │
+    │   └── settings.py                 # Config clé/valeur persistée
     ├── views/
-    │   └── component_view.py           # Couche Vue — appels render_template
-    │
+    │   └── component_view.py
     ├── controllers/
-    │   ├── component_controller.py     # Routes stock, import, enrichissement, alertes, étiquettes
+    │   ├── component_controller.py     # Routes stock, import, enrichissement, étiquettes, paramètres
     │   └── project_controller.py       # Routes projets, BOM KiCad, débit/restitution
-    │
     ├── services/
-    │   ├── lcsc_scraper.py             # Scraping wmsc.lcsc.com, téléchargement images
-    │   └── qr_generator.py             # Générateur QR code SVG (Python pur, sans dépendance)
-    │
+    │   ├── lcsc_scraper.py             # Scraping wmsc.lcsc.com
+    │   ├── easyeda.py                  # PNGs symbole/footprint EasyEDA
+    │   └── qr_generator.py             # QR code SVG Python pur
     ├── templates/
-    │   ├── base.html                   # Layout commun (navbar, flash messages)
-    │   ├── partials/
-    │   │   └── category_select.html    # Macro Jinja : <select> hiérarchique réutilisable
+    │   ├── base.html                   # Layout commun (navbar, nom dynamique)
+    │   ├── partials/category_select.html
     │   ├── components/
-    │   │   ├── index.html              # Tableau stock paginé
-    │   │   ├── add.html                # Ajout manuel + import rapide LCSC
-    │   │   ├── edit.html               # Formulaire édition
-    │   │   ├── detail.html             # Fiche composant complète
+    │   │   ├── index.html              # Tableau stock
+    │   │   ├── add.html                # Ajout + import rapide LCSC
+    │   │   ├── edit.html               # Édition (même layout que add)
+    │   │   ├── detail.html             # Fiche composant
     │   │   ├── import.html             # Import CSV drag & drop
-    │   │   ├── alerts.html             # Page alertes stock bas
-    │   │   ├── history.html            # Historique global des mouvements
-    │   │   ├── label.html              # Étiquette imprimable 6×3cm + QR code (1 composant)
-    │   │   ├── labels_print.html       # Impression multi-étiquettes (sélection depuis le tableau)
-    │   │   └── settings.html           # Page paramètres
+    │   │   ├── alerts.html             # Alertes stock bas
+    │   │   ├── labels_print.html       # Impression étiquettes
+    │   │   ├── label_settings.html     # Config étiquettes (aperçu live)
+    │   │   └── settings.html           # Paramètres
     │   └── projects/
-    │       ├── index.html              # Liste des projets (cartes avec image)
-    │       ├── form.html               # Création / édition projet (avec upload image)
-    │       ├── detail.html             # Fiche projet + gestion composants
-    │       ├── import_bom.html         # Upload BOM KiCad
-    │       └── bom_report.html         # Rapport de disponibilité BOM
-    │
+    │       ├── index.html              # Grille projets
+    │       ├── form.html               # Création/édition projet
+    │       ├── detail.html             # Tableau composants + stats
+    │       ├── import_bom.html         # Import BOM KiCad
+    │       └── bom_report.html         # Rapport ✅/⚠️/❌/—
     └── static/
-        ├── css/style.css               # Thème sombre, tous les composants UI
-        └── js/app.js                   # Auto-dismiss alertes
+        ├── css/style.css               # ~40Ko, thème sombre complet
+        └── js/app.js
 ```
 
 ---
 
 ## Base de données
 
-SQLite stockée dans `instance/stock.db` (créée automatiquement au premier lancement).
-
-| Fichier/Dossier | Contenu |
-|---|---|
-| `instance/stock.db` | Base de données SQLite |
-| `instance/images/` | Images des composants (téléchargées depuis LCSC) |
-| `instance/project_images/` | Images uploadées pour les projets |
-
-### Schéma
+SQLite dans `instance/stock.db` (créée automatiquement au démarrage).
 
 | Table | Rôle |
 |---|---|
-| `components` | Stock de composants (référence LCSC unique) |
-| `categories` | Arborescence des catégories LCSC (id, parent_id, full_path) |
-| `projects` | Projets électroniques (avec image optionnelle) |
-| `project_components` | Liaison composants ↔ projets avec quantité |
-| `stock_movements` | Historique de tous les mouvements de stock |
-| `settings` | Configuration clé/valeur (persistée entre redémarrages) |
+| `components` | Stock (ref LCSC unique, prix, image, symbol/footprint PNG) |
+| `categories` | Arborescence LCSC |
+| `projects` | Projets avec image optionnelle |
+| `project_components` | Liaison composants ↔ projets |
+| `settings` | Configuration clé/valeur |
 
-Les migrations sont appliquées **à chaud** au démarrage : si tu as une ancienne base, les nouvelles colonnes sont ajoutées automatiquement sans perte de données.
+Les migrations sont appliquées **à chaud** — pas de perte de données sur une base existante.
 
 ---
 
@@ -248,56 +168,27 @@ Les migrations sont appliquées **à chaud** au démarrage : si tu as une ancien
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/components` | Liste tous les composants (param `?search=`) |
-| `GET /api/lcsc-preview?ref=C149504` | Prévisualisation LCSC sans enregistrement |
-| `POST /component/<id>/adjust` | Ajustement rapide de stock (`{"delta": +/-N}`) |
-| `POST /enrich/<id>` | Relance l'enrichissement LCSC pour un composant |
-| `GET /component/<id>/label` | Page étiquette imprimable (1 composant) |
-| `GET /labels?ids=1,2,3` | Page impression multi-étiquettes |
-| `POST /projects/<id>/components/<id>/use` | Débite le stock pour un projet |
-| `POST /projects/<id>/components/<id>/return` | Restitue au stock depuis un projet |
-
----
-
-## Personnalisation des étiquettes
-
-Le fichier `app/templates/components/label.html` est entièrement commenté.  
-Les principales propriétés à modifier :
-
-| Sélecteur CSS | Propriété | Effet |
-|---|---|---|
-| `.label` | `width` / `height` | Format à l'écran (px) |
-| `@media print .label` | `width` / `height` | Format à l'impression (mm) |
-| `.lbl-img` | `width` | Largeur de la zone image |
-| `.lbl-desc` | `font-size` | Taille de la description |
-| `.lbl-ref` | `font-size` | Taille des références |
-| `.lbl-badge` | `font-size` | Taille des badges |
-| `.b-pkg` `.b-rohs` etc. | `background` / `color` | Couleurs des badges |
-| `.lbl-qr` | `width` | Largeur de la zone QR |
+| `GET /api/components` | Liste composants (`?search=`) |
+| `GET /api/lcsc-preview?ref=C149504` | Prévisualisation LCSC |
+| `POST /component/<id>/adjust` | `{"delta": ±N}` |
+| `POST /enrich/<id>` | Relance enrichissement LCSC |
+| `GET /labels?ids=1,2,3` | Page impression étiquettes |
+| `GET /api/easyeda-pngs/<ref>` | PNG EasyEDA |
+| `GET /label-settings` | Config étiquettes |
 
 ---
 
 ## Dépannage
 
-**Les catégories et images ne se remplissent pas après l'import**  
-Vérifie que Flask tourne bien avec `use_reloader=False` (déjà configuré dans `run.py`). Les logs dans le terminal doivent afficher des lignes `[LCSC] C149504 — enrichi : [...]`. Si tu vois des erreurs réseau, c'est que LCSC est inaccessible ou a changé son endpoint.
+**Images et catégories vides après import**
+Flask doit tourner avec `use_reloader=False` (déjà configuré). Les logs affichent `[LCSC] C149504 — enrichi`.
 
-**Tester l'endpoint LCSC manuellement**
-```bash
-python debug_lcsc.py
-```
-Affiche la réponse JSON brute pour `C149504` et vérifie quels champs sont disponibles.
+**QR code ne fonctionne pas sur mobile**
+Configurer l'adresse de base dans ⚙️ Paramètres → Général → "Adresse de base".
+Ex : `http://192.168.1.50:5000`. Lancer aussi Flask avec `host='0.0.0.0'` dans `run.py`.
 
-**La BOM KiCad n'est pas reconnue**  
-L'analyse échoue si aucune colonne LCSC n'est trouvée. Dans ce cas, un message d'erreur liste les colonnes détectées. Il faut que tes composants KiCad aient un champ `LCSC Part Number` (ou variante) renseigné dans les propriétés des symboles.
+**BOM KiCad non reconnue**
+Les composants KiCad doivent avoir un champ `LCSC Part Number` (ou variante) renseigné.
 
-**Le QR code de l'étiquette ne fonctionne pas sur mobile**  
-Le QR code pointe vers `http://127.0.0.1:5000/...` qui n'est accessible que depuis la machine locale. Pour scanner depuis un téléphone, lance Flask sur l'IP du réseau local :
-```python
-# Dans run.py, remplace app.run(...) par :
-app.run(debug=True, use_reloader=False, host='0.0.0.0')
-```
-Puis utilise `http://192.168.x.x:5000` comme adresse de base.
-
-**Réinitialiser la base de données**  
-Supprime simplement `instance/stock.db` et relance l'app. Les images dans `instance/images/` et `instance/project_images/` peuvent être conservées.
+**Réinitialiser la base**
+Supprimer `instance/stock.db` et relancer. Les images peuvent être conservées.

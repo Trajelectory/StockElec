@@ -2,189 +2,240 @@
 {% block title %}{{ component.description or 'Composant' }} — StockElec{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour</a>
-    <div class="page-header-actions">
-        <a href="{{ url_for('components.label', component_id=component.id) }}"
-           class="btn btn-secondary" target="_blank" title="Imprimer l'étiquette">🏷️ Étiquette</a>
-        <a href="{{ url_for('components.edit', component_id=component.id) }}" class="btn btn-primary">✏️ Modifier</a>
-        <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
-              style="display:inline" onsubmit="return confirm('Supprimer ?')">
-            <button type="submit" class="btn btn-danger">🗑️</button>
-        </form>
-    </div>
+
+<!-- ── Retour simple ───────────────────────────────────────────── -->
+<div style="margin-bottom:.85rem">
+    <a href="{{ url_for('components.index') }}" class="btn-back">← Retour au stock</a>
 </div>
 
-<div class="detail-card">
-    <div class="detail-top">
-        <!-- Galerie : image produit + symbole + footprint -->
-        <div class="detail-gallery">
+<!-- ── Layout principal ───────────────────────────────────────── -->
+<div class="dcomp-layout">
 
-            <!-- Image produit -->
-            <div class="gallery-item" id="gallery-photo">
-                {% if component.image_path %}
-                    <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
-                         alt="{{ component.description }}"
-                         onclick="openImgLightbox(this.src, 'Photo — {{ component.description|e }}')"
-                         title="Photo du composant"/>
-                {% else %}
-                    <div class="gallery-empty">
-                        <span>📷</span>
-                        {% if component.lcsc_part_number %}
-                        <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
-                                onclick="enrichComponent({{ component.id }})">Récupérer</button>
+    <!-- ══ Carte principale ══════════════════════════════════════ -->
+    <div class="dcomp-main">
+        <div class="dcomp-card">
+
+            <!-- Galerie + infos sur la même ligne -->
+            <div class="dcomp-top">
+
+                <!-- Galerie -->
+                <div class="dcomp-gallery">
+                    <div class="dcomp-gallery-main" id="gallery-photo">
+                        {% if component.image_path %}
+                            <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
+                                 alt="{{ component.description }}"
+                                 onclick="openLightbox(this.src, 'Photo')"
+                                 class="dcomp-gallery-main-img" title="Agrandir"/>
+                        {% else %}
+                            <div class="dcomp-gallery-main-empty">
+                                <span>📷</span>
+                                {% if component.lcsc_part_number %}
+                                <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
+                                        onclick="enrichComponent({{ component.id }})">Récupérer</button>
+                                {% endif %}
+                            </div>
                         {% endif %}
                     </div>
-                {% endif %}
-                <span class="gallery-label">Photo</span>
+
+                    {% if component.lcsc_part_number %}
+                    <div class="dcomp-gallery-thumbs">
+                        <div class="dcomp-gallery-thumb-item" id="gallery-symbol">
+                            {% if component.symbol_png %}
+                                <img src="{{ url_for('components.easyeda_png_file', filename=component.symbol_png.split('easyeda_pngs/')|last) }}"
+                                     alt="Symbole" onclick="openLightbox(this.src, 'Symbole')"
+                                     class="dcomp-gallery-thumb-img" title="Agrandir"/>
+                            {% else %}
+                                <div class="dcomp-gallery-load" id="sym-placeholder"
+                                     onclick="loadPngs()" title="Charger">
+                                    <span>〜</span>
+                                    <span class="dcomp-load-hint" id="sym-hint">Charger</span>
+                                </div>
+                            {% endif %}
+                            <span class="dcomp-gallery-label">Symbole</span>
+                        </div>
+                        <div class="dcomp-gallery-thumb-item" id="gallery-footprint">
+                            {% if component.footprint_png %}
+                                <img src="{{ url_for('components.easyeda_png_file', filename=component.footprint_png.split('easyeda_pngs/')|last) }}"
+                                     alt="Footprint" onclick="openLightbox(this.src, 'Footprint')"
+                                     class="dcomp-gallery-thumb-img" title="Agrandir"/>
+                            {% else %}
+                                <div class="dcomp-gallery-load" id="fp-placeholder"
+                                     onclick="loadPngs()" title="Charger">
+                                    <span>⬡</span>
+                                    <span class="dcomp-load-hint" id="fp-hint">Charger</span>
+                                </div>
+                            {% endif %}
+                            <span class="dcomp-gallery-label">Footprint</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Infos : titre + badges + champs -->
+                <div class="dcomp-info">
+
+                    <!-- Titre + badges -->
+                    <div class="dcomp-title-block">
+                        <h1 class="dcomp-title">{{ component.description or '—' }}</h1>
+                        <div class="dcomp-badges">
+                            {% if component.rohs == 'YES' %}<span class="badge badge-green">RoHS</span>{% endif %}
+                            {% if component.package %}<span class="badge badge-gray">{{ component.package }}</span>{% endif %}
+                            {% if component.category %}
+                            <span class="badge badge-blue" title="{{ component.category }}">
+                                {{ component.category.split(' / ')|last if ' / ' in component.category else component.category }}
+                            </span>
+                            {% endif %}
+                            {% if component.datasheet_url %}
+                            <a href="{{ component.datasheet_url }}" target="_blank" rel="noopener"
+                               class="badge badge-purple" title="Ouvrir la datasheet">📄 DS</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Grille de champs compacte -->
+                    <div class="dcomp-fields-grid">
+
+                        {% if component.lcsc_part_number %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">LCSC</span>
+                            <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
+                               target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">
+                                {{ component.lcsc_part_number }} 🛒
+                            </a>
+                        </div>
+                        {% endif %}
+
+                        {% if component.manufacture_part_number %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">Réf. fab.</span>
+                            <span class="dcomp-val mono">{{ component.manufacture_part_number }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if component.manufacturer %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">Fabricant</span>
+                            <span class="dcomp-val">{{ component.manufacturer }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if component.customer_no %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">N° client</span>
+                            <span class="dcomp-val mono">{{ component.customer_no }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if component.category %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">Catégorie</span>
+                            <span class="dcomp-val">{{ component.category }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if component.location %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">Emplacement</span>
+                            <span class="dcomp-val">📍 {{ component.location }}</span>
+                        </div>
+                        {% endif %}
+
+                        {% if component.unit_price is not none %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">Prix unit.</span>
+                            <span class="dcomp-val">{{ "%.4f"|format(component.unit_price) }} €</span>
+                        </div>
+                        {% endif %}
+
+                        {% if component.ext_price is not none %}
+                        <div class="dcomp-field">
+                            <span class="dcomp-lbl">Prix lot</span>
+                            <span class="dcomp-val">{{ "%.2f"|format(component.ext_price) }} €</span>
+                        </div>
+                        {% endif %}
+
+                    </div>
+
+                    {% if component.notes %}
+                    <p class="dcomp-notes">{{ component.notes }}</p>
+                    {% endif %}
+
+                </div>
             </div>
 
-            {% if component.lcsc_part_number %}
-            <!-- Symbole schématique -->
-            <div class="gallery-item" id="gallery-symbol">
-                {% if component.symbol_png %}
-                    <img src="{{ url_for('components.easyeda_png_file', filename=component.symbol_png.split('easyeda_pngs/')|last) }}"
-                         alt="Symbole {{ component.lcsc_part_number }}"
-                         onclick="openImgLightbox(this.src, 'Symbole — {{ component.description|e }}')"
-                         title="Cliquer pour agrandir"/>
-                {% else %}
-                    <div class="gallery-loading" id="sym-placeholder"
-                         onclick="loadPngs()" title="Cliquer pour charger">
-                        <span class="gallery-icon">〜</span>
-                        <span class="gallery-load-hint">Cliquer pour charger</span>
-                    </div>
-                {% endif %}
-                <span class="gallery-label">Symbole</span>
-            </div>
-
-            <!-- Footprint PCB -->
-            <div class="gallery-item" id="gallery-footprint">
-                {% if component.footprint_png %}
-                    <img src="{{ url_for('components.easyeda_png_file', filename=component.footprint_png.split('easyeda_pngs/')|last) }}"
-                         alt="Footprint {{ component.lcsc_part_number }}"
-                         onclick="openImgLightbox(this.src, 'Footprint — {{ component.description|e }}')"
-                         title="Cliquer pour agrandir"/>
-                {% else %}
-                    <div class="gallery-loading" id="fp-placeholder"
-                         onclick="loadPngs()" title="Cliquer pour charger">
-                        <span class="gallery-icon">⬡</span>
-                        <span class="gallery-load-hint">Cliquer pour charger</span>
-                    </div>
-                {% endif %}
-                <span class="gallery-label">Footprint</span>
+            <!-- Utilisé dans -->
+            {% if projects_using %}
+            <div class="dcomp-projects">
+                <span class="dcomp-projects-label">🗂️ Utilisé dans</span>
+                <div class="dcomp-project-list">
+                    {% for p in projects_using %}
+                    <a href="{{ url_for('projects.detail', project_id=p.id) }}"
+                       class="dcomp-project-tag">
+                        {{ p.name }}
+                        <span class="dcomp-project-qty">×{{ p.quantity }}</span>
+                        <span class="badge badge-status-{{ p.status|replace(' ','-') }} badge-xs">{{ p.status }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
             {% endif %}
 
-        </div>
-        <div class="detail-header">
-            <h1 class="detail-title">{{ component.description or '—' }}</h1>
-            <div class="detail-badges">
-                {% if component.rohs == 'YES' %}<span class="badge badge-green">RoHS</span>{% endif %}
-                {% if component.category %}<span class="badge badge-blue">{{ component.category }}</span>{% endif %}
-                {% if component.package %}<span class="badge badge-gray">{{ component.package }}</span>{% endif %}
+            <!-- Méta -->
+            <div class="dcomp-meta">
+                Ajouté le {{ component.created_at[:16] }}
+                {% if component.updated_at != component.created_at %}
+                · Mis à jour le {{ component.updated_at[:16] }}
+                {% endif %}
             </div>
-            {% if component.datasheet_url %}
-            <a href="{{ component.datasheet_url }}" target="_blank" rel="noopener"
-               class="btn btn-secondary btn-sm" style="margin-top:.75rem">📄 Datasheet</a>
+
+        </div>
+    </div>
+
+    <!-- ══ Colonne stock sticky ═════════════════════════════════ -->
+    <div class="dcomp-side">
+        <div class="dcomp-stock-card">
+            <div class="dcomp-stock-label">Stock disponible</div>
+
+            <div class="dcomp-qty-row">
+                <button class="dcomp-qty-btn" onclick="adjustQty({{ component.id }}, -1, this)">−</button>
+                <span class="dcomp-qty-val {% if component.quantity == 0 %}qty-zero{% elif component.is_low_stock %}qty-low{% endif %}"
+                      id="qty-{{ component.id }}">{{ component.quantity }}</span>
+                <button class="dcomp-qty-btn" onclick="adjustQty({{ component.id }}, +1, this)">+</button>
+            </div>
+
+            {% if component.min_stock > 0 %}
+            <div class="dcomp-seuil {% if component.is_low_stock %}dcomp-seuil-alert{% endif %}">
+                {% if component.is_low_stock %}⚠️ Sous le seuil{% else %}⚡ Seuil : {{ component.min_stock }}{% endif %}
+            </div>
             {% endif %}
 
-            <!-- Contrôle de quantité rapide -->
-            <div class="detail-qty-block">
-                <div class="detail-qty-label">Stock</div>
-                <div class="qty-control qty-control-lg">
-                    <button class="qty-btn" onclick="adjustQty({{ component.id }}, -1, this)">−</button>
-                    <span class="qty-value-lg {% if component.quantity == 0 %}qty-zero{% elif component.is_low_stock %}qty-low{% endif %}"
-                          id="qty-{{ component.id }}">{{ component.quantity }}</span>
-                    <button class="qty-btn" onclick="adjustQty({{ component.id }}, +1, this)">+</button>
-                </div>
-                {% if component.min_stock > 0 %}
-                <div class="min-stock-label {% if component.is_low_stock %}ms-alert{% endif %}">
-                    {% if component.is_low_stock %}⚠️{% endif %}
-                    Seuil d'alerte : {{ component.min_stock }}
+            {% if component.unit_price is not none %}
+            <div class="dcomp-stock-price">
+                {{ "%.4f"|format(component.unit_price) }} € / pièce
+                {% if component.quantity > 0 %}
+                <div class="dcomp-stock-total">
+                    = {{ "%.2f"|format(component.unit_price * component.quantity) }} € en stock
                 </div>
                 {% endif %}
             </div>
+            {% endif %}
+
+            <div class="dcomp-stock-actions">
+                <a href="{{ url_for('components.label', component_id=component.id) }}"
+                   class="btn btn-secondary btn-full" target="_blank">🏷️ Imprimer étiquette</a>
+                <a href="{{ url_for('components.edit', component_id=component.id) }}"
+                   class="btn btn-primary btn-full">✏️ Modifier</a>
+                <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
+                      onsubmit="return confirm('Supprimer ce composant ?')">
+                    <button type="submit" class="btn btn-danger btn-full">🗑️ Supprimer</button>
+                </form>
+            </div>
         </div>
     </div>
 
-    <div class="detail-grid">
-        <div class="detail-section">
-            <h2>Identification</h2>
-            <dl class="detail-list">
-                <dt>Référence LCSC</dt>       <dd class="mono">{{ component.lcsc_part_number or '—' }}</dd>
-                <dt>Référence fabricant</dt>  <dd class="mono">{{ component.manufacture_part_number or '—' }}</dd>
-                <dt>Fabricant</dt>            <dd>{{ component.manufacturer or '—' }}</dd>
-                <dt>N° client</dt>            <dd>{{ component.customer_no or '—' }}</dd>
-            </dl>
-        </div>
-        <div class="detail-section">
-            <h2>Prix</h2>
-            <dl class="detail-list">
-                <dt>Prix unitaire</dt>
-                <dd>{% if component.unit_price is not none %}{{ "%.4f"|format(component.unit_price) }} €{% else %}—{% endif %}</dd>
-                <dt>Valeur totale</dt>
-                <dd>{% if component.ext_price is not none %}{{ "%.2f"|format(component.ext_price) }} €{% else %}—{% endif %}</dd>
-            </dl>
-        </div>
-        <div class="detail-section">
-            <h2>Organisation</h2>
-            <dl class="detail-list">
-                <dt>Catégorie</dt>   <dd>{{ component.category or '—' }}</dd>
-                <dt>Emplacement</dt> <dd>{{ component.location or '—' }}</dd>
-            </dl>
-        </div>
-    </div>
-
-    {% if component.notes %}
-    <div class="detail-notes"><h2>Notes</h2><p>{{ component.notes }}</p></div>
-    {% endif %}
-
-    <!-- Projets utilisant ce composant -->
-    {% if projects_using %}
-    <div class="detail-section" style="margin-top:1.5rem">
-        <h2>🗂️ Utilisé dans</h2>
-        <div class="project-tags">
-            {% for p in projects_using %}
-            <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="project-tag">
-                {{ p.name }} <span class="project-tag-qty">×{{ p.quantity }}</span>
-                <span class="badge badge-status-{{ p.status|replace(' ','-') }}">{{ p.status }}</span>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Historique des mouvements -->
-    {% if movements %}
-    <div class="detail-section" style="margin-top:1.5rem">
-        <h2>📋 Historique récent
-            <a href="{{ url_for('components.history') }}" class="link-small">voir tout →</a>
-        </h2>
-        <table class="data-table movement-table">
-            <thead><tr><th>Date</th><th>Type</th><th>Variation</th><th>Stock après</th><th>Note</th></tr></thead>
-            <tbody>
-            {% for m in movements %}
-            <tr>
-                <td class="td-secondary mono" style="font-size:.8rem">{{ m.created_at[:16] }}</td>
-                <td>{{ m.icon }} {{ m.label }}{% if m.project_name %} — {{ m.project_name }}{% endif %}</td>
-                <td class="td-qty {% if m.is_positive %}mv-pos{% else %}mv-neg{% endif %}">
-                    {{ '+' if m.is_positive else '' }}{{ m.qty_change }}
-                </td>
-                <td class="td-qty">{{ m.qty_after }}</td>
-                <td class="td-secondary">{{ m.note or '—' }}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endif %}
-
-    <div class="detail-meta">
-        Ajouté le {{ component.created_at }} · Mis à jour le {{ component.updated_at }}
-    </div>
 </div>
 
-<!-- Lightbox unifiée (photo + SVG) -->
+<!-- Lightbox -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
     <div class="lightbox-inner lightbox-inner-lg" onclick="event.stopPropagation()">
         <div class="lightbox-header">
@@ -195,6 +246,204 @@
     </div>
 </div>
 
+<style>
+.dcomp-layout {
+    display: grid;
+    grid-template-columns: 1fr 230px;
+    gap: 1.25rem;
+    align-items: start;
+}
+@media (max-width: 800px) {
+    .dcomp-layout { grid-template-columns: 1fr; }
+    .dcomp-side { order: -1; }
+}
+
+/* ── Carte principale ───────────────────────────────────────────── */
+.dcomp-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* ── Zone du haut : galerie + infos ─────────────────────────────── */
+.dcomp-top {
+    display: flex;
+    gap: 1.25rem;
+    align-items: flex-start;
+}
+
+/* ── Galerie ────────────────────────────────────────────────────── */
+.dcomp-gallery {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    flex-shrink: 0;
+    width: 180px;
+}
+.dcomp-gallery-main {
+    width: 180px; height: 180px;
+    border-radius: 8px; overflow: hidden;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+}
+.dcomp-gallery-main-img {
+    width: 100%; height: 100%;
+    object-fit: contain; cursor: zoom-in;
+    transition: opacity .15s; display: block;
+}
+.dcomp-gallery-main-img:hover { opacity: .85; }
+.dcomp-gallery-main-empty {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: .5rem; font-size: 1.5rem; opacity: .35;
+}
+.dcomp-gallery-thumbs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .4rem;
+}
+.dcomp-gallery-thumb-item {
+    display: flex; flex-direction: column;
+    align-items: center; gap: .2rem;
+}
+.dcomp-gallery-thumb-img {
+    width: 82px; height: 82px;
+    object-fit: contain; border-radius: 5px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    cursor: zoom-in; display: block;
+    transition: opacity .15s, border-color .15s;
+}
+.dcomp-gallery-thumb-img:hover { opacity: .85; border-color: var(--accent); }
+.dcomp-gallery-load {
+    width: 82px; height: 82px;
+    background: var(--bg-surface);
+    border: 1px dashed var(--border);
+    border-radius: 5px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: .2rem; cursor: pointer; font-size: 1.1rem; opacity: .45;
+    transition: border-color .15s, background .15s;
+}
+.dcomp-gallery-load:hover { opacity: 1; border-color: var(--accent); background: rgba(79,142,247,.06); }
+.dcomp-load-hint { font-size: .58rem; color: var(--text-muted); }
+.dcomp-gallery-label {
+    font-size: .58rem; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--text-muted);
+}
+
+/* ── Infos ──────────────────────────────────────────────────────── */
+.dcomp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .75rem; }
+
+.dcomp-title {
+    font-size: 1.1rem; font-weight: 700;
+    line-height: 1.35; color: var(--text);
+    margin-bottom: .45rem;
+}
+.dcomp-badges { display: flex; flex-wrap: wrap; gap: .3rem; }
+.badge-purple {
+    background: rgba(139,92,246,.2); color: #a78bfa;
+    border: 1px solid rgba(139,92,246,.3);
+    text-decoration: none; font-size: .72rem;
+    padding: 2px 7px; border-radius: 4px; font-weight: 600;
+}
+.badge-purple:hover { background: rgba(139,92,246,.35); }
+
+/* Grille de champs */
+.dcomp-fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .3rem .75rem;
+}
+.dcomp-field { display: flex; align-items: baseline; gap: .4rem; }
+.dcomp-lbl {
+    font-size: .7rem; color: var(--text-muted);
+    width: 70px; flex-shrink: 0;
+}
+.dcomp-val { font-size: .82rem; color: var(--text); word-break: break-word; }
+.dcomp-lcsc-link { color: var(--accent); text-decoration: none; }
+.dcomp-lcsc-link:hover { text-decoration: underline; }
+
+.dcomp-notes {
+    font-size: .78rem; color: var(--text-muted);
+    font-style: italic; line-height: 1.4;
+}
+
+/* ── Utilisé dans ───────────────────────────────────────────────── */
+.dcomp-projects {
+    display: flex; align-items: center; gap: .75rem;
+    flex-wrap: wrap;
+    padding-top: .75rem;
+    border-top: 1px solid var(--border);
+}
+.dcomp-projects-label {
+    font-size: .75rem; font-weight: 600;
+    color: var(--text-muted); white-space: nowrap;
+}
+.dcomp-project-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+.dcomp-project-tag {
+    display: inline-flex; align-items: center; gap: .35rem;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: .25rem .6rem;
+    text-decoration: none; color: var(--text); font-size: .8rem;
+    transition: border-color .12s;
+}
+.dcomp-project-tag:hover { border-color: var(--accent); }
+.dcomp-project-qty { color: var(--text-muted); font-size: .72rem; }
+
+/* ── Méta ───────────────────────────────────────────────────────── */
+.dcomp-meta {
+    font-size: .7rem; color: var(--text-muted);
+    padding-top: .6rem; border-top: 1px solid var(--border);
+}
+
+/* ── Colonne stock ──────────────────────────────────────────────── */
+.dcomp-side { position: sticky; top: 1rem; }
+.dcomp-stock-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem;
+    display: flex; flex-direction: column; gap: .85rem;
+}
+.dcomp-stock-label {
+    font-size: .7rem; font-weight: 700;
+    color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em;
+}
+.dcomp-qty-row {
+    display: flex; align-items: center;
+    justify-content: center; gap: .75rem;
+}
+.dcomp-qty-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text); font-size: 1.1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .12s, border-color .12s;
+}
+.dcomp-qty-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dcomp-qty-btn:disabled { opacity: .4; cursor: not-allowed; }
+.dcomp-qty-val {
+    font-size: 2.2rem; font-weight: 800; color: var(--text);
+    min-width: 60px; text-align: center; line-height: 1;
+}
+.dcomp-seuil { font-size: .75rem; color: var(--text-muted); text-align: center; }
+.dcomp-seuil-alert { color: #ff9800; font-weight: 600; }
+.dcomp-stock-price {
+    font-size: .8rem; color: var(--text-muted); text-align: center;
+    border-top: 1px solid var(--border); padding-top: .75rem;
+}
+.dcomp-stock-total { font-size: .75rem; color: var(--accent); margin-top: .2rem; font-weight: 600; }
+.dcomp-stock-actions {
+    display: flex; flex-direction: column; gap: .4rem;
+    border-top: 1px solid var(--border); padding-top: .75rem;
+}
+.btn-full { width: 100%; justify-content: center; }
+</style>
+
 <script>
 const LCSC_REF = {{ (component.lcsc_part_number or '')|tojson }};
 
@@ -204,94 +453,60 @@ function adjustQty(id, delta, btn) {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({delta})
     })
-    .then(r=>r.json())
+    .then(r => r.json())
     .then(data => {
         if (data.ok) {
             const el = document.getElementById(`qty-${id}`);
             el.textContent = data.new_qty;
-            el.className = 'qty-value-lg' +
+            el.className = 'dcomp-qty-val' +
                 (data.new_qty === 0 ? ' qty-zero' : data.is_low ? ' qty-low' : '');
         } else alert(data.error);
         btn.disabled = false;
     });
 }
 
-// ── Lightbox image ───────────────────────────────────────────────────
-function openImgLightbox(src, title) {
-    document.getElementById('lightbox-img').src    = src;
+function openLightbox(src, title) {
+    document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox-title').textContent = title || '';
     document.getElementById('lightbox').classList.add('open');
 }
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
 document.addEventListener('keydown', e => { if (e.key==='Escape') closeLightbox(); });
 
-// ── Chargement des PNGs EasyEDA ───────────────────────────────────────
 function loadPngs() {
     if (!LCSC_REF) return;
-
-    // Feedback de chargement sur les deux vignettes
-    ['sym-placeholder','fp-placeholder'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.querySelector('.gallery-load-hint').textContent = '⏳ Chargement…';
+    ['sym-hint','fp-hint'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.textContent = '⏳';
     });
-
     fetch(`/api/easyeda-pngs/${encodeURIComponent(LCSC_REF)}`)
         .then(r => r.json())
         .then(data => {
             if (!data.ok) {
-                ['sym-placeholder','fp-placeholder'].forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.querySelector('.gallery-load-hint').textContent = '— Non disponible';
-                });
+                ['sym-hint','fp-hint'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
                 return;
             }
-
-            // Symbole
-            if (data.symbol_png) {
-                _replacePlaceholderWithImg(
-                    'sym-placeholder', 'gallery-symbol',
-                    '/easyeda-pngs/' + data.symbol_png.split('easyeda_pngs/').pop(),
-                    'Symbole — ' + LCSC_REF
-                );
-            }
-            // Footprint
-            if (data.footprint_png) {
-                _replacePlaceholderWithImg(
-                    'fp-placeholder', 'gallery-footprint',
-                    '/easyeda-pngs/' + data.footprint_png.split('easyeda_pngs/').pop(),
-                    'Footprint — ' + LCSC_REF
-                );
-            }
+            if (data.symbol_png)    _replaceWithImg('sym-placeholder', '/easyeda-pngs/' + data.symbol_png.split('easyeda_pngs/').pop(), 'Symbole');
+            if (data.footprint_png) _replaceWithImg('fp-placeholder',  '/easyeda-pngs/' + data.footprint_png.split('easyeda_pngs/').pop(), 'Footprint');
         })
-        .catch(() => {
-            ['sym-placeholder','fp-placeholder'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.querySelector('.gallery-load-hint').textContent = '❌ Erreur réseau';
-            });
-        });
+        .catch(() => { ['sym-hint','fp-hint'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '❌'; }); });
 }
 
-function _replacePlaceholderWithImg(phId, itemId, src, title) {
-    const ph   = document.getElementById(phId);
-    const item = document.getElementById(itemId);
-    if (!ph || !item) return;
-
+function _replaceWithImg(phId, src, title) {
+    const ph = document.getElementById(phId); if (!ph) return;
     const img = document.createElement('img');
-    img.src   = src;
-    img.alt   = title;
-    img.title = 'Cliquer pour agrandir';
-    img.onclick = () => openImgLightbox(src, title);
+    img.src = src; img.alt = title;
+    img.className = 'dcomp-gallery-thumb-img';
+    img.title = 'Agrandir';
+    img.onclick = () => openLightbox(src, title);
     ph.replaceWith(img);
 }
 
-// ── Enrichissement LCSC ──────────────────────────────────────────────
 function enrichComponent(id) {
     const btn = document.getElementById('enrich-btn');
-    btn.textContent = '⏳ Récupération…'; btn.disabled = true;
+    btn.textContent = '⏳'; btn.disabled = true;
     fetch(`/enrich/${id}`, {method:'POST'}).then(r=>r.json()).then(data => {
         if (data.ok) location.reload();
-        else { btn.textContent='❌ ' + (data.error||'Erreur');
-               setTimeout(()=>{ btn.textContent='Récupérer depuis LCSC'; btn.disabled=false; },3000); }
+        else { btn.textContent='❌'; setTimeout(()=>{ btn.textContent='Récupérer'; btn.disabled=false; },3000); }
     });
 }
 </script>

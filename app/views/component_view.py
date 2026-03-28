@@ -25,11 +25,10 @@ class ComponentView:
         return render_template("components/import.html")
 
     @staticmethod
-    def render_detail(component, movements=None, projects_using=None):
+    def render_detail(component, projects_using=None):
         return render_template(
             "components/detail.html",
             component=component,
-            movements=movements or [],
             projects_using=projects_using or [],
         )
 
@@ -39,9 +38,6 @@ class ComponentView:
                                category_groups=category_groups or [])
 
     @staticmethod
-    def render_settings(current, lcsc_configured):
-        return render_template(
-            "components/settings.html",
-            current=current,
-            lcsc_configured=lcsc_configured,
-        )
+    def render_settings(current, stats=None):
+        return render_template("components/settings.html",
+                               current=current, stats=stats or {})

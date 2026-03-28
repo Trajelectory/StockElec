@@ -26,8 +26,6 @@ class Component:
         self.notes                   = row["notes"]
         self.image_path              = row["image_path"]    if "image_path"    in keys else None
         self.datasheet_url           = row["datasheet_url"] if "datasheet_url" in keys else None
-        self.symbol_svg              = row["symbol_svg"]    if "symbol_svg"    in keys else None
-        self.footprint_svg           = row["footprint_svg"] if "footprint_svg" in keys else None
         self.symbol_png              = row["symbol_png"]    if "symbol_png"    in keys else None
         self.footprint_png           = row["footprint_png"] if "footprint_png" in keys else None
         self.created_at              = row["created_at"]
@@ -97,19 +95,6 @@ class ComponentModel:
         return Component(row) if row else None
 
     @staticmethod
-    def get_categories():
-        """Catégories présentes dans le stock (pour le filtre déroulant)."""
-        db = get_db()
-        rows = db.execute(
-            """
-            SELECT DISTINCT category FROM components
-            WHERE category IS NOT NULL AND category != ''
-            ORDER BY category
-            """
-        ).fetchall()
-        return [r["category"] for r in rows]
-
-    @staticmethod
     def get_stats():
         db = get_db()
         row = db.execute(
@@ -163,26 +148,11 @@ class ComponentModel:
             ),
         )
         db.commit()
-        comp_id = cursor.lastrowid
-        if qty > 0:
-            from .movement import MovementModel, TYPE_MANUAL_ADD
-            MovementModel.record(comp_id, TYPE_MANUAL_ADD, 0, qty, note="Création")
-        return comp_id
+        return cursor.lastrowid
 
     @staticmethod
     def update(component_id, data):
         db = get_db()
-        # Enregistre un mouvement si la quantité a changé
-        row = db.execute("SELECT quantity FROM components WHERE id=?", (component_id,)).fetchone()
-        new_qty = int(data.get("quantity") or 0)
-        if row and row["quantity"] != new_qty:
-            from .movement import MovementModel, TYPE_ADJUSTMENT
-            MovementModel.record(
-                component_id, TYPE_ADJUSTMENT,
-                qty_before=row["quantity"],
-                qty_change=new_qty - row["quantity"],
-                note="Modification via formulaire",
-            )
         db.execute(
             """
             UPDATE components SET
@@ -310,22 +280,6 @@ class ComponentModel:
             db.commit()
 
     @staticmethod
-    def save_easyeda_svgs(component_id: int, symbol_svg: str | None, footprint_svg: str | None):
-        """Sauvegarde le symbole et/ou le footprint EasyEDA (SVG) en base."""
-        db = get_db()
-        fields, values = [], []
-        if symbol_svg is not None:
-            fields.append("symbol_svg = ?")
-            values.append(symbol_svg)
-        if footprint_svg is not None:
-            fields.append("footprint_svg = ?")
-            values.append(footprint_svg)
-        if fields:
-            values.append(component_id)
-            db.execute(f"UPDATE components SET {', '.join(fields)} WHERE id = ?", values)
-            db.commit()
-
-    @staticmethod
     def save_easyeda_pngs(component_id: int, symbol_png: str | None, footprint_png: str | None):
         """Sauvegarde les chemins des PNGs EasyEDA en base."""
         db = get_db()
@@ -348,38 +302,29 @@ class ComponentModel:
         db.commit()
 
     @staticmethod
-    def adjust_quantity(component_id: int, delta: int, movement_type: str,
-                        project_id: int = None, note: str = None) -> dict:
+    def adjust_quantity(component_id: int, delta: int) -> dict:
         """
         Ajuste la quantité du composant de +/- delta.
         Retourne {"ok": bool, "new_qty": int, "error": str|None}
         """
-        from .movement import MovementModel
         db = get_db()
         row = db.execute(
-            "SELECT quantity FROM components WHERE id=?", (component_id,)
+            "SELECT quantity, min_stock FROM components WHERE id=?", (component_id,)
         ).fetchone()
         if not row:
             return {"ok": False, "error": "Composant introuvable"}
 
-        qty_before = row["quantity"]
-        new_qty    = qty_before + delta
+        new_qty = row["quantity"] + delta
         if new_qty < 0:
-            return {"ok": False, "error": f"Stock insuffisant (disponible : {qty_before})"}
+            return {"ok": False, "error": f"Stock insuffisant (disponible : {row['quantity']})"}
 
-        db.execute(
-            "UPDATE components SET quantity=? WHERE id=?", (new_qty, component_id)
-        )
+        db.execute("UPDATE components SET quantity=? WHERE id=?", (new_qty, component_id))
         db.commit()
-
-        MovementModel.record(
-            component_id, movement_type,
-            qty_before=qty_before,
-            qty_change=delta,
-            project_id=project_id,
-            note=note,
-        )
-        return {"ok": True, "new_qty": new_qty}
+        return {
+            "ok":      True,
+            "new_qty": new_qty,
+            "is_low":  bool(row["min_stock"] and new_qty <= row["min_stock"]),
+        }
 
     @staticmethod
     def get_low_stock() -> list:
@@ -428,8 +373,16 @@ class ComponentModel:
 
         for i, row in enumerate(rows, start=1):
             try:
-                lcsc     = _clean(row.get("LCSC Part Number"))
-                mfr_part = _clean(row.get("Manufacture Part Number"))
+                # ── Mapping flexible des colonnes ──────────────────────────────
+                # Supporte à la fois le format export commande LCSC
+                # ("LCSC#", "MPN", "Extended Price(€)"…)
+                # et le format historique ("LCSC Part Number", "Manufacture Part Number"…)
+                lcsc     = _clean(row.get("LCSC Part Number")
+                                  or row.get("LCSC#")
+                                  or row.get("LCSC Part #")
+                                  or row.get("LCSC"))
+                mfr_part = _clean(row.get("Manufacture Part Number")
+                                  or row.get("MPN"))
                 desc     = _clean(row.get("Description"))
 
                 if not any([lcsc, mfr_part, desc]):
@@ -447,9 +400,19 @@ class ComponentModel:
 
                 qty  = int(float(row.get("Quantity") or 0))
                 unit = _to_float(row.get("Unit Price(€)"))
-                ext  = _to_float(row.get("Ext.Price(€)"))
+                # Export panier LCSC : "Extended Price(€)" au lieu de "Ext.Price(€)"
+                ext  = _to_float(row.get("Ext.Price(€)")
+                                 or row.get("Extended Price(€)"))
                 if ext is None and unit is not None:
                     ext = round(unit * qty, 4)
+
+                # Customer # (export panier) ou Customer NO. (export commande)
+                customer = _clean(row.get("Customer NO.")
+                                  or row.get("Customer #"))
+
+                # RoHS : "yes"/"no" → "YES"/"NO"
+                rohs_raw = _clean(row.get("RoHS") or row.get("Rohs") or "")
+                rohs = rohs_raw.upper() if rohs_raw else None
 
                 cursor = db.execute(
                     """
@@ -463,10 +426,10 @@ class ComponentModel:
                         lcsc,
                         mfr_part,
                         _clean(row.get("Manufacturer")),
-                        _clean(row.get("Customer NO.")),
+                        customer,
                         _clean(row.get("Package")),
                         desc,
-                        _clean(row.get("RoHS")),
+                        rohs,
                         qty,
                         unit,
                         ext,
@@ -475,10 +438,7 @@ class ComponentModel:
                 new_id = cursor.lastrowid
                 component_ids.append((new_id, lcsc))
                 inserted += 1
-                # Mouvement d'import
-                if qty > 0:
-                    from .movement import MovementModel, TYPE_IMPORT
-                    MovementModel.record(new_id, TYPE_IMPORT, 0, qty, note="Import CSV")
+
 
             except Exception as exc:
                 errors.append(f"Ligne {i} : {exc}")

@@ -1,105 +1,153 @@
 {% extends "base.html" %}
 {% from "partials/category_select.html" import category_select %}
-{% block title %}Modifier — StockElec{% endblock %}
+{% block title %}Modifier — {{ component.description or 'Composant' }}{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<div style="margin-bottom:.85rem">
     <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← Retour</a>
-    <h1>✏️ Modifier le composant</h1>
 </div>
 
-<div class="form-card">
-    <form method="post" action="{{ url_for('components.edit', component_id=component.id) }}">
+<form method="post" action="{{ url_for('components.edit', component_id=component.id) }}" id="edit-form">
 
-        <div class="form-section">
-            <h2 class="form-section-title">Identification</h2>
-            <div class="form-grid">
-                <div class="form-group form-group-full">
-                    <label>Description *</label>
-                    <input type="text" name="description" class="form-input" required
-                           value="{{ component.description or '' }}"/>
+<div class="add-layout">
+
+    <!-- ── Colonne principale ──────────────────────────────────────── -->
+    <div class="add-col-main">
+
+        <!-- Identification -->
+        <div class="add-section">
+            <div class="add-section-title"><span class="add-section-icon">🔖</span> Identification</div>
+
+            <div class="add-field-full">
+                <label class="add-label">Description <span class="add-required">*</span></label>
+                <input type="text" name="description" class="form-input" required
+                       value="{{ component.description or '' }}"/>
+            </div>
+
+            <div class="add-row-3">
+                <div class="add-field">
+                    <label class="add-label">Référence LCSC</label>
+                    <input type="text" name="lcsc_part_number" class="form-input mono-input"
+                           value="{{ component.lcsc_part_number or '' }}" placeholder="C149504"/>
                 </div>
-                <div class="form-group">
-                    <label>Référence fabricant</label>
-                    <input type="text" name="manufacture_part_number" class="form-input"
+                <div class="add-field">
+                    <label class="add-label">Réf. fabricant</label>
+                    <input type="text" name="manufacture_part_number" class="form-input mono-input"
                            value="{{ component.manufacture_part_number or '' }}"/>
                 </div>
-                <div class="form-group">
-                    <label>Référence LCSC</label>
-                    <input type="text" name="lcsc_part_number" class="form-input"
-                           value="{{ component.lcsc_part_number or '' }}"/>
-                </div>
-                <div class="form-group">
-                    <label>Fabricant</label>
+                <div class="add-field">
+                    <label class="add-label">Fabricant</label>
                     <input type="text" name="manufacturer" class="form-input"
                            value="{{ component.manufacturer or '' }}"/>
                 </div>
-                <div class="form-group">
-                    <label>Package / Boîtier</label>
-                    <input type="text" name="package" class="form-input"
-                           value="{{ component.package or '' }}"/>
+            </div>
+
+            <div class="add-row-2">
+                <div class="add-field">
+                    <label class="add-label">Package / Boîtier</label>
+                    <input type="text" name="package" class="form-input mono-input"
+                           value="{{ component.package or '' }}" placeholder="0805, SOT-23…"/>
                 </div>
-                <div class="form-group">
-                    <label>RoHS</label>
+                <div class="add-field">
+                    <label class="add-label">RoHS</label>
                     <select name="rohs" class="form-input">
-                        <option value="">—</option>
-                        <option value="YES" {% if component.rohs == 'YES' %}selected{% endif %}>YES</option>
-                        <option value="NO"  {% if component.rohs == 'NO'  %}selected{% endif %}>NO</option>
+                        <option value="">— Non renseigné</option>
+                        <option value="YES" {% if component.rohs == 'YES' %}selected{% endif %}>✅ YES</option>
+                        <option value="NO"  {% if component.rohs == 'NO'  %}selected{% endif %}>❌ NO</option>
                     </select>
                 </div>
             </div>
         </div>
 
-        <div class="form-section">
-            <h2 class="form-section-title">Stock &amp; Prix</h2>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Quantité *</label>
-                    <input type="number" name="quantity" class="form-input" min="0" required
-                           value="{{ component.quantity }}"/>
-                </div>
-                <div class="form-group">
-                    <label>Seuil d'alerte (min. stock)</label>
-                    <input type="number" name="min_stock" class="form-input" min="0"
-                           value="{{ component.min_stock or 0 }}"
-                           placeholder="0 = pas d'alerte"/>
-                </div>
-                <div class="form-group">
-                    <label>Prix unitaire (€)</label>
-                    <input type="number" name="unit_price" class="form-input" step="0.0001" min="0"
-                           value="{{ component.unit_price or '' }}"/>
-                </div>
-                <div class="form-group">
-                    <label>Prix total (€)</label>
-                    <input type="number" name="ext_price" class="form-input" step="0.01" min="0"
-                           value="{{ component.ext_price or '' }}"/>
-                </div>
-            </div>
-        </div>
+        <!-- Organisation -->
+        <div class="add-section">
+            <div class="add-section-title"><span class="add-section-icon">🗂️</span> Organisation</div>
 
-        <div class="form-section">
-            <h2 class="form-section-title">Organisation</h2>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Catégorie</label>
+            <div class="add-row-2">
+                <div class="add-field">
+                    <label class="add-label">Catégorie</label>
                     {{ category_select("category", component.category or "", category_groups) }}
                 </div>
-                <div class="form-group">
-                    <label>Emplacement</label>
+                <div class="add-field">
+                    <label class="add-label">Emplacement</label>
                     <input type="text" name="location" class="form-input"
-                           value="{{ component.location or '' }}"/>
+                           value="{{ component.location or '' }}" placeholder="Boîte A3, Tiroir 12…"/>
                 </div>
-                <div class="form-group form-group-full">
-                    <label>Notes</label>
-                    <textarea name="notes" class="form-input" rows="3">{{ component.notes or '' }}</textarea>
-                </div>
+            </div>
+
+            <div class="add-field-full">
+                <label class="add-label">Notes</label>
+                <textarea name="notes" class="form-input" rows="3"
+                          placeholder="Remarques, liens…">{{ component.notes or '' }}</textarea>
             </div>
         </div>
 
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
-            <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn btn-secondary">Annuler</a>
+    </div>
+
+    <!-- ── Colonne latérale : Stock & Prix ────────────────────────── -->
+    <div class="add-col-side">
+        <div class="add-section add-section-sticky">
+            <div class="add-section-title"><span class="add-section-icon">📦</span> Stock &amp; Prix</div>
+
+            <div class="add-field">
+                <label class="add-label">Quantité <span class="add-required">*</span></label>
+                <input type="number" name="quantity" id="f-quantity" class="form-input add-qty-input"
+                       value="{{ component.quantity }}" min="0" required/>
+            </div>
+
+            <div class="add-field">
+                <label class="add-label">Seuil d'alerte 🔔</label>
+                <input type="number" name="min_stock" class="form-input"
+                       value="{{ component.min_stock or 0 }}" min="0"/>
+                <span class="add-hint">0 = pas d'alerte</span>
+            </div>
+
+            <div class="add-separator"></div>
+
+            <div class="add-field">
+                <label class="add-label">Prix unitaire (€)</label>
+                <input type="number" name="unit_price" id="f-unit-price" class="form-input"
+                       step="0.0001" min="0"
+                       value="{{ component.unit_price or '' }}" placeholder="0.0000"
+                       oninput="autoCalcTotal()"/>
+            </div>
+
+            <div class="add-field">
+                <label class="add-label">Prix total (€)
+                    <span class="add-hint-inline" id="total-auto-hint">auto</span>
+                </label>
+                <input type="number" name="ext_price" id="f-ext-price" class="form-input"
+                       step="0.01" min="0"
+                       value="{{ component.ext_price or '' }}" placeholder="0.00"/>
+            </div>
+
+            <div class="add-separator"></div>
+
+            <button type="submit" class="btn btn-primary btn-full">💾 Enregistrer</button>
+            <a href="{{ url_for('components.detail', component_id=component.id) }}"
+               class="btn btn-secondary btn-full" style="margin-top:.4rem">Annuler</a>
         </div>
-    </form>
+    </div>
+
 </div>
+</form>
+
+<script>
+function autoCalcTotal() {
+    const unit = parseFloat(document.getElementById('f-unit-price').value) || 0;
+    const qty  = parseFloat(document.getElementById('f-quantity').value)   || 0;
+    const hint = document.getElementById('total-auto-hint');
+    const ext  = document.getElementById('f-ext-price');
+    if (unit > 0 && qty > 0) {
+        const total = (unit * qty).toFixed(2);
+        ext.placeholder = total;
+        hint.textContent = `= ${total} €`;
+    } else {
+        ext.placeholder = '0.00';
+        hint.textContent = 'auto';
+    }
+}
+document.getElementById('f-quantity').addEventListener('input', autoCalcTotal);
+autoCalcTotal();
+</script>
 {% endblock %}

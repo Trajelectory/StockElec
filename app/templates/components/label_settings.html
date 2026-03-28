@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}Configuration étiquettes — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🏷️ Configuration des étiquettes</h1>
+    <div class="page-header-actions">
+        <a href="{{ url_for('components.index') }}" class="btn btn-secondary">← Stock</a>
+    </div>
+</div>
+
+<div class="lbl-cfg-layout">
+
+    <!-- ══ PANNEAU DE CONFIG (gauche) ══════════════════════════════ -->
+    <form method="post" class="lbl-cfg-panel" id="cfg-form">
+
+        <!-- Format -->
+        <div class="lbl-cfg-section">
+            <div class="lbl-cfg-section-title">📐 Format</div>
+            <div class="lbl-cfg-row">
+                <label>Largeur (mm)</label>
+                <input type="number" name="lbl_width_mm" id="lbl_width_mm"
+                       value="{{ config.lbl_width_mm }}" min="20" max="150" step="1"
+                       class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
+            </div>
+            <div class="lbl-cfg-row">
+                <label>Hauteur (mm)</label>
+                <input type="number" name="lbl_height_mm" id="lbl_height_mm"
+                       value="{{ config.lbl_height_mm }}" min="10" max="100" step="1"
+                       class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
+            </div>
+        </div>
+
+        <!-- Couleurs générales -->
+        <div class="lbl-cfg-section">
+            <div class="lbl-cfg-section-title">🎨 Couleurs générales</div>
+            <div class="lbl-cfg-row">
+                <label>Fond de l'étiquette</label>
+                <div class="cfg-color-wrap">
+                    <input type="color" name="lbl_bg_color" id="lbl_bg_color"
+                           value="{{ config.lbl_bg_color }}" oninput="updatePreview()"/>
+                    <span class="cfg-color-val" id="lbl_bg_color_val">{{ config.lbl_bg_color }}</span>
+                </div>
+            </div>
+            <div class="lbl-cfg-row">
+                <label>Texte principal</label>
+                <div class="cfg-color-wrap">
+                    <input type="color" name="lbl_text_color" id="lbl_text_color"
+                           value="{{ config.lbl_text_color }}" oninput="updatePreview()"/>
+                    <span class="cfg-color-val" id="lbl_text_color_val">{{ config.lbl_text_color }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tailles de police -->
+        <div class="lbl-cfg-section">
+            <div class="lbl-cfg-section-title">🔠 Tailles de police (mm)</div>
+            <div class="lbl-cfg-row">
+                <label>Description</label>
+                <input type="number" name="lbl_desc_size_mm" id="lbl_desc_size_mm"
+                       value="{{ config.lbl_desc_size_mm }}" min="1" max="5" step="0.1"
+                       class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
+            </div>
+            <div class="lbl-cfg-row">
+                <label>Références (LCSC, MPN…)</label>
+                <input type="number" name="lbl_ref_size_mm" id="lbl_ref_size_mm"
+                       value="{{ config.lbl_ref_size_mm }}" min="0.8" max="4" step="0.1"
+                       class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
+            </div>
+            <div class="lbl-cfg-row">
+                <label>Badges (package, qty…)</label>
+                <input type="number" name="lbl_badge_size_mm" id="lbl_badge_size_mm"
+                       value="{{ config.lbl_badge_size_mm }}" min="0.8" max="4" step="0.1"
+                       class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
+            </div>
+        </div>
+
+        <!-- Éléments affichés -->
+        <div class="lbl-cfg-section">
+            <div class="lbl-cfg-section-title">👁️ Éléments affichés</div>
+            {% set toggles = [
+                ('lbl_show_image',    '🖼️ Image du composant'),
+                ('lbl_show_qr',       '⬛ QR code'),
+                ('lbl_show_lcsc',     '🔑 Référence LCSC'),
+                ('lbl_show_mfr_part', '🏷️ Référence fabricant'),
+                ('lbl_show_mfg',      '🏭 Fabricant'),
+                ('lbl_show_package',  '📦 Package'),
+                ('lbl_show_rohs',     '♻️ RoHS'),
+                ('lbl_show_qty',      '🔢 Quantité en stock'),
+                ('lbl_show_location', '📍 Emplacement'),
+                ('lbl_show_category', '🗂️ Catégorie'),
+                ('lbl_show_price',    '💶 Prix unitaire'),
+            ] %}
+            {% for key, label in toggles %}
+            <div class="lbl-cfg-toggle">
+                <label class="toggle-label">
+                    <input type="checkbox" name="{{ key }}" id="{{ key }}"
+                           {% if config[key] == '1' %}checked{% endif %}
+                           onchange="updatePreview()"/>
+                    <span class="toggle-slider"></span>
+                    {{ label }}
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Couleurs des badges -->
+        <div class="lbl-cfg-section">
+            <div class="lbl-cfg-section-title">🎨 Couleurs des badges</div>
+            {% set badge_colors = [
+                ('lbl_color_pkg',  'Package'),
+                ('lbl_color_rohs', 'RoHS'),
+                ('lbl_color_qty',  'Quantité'),
+                ('lbl_color_loc',  'Emplacement'),
+                ('lbl_color_cat',  'Catégorie'),
+            ] %}
+            {% for key, label in badge_colors %}
+            <div class="lbl-cfg-row">
+                <label>{{ label }}</label>
+                <div class="cfg-color-wrap">
+                    <input type="color" name="{{ key }}" id="{{ key }}"
+                           value="{{ config[key] }}" oninput="updatePreview()"/>
+                    <span class="cfg-color-val" id="{{ key }}_val">{{ config[key] }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="lbl-cfg-actions">
+            <button type="submit" class="btn btn-primary">💾 Sauvegarder</button>
+            <button type="button" class="btn btn-secondary" onclick="resetDefaults()">↺ Réinitialiser</button>
+        </div>
+    </form>
+
+    <!-- ══ APERÇU (droite) ═════════════════════════════════════════ -->
+    <div class="lbl-preview-panel">
+        <div class="lbl-preview-header">
+            <span>Aperçu en temps réel</span>
+            <span class="lbl-preview-dims" id="preview-dims">
+                {{ config.lbl_width_mm }} × {{ config.lbl_height_mm }} mm
+            </span>
+        </div>
+
+        <!-- Zone d'aperçu avec fond quadrillé -->
+        <div class="lbl-preview-zone">
+            <div class="lbl-preview-wrap" id="preview-wrap">
+                <div class="lbl-preview-label" id="preview-label">
+                    <!-- Image -->
+                    <div class="lbl-prev-img" id="prev-img">
+                        {% if preview_comp and preview_comp.image_path %}
+                        <img src="{{ url_for('components.component_image', filename=preview_comp.image_path.split('images/')|last) }}"
+                             id="prev-img-el" alt=""/>
+                        {% else %}
+                        <span id="prev-img-el" style="font-size:1.5rem;opacity:.2">⚡</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Corps -->
+                    <div class="lbl-prev-body" id="prev-body">
+                        <div class="lbl-prev-desc" id="prev-desc">
+                            {{ preview_comp.description if preview_comp else 'Description du composant' }}
+                        </div>
+                        <div class="lbl-prev-refs" id="prev-refs">
+                            {% if preview_comp %}
+                            <div class="lbl-prev-ref" id="prev-lcsc">
+                                <span class="lbl-prev-ref-lbl">LCSC </span>{{ preview_comp.lcsc_part_number or '—' }}
+                            </div>
+                            <div class="lbl-prev-ref" id="prev-mfr">
+                                <span class="lbl-prev-ref-lbl">MFR  </span>{{ preview_comp.manufacture_part_number or '—' }}
+                            </div>
+                            <div class="lbl-prev-ref" id="prev-mfg">
+                                <span class="lbl-prev-ref-lbl">MFG  </span>{{ preview_comp.manufacturer or '—' }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="lbl-prev-badges" id="prev-badges">
+                            {% if preview_comp %}
+                            <span class="lbl-prev-badge" id="prev-pkg"
+                                  style="background:{{ config.lbl_color_pkg }}">{{ preview_comp.package or '0805' }}</span>
+                            <span class="lbl-prev-badge" id="prev-rohs"
+                                  style="background:{{ config.lbl_color_rohs }}">RoHS</span>
+                            <span class="lbl-prev-badge" id="prev-qty"
+                                  style="background:{{ config.lbl_color_qty }}">Qté: {{ preview_comp.quantity }}</span>
+                            {% if preview_comp.location %}
+                            <span class="lbl-prev-badge" id="prev-loc"
+                                  style="background:{{ config.lbl_color_loc }}">📍 {{ preview_comp.location }}</span>
+                            {% endif %}
+                            {% if preview_comp.category %}
+                            <span class="lbl-prev-badge" id="prev-cat"
+                                  style="background:{{ config.lbl_color_cat }}">
+                                {{ preview_comp.category.split(' / ')|last if ' / ' in preview_comp.category else preview_comp.category }}
+                            </span>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                        <div class="lbl-prev-price" id="prev-price">
+                            {% if preview_comp and preview_comp.unit_price %}
+                            {{ "%.4f"|format(preview_comp.unit_price) }} € / pièce
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- QR -->
+                    <div class="lbl-prev-qr" id="prev-qr">
+                        <div class="lbl-prev-qr-placeholder">QR</div>
+                        <div class="lbl-prev-qr-ref">{{ preview_comp.lcsc_part_number if preview_comp else '' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <p class="lbl-preview-note">
+            💡 L'aperçu est proportionnel mais les tailles de police sont indicatives.
+            Lance une impression pour voir le rendu exact.
+        </p>
+
+        {% if preview_comp %}
+        <a href="{{ url_for('components.label', component_id=preview_comp.id) }}"
+           target="_blank" class="btn btn-secondary" style="margin-top:.75rem">
+            🖨️ Tester l'impression sur ce composant
+        </a>
+        {% endif %}
+    </div>
+
+</div>
+
+<script>
+const DEFAULTS = {{ {
+    'lbl_width_mm': '60', 'lbl_height_mm': '30',
+    'lbl_bg_color': '#ffffff', 'lbl_text_color': '#111111',
+    'lbl_show_image': '1', 'lbl_show_qr': '1',
+    'lbl_show_lcsc': '1', 'lbl_show_mfr_part': '1', 'lbl_show_mfg': '1',
+    'lbl_show_package': '1', 'lbl_show_rohs': '1', 'lbl_show_qty': '1',
+    'lbl_show_location': '1', 'lbl_show_category': '1', 'lbl_show_price': '1',
+    'lbl_desc_size_mm': '2.1', 'lbl_ref_size_mm': '1.7', 'lbl_badge_size_mm': '1.4',
+    'lbl_color_pkg': '#ebebeb', 'lbl_color_rohs': '#d4f0dd',
+    'lbl_color_qty': '#d0e8ff', 'lbl_color_loc': '#fff3cc', 'lbl_color_cat': '#efe8ff',
+} | tojson }};
+
+// Ratio écran : 1mm = N px pour l'aperçu
+const MM_TO_PX = 3.5;
+
+function val(id) {
+    const el = document.getElementById(id);
+    return el ? (el.type === 'checkbox' ? el.checked : el.value) : null;
+}
+
+function updatePreview() {
+    const w  = parseFloat(val('lbl_width_mm'))  || 60;
+    const h  = parseFloat(val('lbl_height_mm')) || 30;
+    const bg = val('lbl_bg_color')   || '#ffffff';
+    const fg = val('lbl_text_color') || '#111111';
+    const descSize  = parseFloat(val('lbl_desc_size_mm'))  || 2.1;
+    const refSize   = parseFloat(val('lbl_ref_size_mm'))   || 1.7;
+    const badgeSize = parseFloat(val('lbl_badge_size_mm')) || 1.4;
+
+    // Dimensions de l'aperçu
+    const pw = w * MM_TO_PX;
+    const ph = h * MM_TO_PX;
+    const label = document.getElementById('preview-label');
+    label.style.width      = pw + 'px';
+    label.style.height     = ph + 'px';
+    label.style.background = bg;
+    label.style.color      = fg;
+
+    document.getElementById('preview-dims').textContent = w + ' × ' + h + ' mm';
+
+    // Tailles de police (conversion mm → px approximative : 1mm ≈ 3.78px à 96dpi)
+    const toPx = mm => (mm * MM_TO_PX * 0.72) + 'px';
+    const desc = document.getElementById('prev-desc');
+    if (desc) desc.style.fontSize = toPx(descSize);
+
+    document.querySelectorAll('.lbl-prev-ref').forEach(el => el.style.fontSize = toPx(refSize));
+    document.querySelectorAll('.lbl-prev-badge').forEach(el => el.style.fontSize = toPx(badgeSize));
+    const price = document.getElementById('prev-price');
+    if (price) price.style.fontSize = toPx(refSize);
+
+    // Visibilité des éléments
+    toggle('prev-img',   val('lbl_show_image'));
+    toggle('prev-qr',    val('lbl_show_qr'));
+    toggle('prev-lcsc',  val('lbl_show_lcsc'));
+    toggle('prev-mfr',   val('lbl_show_mfr_part'));
+    toggle('prev-mfg',   val('lbl_show_mfg'));
+    toggle('prev-pkg',   val('lbl_show_package'));
+    toggle('prev-rohs',  val('lbl_show_rohs'));
+    toggle('prev-qty',   val('lbl_show_qty'));
+    toggle('prev-loc',   val('lbl_show_location'));
+    toggle('prev-cat',   val('lbl_show_category'));
+    toggle('prev-price', val('lbl_show_price'));
+
+    // Couleurs des badges
+    setBadgeBg('prev-pkg',  val('lbl_color_pkg'));
+    setBadgeBg('prev-rohs', val('lbl_color_rohs'));
+    setBadgeBg('prev-qty',  val('lbl_color_qty'));
+    setBadgeBg('prev-loc',  val('lbl_color_loc'));
+    setBadgeBg('prev-cat',  val('lbl_color_cat'));
+
+    // Met à jour les labels hex des color pickers
+    ['lbl_bg_color','lbl_text_color','lbl_color_pkg','lbl_color_rohs',
+     'lbl_color_qty','lbl_color_loc','lbl_color_cat'].forEach(id => {
+        const v = document.getElementById(id + '_val');
+        const i = document.getElementById(id);
+        if (v && i) v.textContent = i.value;
+    });
+}
+
+function toggle(id, show) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? '' : 'none';
+}
+function setBadgeBg(id, color) {
+    const el = document.getElementById(id);
+    if (el && color) el.style.background = color;
+}
+
+function resetDefaults() {
+    if (!confirm('Réinitialiser toutes les options aux valeurs par défaut ?')) return;
+    Object.entries(DEFAULTS).forEach(([key, val]) => {
+        const el = document.getElementById(key);
+        if (!el) return;
+        if (el.type === 'checkbox') el.checked = val === '1';
+        else el.value = val;
+    });
+    updatePreview();
+}
+
+// Init
+updatePreview();
+</script>
+{% endblock %}

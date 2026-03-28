@@ -7,7 +7,6 @@ import threading
 from flask import Blueprint, request, redirect, url_for, flash, jsonify, send_from_directory, render_template
 
 from ..models.component import ComponentModel, ITEMS_PER_PAGE_DEFAULT
-from ..models.movement import MovementModel, TYPE_MANUAL_ADD, TYPE_MANUAL_REMOVE, TYPE_IMPORT
 from ..models.category import CategoryModel
 from ..models.settings import SettingsModel
 from ..views.component_view import ComponentView
@@ -77,11 +76,7 @@ def adjust(component_id):
     if delta == 0:
         return jsonify({"ok": False, "error": "Delta nul"}), 400
 
-    movement_type = TYPE_MANUAL_ADD if delta > 0 else TYPE_MANUAL_REMOVE
-    result = ComponentModel.adjust_quantity(
-        component_id, delta, movement_type,
-        note="Ajustement rapide",
-    )
+    result = ComponentModel.adjust_quantity(component_id, delta)
     if result["ok"]:
         comp = ComponentModel.get_by_id(component_id)
         return jsonify({
@@ -275,7 +270,9 @@ def labels_print():
         flash("Aucun composant sélectionné.", "warning")
         return redirect(url_for("components.index"))
 
-    base_url = request.host_url.rstrip("/")
+    from ..models.settings import SettingsModel as _SM
+    _configured = _SM.get("base_url", "").strip().rstrip("/")
+    base_url = _configured if _configured else request.host_url.rstrip("/")
 
     components_data = []
     for cid in ids:
@@ -294,9 +291,14 @@ def labels_print():
         flash("Aucun composant trouvé.", "warning")
         return redirect(url_for("components.index"))
 
+    # Charge la config étiquette
+    from ..models.settings import SettingsModel
+    lbl_config = {k: SettingsModel.get(k, v) for k, v in LABEL_DEFAULTS.items()}
+
     return render_template(
         "components/labels_print.html",
         components_data=components_data,
+        lbl=lbl_config,
     )
 
 
@@ -310,10 +312,9 @@ def detail(component_id):
     if comp is None:
         flash("Composant introuvable.", "danger")
         return redirect(url_for("components.index"))
-    movements = MovementModel.get_for_component(component_id, limit=20)
     from ..models.project import ProjectModel
     projects_using = ProjectModel.get_projects_for_component(component_id)
-    return ComponentView.render_detail(comp, movements=movements, projects_using=projects_using)
+    return ComponentView.render_detail(comp, projects_using=projects_using)
 
 
 # ------------------------------------------------------------------ #
@@ -427,6 +428,69 @@ def easyeda_png_file(filename):
     return send_from_directory(pngs_dir, filename)
 
 
+
+# ------------------------------------------------------------------ #
+#  Configuration des étiquettes
+# ------------------------------------------------------------------ #
+
+# Valeurs par défaut de la config étiquette
+LABEL_DEFAULTS = {
+    "lbl_width_mm":       "60",
+    "lbl_height_mm":      "30",
+    "lbl_bg_color":       "#ffffff",
+    "lbl_text_color":     "#111111",
+    "lbl_show_image":     "1",
+    "lbl_show_qr":        "1",
+    "lbl_show_lcsc":      "1",
+    "lbl_show_mfr_part":  "1",
+    "lbl_show_mfg":       "1",
+    "lbl_show_package":   "1",
+    "lbl_show_rohs":      "1",
+    "lbl_show_qty":       "1",
+    "lbl_show_location":  "1",
+    "lbl_show_category":  "1",
+    "lbl_show_price":     "1",
+    "lbl_desc_size_mm":   "2.1",
+    "lbl_ref_size_mm":    "1.7",
+    "lbl_badge_size_mm":  "1.4",
+    "lbl_color_pkg":      "#ebebeb",
+    "lbl_color_rohs":     "#d4f0dd",
+    "lbl_color_qty":      "#d0e8ff",
+    "lbl_color_loc":      "#fff3cc",
+    "lbl_color_cat":      "#efe8ff",
+}
+
+
+@component_bp.route("/label-settings", methods=["GET", "POST"])
+def label_settings():
+    """Page de configuration visuelle des étiquettes."""
+    from ..models.settings import SettingsModel
+
+    if request.method == "POST":
+        for key in LABEL_DEFAULTS:
+            # Les checkboxes non cochées ne sont pas envoyées → valeur "0"
+            if key.startswith("lbl_show_"):
+                val = "1" if request.form.get(key) else "0"
+            else:
+                val = request.form.get(key, LABEL_DEFAULTS[key]).strip()
+            SettingsModel.set(key, val)
+        flash("Configuration des étiquettes sauvegardée.", "success")
+        return redirect(url_for("components.label_settings"))
+
+    # Charge la config courante (avec fallback sur les défauts)
+    from ..models.settings import SettingsModel
+    config = {k: SettingsModel.get(k, v) for k, v in LABEL_DEFAULTS.items()}
+
+    # Prend un composant du stock pour l'aperçu (préfère un avec image)
+    all_comps = ComponentModel.get_all()
+    preview_comp = next((c for c in all_comps if c.image_path), None) or (all_comps[0] if all_comps else None)
+
+    return render_template(
+        "components/label_settings.html",
+        config=config,
+        preview_comp=preview_comp,
+    )
+
 # ------------------------------------------------------------------ #
 #  Page alertes stock bas
 # ------------------------------------------------------------------ #
@@ -437,16 +501,6 @@ def alerts():
     return render_template("components/alerts.html", components=low)
 
 
-# ------------------------------------------------------------------ #
-#  Historique global
-# ------------------------------------------------------------------ #
-
-@component_bp.route("/history")
-def history():
-    movements = MovementModel.get_recent(limit=200)
-    stats     = MovementModel.get_stats()
-    return render_template("components/history.html", movements=movements, stats=stats)
-
 
 # ------------------------------------------------------------------ #
 #  Paramètres
@@ -454,10 +508,134 @@ def history():
 
 @component_bp.route("/settings", methods=["GET", "POST"])
 def settings():
+    from ..models.settings import SettingsModel
+    from ..models.database import get_db
+    import os, shutil
+
     if request.method == "POST":
-        flash("Paramètres sauvegardés.", "success")
+        action = request.form.get("action")
+
+        # ── Paramètres généraux ──────────────────────────────────────
+        if action == "save_general":
+            for key in ("app_name", "base_url", "default_min_stock"):
+                val = request.form.get(key, "").strip()
+                SettingsModel.set(key, val)
+            flash("Paramètres généraux sauvegardés.", "success")
+
+        # ── Enrichissement en masse ──────────────────────────────────
+        elif action == "enrich_all":
+            db = get_db()
+            rows = db.execute(
+                """SELECT id, lcsc_part_number FROM components
+                   WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+                     AND (image_path IS NULL OR image_path = ''
+                          OR category IS NULL OR category = '')"""
+            ).fetchall()
+            ids = [(r["id"], r["lcsc_part_number"]) for r in rows]
+            if ids:
+                _enrich_async(ids)
+                flash(f"🔍 Enrichissement lancé pour {len(ids)} composant(s).", "info")
+            else:
+                flash("✅ Tous les composants sont déjà enrichis.", "success")
+
+        # ── Nettoyage images orphelines ──────────────────────────────
+        elif action == "clean_images":
+            instance_path = os.path.abspath(
+                os.path.join(component_bp.root_path, "..", "..", "instance")
+            )
+            db = get_db()
+            used = {r["image_path"] for r in db.execute(
+                "SELECT image_path FROM components WHERE image_path IS NOT NULL"
+            ).fetchall()}
+            img_dir = os.path.join(instance_path, "images")
+            deleted = 0
+            if os.path.isdir(img_dir):
+                for fname in os.listdir(img_dir):
+                    fpath = f"images/{fname}"
+                    if fpath not in used:
+                        os.remove(os.path.join(img_dir, fname))
+                        deleted += 1
+            flash(f"🧹 {deleted} image(s) orpheline(s) supprimée(s).", "success")
+
+        # ── Sauvegarde ────────────────────────────────────────────────
+        elif action == "backup":
+            import zipfile, tempfile
+            from flask import send_file
+            instance_path = os.path.abspath(
+                os.path.join(component_bp.root_path, "..", "..", "instance")
+            )
+            tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+            with zipfile.ZipFile(tmp.name, "w", zipfile.ZIP_DEFLATED) as zf:
+                for root, dirs, files in os.walk(instance_path):
+                    for f in files:
+                        fp = os.path.join(root, f)
+                        zf.write(fp, os.path.relpath(fp, instance_path))
+            from datetime import datetime
+            fname = f"stockelec_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+            return send_file(tmp.name, as_attachment=True, download_name=fname,
+                             mimetype="application/zip")
+
         return redirect(url_for("components.settings"))
-    return ComponentView.render_settings({}, False)
+
+    # ── GET : collecte les stats ─────────────────────────────────────
+    from ..models.database import get_db
+    db = get_db()
+
+    n_components = db.execute("SELECT COUNT(*) FROM components").fetchone()[0]
+    n_projects   = db.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
+    n_no_image   = db.execute(
+        "SELECT COUNT(*) FROM components WHERE image_path IS NULL OR image_path = ''"
+    ).fetchone()[0]
+    n_no_cat     = db.execute(
+        "SELECT COUNT(*) FROM components WHERE category IS NULL OR category = ''"
+    ).fetchone()[0]
+    n_to_enrich  = db.execute(
+        """SELECT COUNT(*) FROM components
+           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+             AND (image_path IS NULL OR image_path = ''
+                  OR category IS NULL OR category = '')"""
+    ).fetchone()[0]
+
+    # Taille des fichiers
+    instance_path = os.path.abspath(
+        os.path.join(component_bp.root_path, "..", "..", "instance")
+    )
+    def dir_size(path):
+        total = 0
+        if os.path.isdir(path):
+            for root, dirs, files in os.walk(path):
+                total += sum(os.path.getsize(os.path.join(root, f)) for f in files)
+        return total
+
+    db_size  = os.path.getsize(os.path.join(instance_path, "stock.db"))                if os.path.exists(os.path.join(instance_path, "stock.db")) else 0
+    img_size = dir_size(os.path.join(instance_path, "images"))
+    prj_size = dir_size(os.path.join(instance_path, "project_images"))
+
+    def fmt_size(b):
+        if b < 1024: return f"{b} o"
+        if b < 1024**2: return f"{b/1024:.1f} Ko"
+        return f"{b/1024**2:.1f} Mo"
+
+    # Paramètres courants
+    current = {
+        "app_name":          SettingsModel.get("app_name", "StockElec"),
+        "base_url":          SettingsModel.get("base_url", ""),
+        "default_min_stock": SettingsModel.get("default_min_stock", "0"),
+    }
+
+    stats = {
+        "n_components": n_components,
+        "n_projects":   n_projects,
+        "n_no_image":   n_no_image,
+        "n_no_cat":     n_no_cat,
+        "n_to_enrich":  n_to_enrich,
+        "db_size":      fmt_size(db_size),
+        "img_size":     fmt_size(img_size),
+        "prj_size":     fmt_size(prj_size),
+        "total_size":   fmt_size(db_size + img_size + prj_size),
+    }
+
+    return ComponentView.render_settings(current, stats)
 
 
 # ------------------------------------------------------------------ #
