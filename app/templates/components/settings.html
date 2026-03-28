@@ -141,6 +141,37 @@
             </form>
         </div>
 
+        <!-- EasyEDA en masse -->
+        <div class="settings-card">
+            <div class="settings-card-title">🖼️ Symboles &amp; Footprints EasyEDA</div>
+            {% if stats and stats.n_no_easyeda > 0 %}
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                <strong class="color-warn">{{ stats.n_no_easyeda }} composant(s)</strong>
+                ont une référence LCSC mais n'ont pas encore leur symbole ou footprint téléchargé.
+            </p>
+            {% else %}
+            <p class="settings-hint" style="margin-bottom:.75rem">
+                <span class="color-ok">✅ Tous les symboles et footprints sont téléchargés.</span>
+            </p>
+            {% endif %}
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                <form method="post">
+                    <input type="hidden" name="action" value="easyeda_all"/>
+                    <button type="submit" class="btn btn-primary"
+                            {% if stats and stats.n_no_easyeda == 0 %}disabled{% endif %}>
+                        🖼️ Télécharger les manquants
+                    </button>
+                </form>
+                <form method="post">
+                    <input type="hidden" name="action" value="reconcile_easyeda"/>
+                    <button type="submit" class="btn btn-secondary"
+                            title="Synchronise les fichiers déjà présents dans easyeda_pngs/ avec la base de données">
+                        🔗 Réconcilier avec les fichiers
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <!-- Nettoyage -->
         <div class="settings-card">
             <div class="settings-card-title">🧹 Nettoyage</div>

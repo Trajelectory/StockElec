@@ -8,34 +8,12 @@
     <h1>➕ Ajouter un composant</h1>
 </div>
 
-<!-- ══ Import rapide LCSC ════════════════════════════════════════════ -->
-<div class="lcsc-lookup-card" id="lcsc-lookup">
-    <div class="lcsc-lookup-header">
-        <div>
-            <span class="lcsc-lookup-title">⚡ Import rapide depuis LCSC</span>
-            <span class="lcsc-lookup-hint">Colle une référence LCSC pour pré-remplir le formulaire</span>
-        </div>
-    </div>
-    <div class="lcsc-lookup-row">
-        <input type="text" id="lcsc-ref-input" class="form-input lcsc-ref-input"
-               placeholder="ex: C149504" maxlength="20"
-               autocomplete="off" spellcheck="false"/>
-        <button type="button" class="btn btn-primary" id="lcsc-lookup-btn" onclick="lookupLCSC()">
-            🔍 Rechercher
-        </button>
-    </div>
-    <div id="lcsc-lookup-status" class="lcsc-status" style="display:none"></div>
-    <div id="lcsc-preview-box" class="lcsc-preview" style="display:none">
-        <img id="lcsc-preview-img" src="" alt="" class="lcsc-preview-img"/>
-        <div class="lcsc-preview-info">
-            <div class="lcsc-preview-name" id="lcsc-preview-name"></div>
-            <div class="lcsc-preview-meta" id="lcsc-preview-meta"></div>
-        </div>
-        <button type="button" class="btn btn-primary" onclick="applyPreview()">
-            ✓ Utiliser ces données
-        </button>
-    </div>
+{% if request.args.get('added') %}
+<div class="add-success-banner">
+    ✅ <strong>{{ request.args.get('added') }}</strong> ajouté avec succès —
+    <a href="{{ url_for('components.index') }}" class="add-success-link">voir le stock →</a>
 </div>
+{% endif %}
 
 <!-- ══ Formulaire ════════════════════════════════════════════════════ -->
 <form method="post" action="{{ url_for('components.add') }}" id="add-form">
@@ -46,8 +24,41 @@
     <!-- ── Colonne principale ──────────────────────────────────────── -->
     <div class="add-col-main">
 
-        <!-- Section Identification -->
+        <!-- Bloc unique : Import + Identification + Organisation -->
         <div class="add-section">
+
+            <!-- Import rapide LCSC -->
+            <div id="lcsc-lookup">
+                <div class="lcsc-lookup-header" style="margin-bottom:.75rem">
+                    <div>
+                        <span class="lcsc-lookup-title">⚡ Import rapide depuis LCSC</span>
+                        <span class="lcsc-lookup-hint">Colle une référence LCSC pour pré-remplir le formulaire</span>
+                    </div>
+                </div>
+                <div class="lcsc-lookup-row">
+                    <input type="text" id="lcsc-ref-input" class="form-input lcsc-ref-input"
+                           placeholder="ex: C149504" maxlength="20"
+                           autocomplete="off" spellcheck="false"/>
+                    <button type="button" class="btn btn-primary" id="lcsc-lookup-btn" onclick="lookupLCSC()">
+                        🔍 Rechercher
+                    </button>
+                </div>
+                <div id="lcsc-lookup-status" class="lcsc-status" style="display:none"></div>
+                <div id="lcsc-preview-box" class="lcsc-preview" style="display:none">
+                    <img id="lcsc-preview-img" src="" alt="" class="lcsc-preview-img"/>
+                    <div class="lcsc-preview-info">
+                        <div class="lcsc-preview-name" id="lcsc-preview-name"></div>
+                        <div class="lcsc-preview-meta" id="lcsc-preview-meta"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="applyPreview()">
+                        ✓ Utiliser ces données
+                    </button>
+                </div>
+            </div>
+
+            <div class="add-inner-sep"></div>
+
+            <!-- Identification -->
             <div class="add-section-title">
                 <span class="add-section-icon">🔖</span> Identification
             </div>
@@ -91,10 +102,10 @@
                     </select>
                 </div>
             </div>
-        </div>
 
-        <!-- Section Organisation -->
-        <div class="add-section">
+            <div class="add-inner-sep"></div>
+
+            <!-- Organisation -->
             <div class="add-section-title">
                 <span class="add-section-icon">🗂️</span> Organisation
             </div>
@@ -175,7 +186,6 @@
 
             <div class="add-separator"></div>
 
-            <!-- Actions -->
             <button type="submit" class="btn btn-primary btn-full">💾 Enregistrer</button>
             <a href="{{ url_for('components.index') }}" class="btn btn-secondary btn-full" style="margin-top:.4rem">
                 Annuler
@@ -185,7 +195,6 @@
 
 </div>
 </form>
-
 
 <script>
 let _previewData = null;
@@ -281,7 +290,6 @@ function autoCalcTotal() {
     }
 }
 
-// Recalcule aussi quand la quantité change
 document.getElementById('f-quantity').addEventListener('input', autoCalcTotal);
 
 function setVal(id, val) {

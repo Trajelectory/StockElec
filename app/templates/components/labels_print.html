@@ -6,9 +6,9 @@
     <title>Étiquettes ({{ components_data|length }} composant{{ 's' if components_data|length > 1 }})</title>
 
     {# ── Calculs de dimensions écran depuis les mm ────────────────── #}
-    {# 1mm ≈ 3.78px à 96dpi, on utilise 3.5 pour l'aperçu #}
-    {% set w_px = (lbl.lbl_width_mm|float * 3.78)|int %}
-    {% set h_px = (lbl.lbl_height_mm|float * 3.78)|int %}
+    {# Aperçu légèrement agrandi pour meilleure lisibilité #}
+    {% set w_px = (lbl.lbl_width_mm|float * 4.8)|int %}
+    {% set h_px = (lbl.lbl_height_mm|float * 4.8)|int %}
 
     <style>
     /* ── Interface ───────────────────────────────────────────────── */
@@ -17,56 +17,61 @@
         font-family: Arial, Helvetica, sans-serif;
         background: #1a1d27; color: #e2e4ec;
         display: flex; flex-direction: column;
-        align-items: center; padding: 2rem 1rem; gap: 1.5rem;
+        align-items: center; padding: 1.25rem 1rem; gap: 1rem;
     }
+
+    /* Barre unique compacte */
     .toolbar {
-        display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+        display: flex; gap: .6rem; align-items: center; flex-wrap: wrap;
         background: #20232f; border: 1px solid #2e3140;
-        border-radius: 8px; padding: .75rem 1.25rem;
-        width: 100%; max-width: 900px;
+        border-radius: 8px; padding: .6rem 1rem;
+        width: 100%; max-width: 1100px;
     }
-    .toolbar h1 { font-size: 1rem; flex: 1; color: #4f8ef7; min-width: 200px; }
-    .btn {
-        padding: .45rem 1rem; border-radius: 6px; border: none;
-        font-size: .9rem; cursor: pointer; font-weight: 500;
-        text-decoration: none; display: inline-flex; align-items: center; gap: .4rem;
+    .toolbar-title {
+        flex: 1; font-size: .95rem; font-weight: 700;
+        color: #4f8ef7; min-width: 180px;
     }
-    .btn-print  { background: #4f8ef7; color: #fff; }
-    .btn-back   { background: #20232f; color: #7c82a0; border: 1px solid #2e3140; }
-    .btn-print:hover, .btn-back:hover { filter: brightness(1.15); }
-    .print-options {
-        background: #20232f; border: 1px solid #2e3140;
-        border-radius: 8px; padding: 1rem 1.25rem;
-        width: 100%; max-width: 900px;
-    }
-    .print-options h2 { font-size: .9rem; color: #e2e4ec; margin-bottom: .75rem; }
-    .options-row { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end; }
-    .opt-group { display: flex; flex-direction: column; gap: .3rem; }
-    .opt-group label { font-size: .8rem; color: #7c82a0; }
-    .opt-group input, .opt-group select {
-        padding: .35rem .6rem; background: #1a1d27;
-        border: 1px solid #2e3140; border-radius: 4px;
-        color: #e2e4ec; font-size: .85rem;
-    }
-    .copies-row { display: flex; gap: .5rem; align-items: center; }
-    .copies-row input { width: 60px; }
-    .hint { margin-top: .75rem; font-size: .75rem; color: #7c82a0; line-height: 1.5; }
-    .summary {
-        background: #20232f; border: 1px solid #2e3140;
-        border-radius: 8px; padding: .85rem 1.25rem;
-        width: 100%; max-width: 900px; font-size: .85rem;
-    }
-    .summary h2 { font-size: .9rem; color: #e2e4ec; margin-bottom: .5rem; }
-    .summary-list { display: flex; flex-wrap: wrap; gap: .4rem; }
-    .summary-item {
-        display: inline-flex; align-items: center; gap: .4rem;
+    .toolbar-dims {
+        font-size: .75rem; color: #7c82a0;
         background: #1a1d27; border: 1px solid #2e3140;
-        border-radius: 4px; padding: .25rem .6rem;
-        font-size: .8rem; color: #e2e4ec;
+        border-radius: 4px; padding: .2rem .55rem;
     }
-    .summary-item img { width: 20px; height: 20px; object-fit: contain; border-radius: 2px; background: #f8f8f8; }
-    .preview-area { width: 100%; max-width: 900px; }
-    .labels-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+    .toolbar-copies {
+        display: flex; align-items: center; gap: .4rem;
+        font-size: .8rem; color: #7c82a0;
+    }
+    .toolbar-copies input {
+        width: 48px; padding: .25rem .4rem;
+        background: #1a1d27; border: 1px solid #2e3140;
+        border-radius: 4px; color: #e2e4ec;
+        font-size: .85rem; text-align: center;
+    }
+    .btn {
+        padding: .4rem .9rem; border-radius: 6px; border: none;
+        font-size: .85rem; cursor: pointer; font-weight: 500;
+        text-decoration: none; display: inline-flex; align-items: center; gap: .35rem;
+        white-space: nowrap;
+    }
+    .btn-print { background: #4f8ef7; color: #fff; }
+    .btn-back  { background: #20232f; color: #7c82a0; border: 1px solid #2e3140; }
+    .btn-print:hover, .btn-back:hover { filter: brightness(1.15); }
+
+    /* Note discrète */
+    .print-hint {
+        width: 100%; max-width: 1100px;
+        font-size: .72rem; color: #555e7a;
+        padding: 0 .25rem;
+    }
+    .print-hint a { color: #4f8ef7; text-decoration: none; }
+
+    /* Grille d'étiquettes */
+    .preview-area { width: 100%; max-width: 1100px; }
+    .labels-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax({{ w_px }}px, max-content));
+        gap: 10px;
+        justify-content: start;
+    }
 
     /* ══ ÉTIQUETTE — valeurs issues de la config ═══════════════════ */
     .label {
@@ -143,7 +148,7 @@
     @media print {
         @page { size: A4 portrait; margin: 8mm; }
         body, .preview-area { background: white !important; padding: 0 !important; }
-        .toolbar, .print-options, .summary { display: none !important; }
+        .toolbar, .print-hint { display: none !important; }
         .labels-grid { display: flex; flex-wrap: wrap; gap: 2mm; justify-content: flex-start; }
 
         .label {
@@ -183,43 +188,24 @@
 <body>
 
 <div class="toolbar">
-    <h1>🏷️ {{ components_data|length }} étiquette{{ 's' if components_data|length > 1 }} — {{ lbl.lbl_width_mm }}×{{ lbl.lbl_height_mm }}mm</h1>
+    <span class="toolbar-title">
+        🏷️ {{ components_data|length }} étiquette{{ 's' if components_data|length > 1 }}
+    </span>
+    <span class="toolbar-dims">{{ lbl.lbl_width_mm }} × {{ lbl.lbl_height_mm }} mm</span>
+    <div class="toolbar-copies">
+        <label for="copies">Copies :</label>
+        <input type="number" id="copies" value="1" min="1" max="20" onchange="buildLabels()"/>
+    </div>
     <a href="{{ url_for('components.index') }}" class="btn btn-back">← Retour</a>
-    <a href="{{ url_for('components.settings') }}" class="btn btn-back" title="Modifier la config étiquettes">⚙️</a>
+    <a href="{{ url_for('components.label_settings') }}" class="btn btn-back" title="Configurer les étiquettes">⚙️</a>
     <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
 </div>
 
-<div class="print-options">
-    <h2>⚙️ Options d'impression</h2>
-    <div class="options-row">
-        <div class="opt-group">
-            <label>Copies par étiquette</label>
-            <div class="copies-row">
-                <input type="number" id="copies" value="1" min="1" max="20" onchange="buildLabels()"/>
-                <span style="color:#e2e4ec;font-size:.85rem">copie(s)</span>
-            </div>
-        </div>
-    </div>
-    <p class="hint">
-        💡 Désactive les <strong>en-têtes/pieds de page</strong> et règle les marges à <strong>minimum</strong>. Format : <strong>A4 portrait</strong>.
-        La mise en page utilise ta configuration sauvegardée dans
-        <a href="{{ url_for('components.label_settings') }}" style="color:#4f8ef7">⚙️ Paramètres étiquettes</a>.
-    </p>
-</div>
-
-<div class="summary">
-    <h2>📦 Composants sélectionnés ({{ components_data|length }})</h2>
-    <div class="summary-list">
-        {% for item in components_data %}
-        <div class="summary-item">
-            {% if item.comp.image_path %}
-                <img src="{{ url_for('components.component_image', filename=item.comp.image_path.split('images/')|last) }}" alt=""/>
-            {% endif %}
-            <span>{{ item.comp.description[:40] if item.comp.description else item.comp.lcsc_part_number or '—' }}</span>
-        </div>
-        {% endfor %}
-    </div>
-</div>
+<p class="print-hint">
+    💡 Dans le dialogue d'impression : désactive les <strong>en-têtes/pieds de page</strong>,
+    marges à <strong>minimum</strong>, format <strong>A4 portrait</strong>.
+    Config appliquée depuis <a href="{{ url_for('components.label_settings') }}">⚙️ Paramètres étiquettes</a>.
+</p>
 
 <div class="preview-area">
     <div class="labels-grid" id="labels-grid"></div>

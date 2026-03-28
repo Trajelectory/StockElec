@@ -444,7 +444,6 @@ textarea.form-input { resize: vertical; }
     border-radius: var(--radius);
     padding: 1.25rem 1.5rem;
     margin-bottom: 1.25rem;
-    max-width: 900px;
 }
 
 .lcsc-lookup-header {
@@ -1481,3 +1480,39 @@ tr:has(.row-check:checked) td { background: rgba(79,142,247,.06); }
 }
 
 .btn-full { width: 100%; justify-content: center; }
+
+/* ── Bandeau confirmation ajout en série ────────────────────────── */
+.add-success-banner {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    background: rgba(76,175,80,.12);
+    border: 1px solid rgba(76,175,80,.35);
+    border-radius: var(--radius);
+    padding: .6rem 1rem;
+    font-size: .85rem;
+    color: #4caf50;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    animation: fadeSlideIn .3s ease;
+}
+.add-success-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+    margin-left: .25rem;
+}
+.add-success-link:hover { text-decoration: underline; }
+
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* Séparateur interne dans un add-section fusionné */
+.add-inner-sep {
+    height: 1px;
+    background: var(--border);
+    margin: .85rem 0;
+}

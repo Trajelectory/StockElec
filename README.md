@@ -35,11 +35,15 @@ Accessible sur **http://127.0.0.1:5000**
 - Cases à cocher multi-sélection + barre flottante (étiquettes)
 - Ajustement rapide +/− AJAX
 
-### ➕ Ajout / Édition
-- Layout deux colonnes : infos à gauche, stock/prix sticky à droite
-- Import rapide LCSC : ref → prévisualisation → pré-remplissage
+### ➕ Ajout en série
+- Layout deux colonnes : infos + Import rapide LCSC à gauche, stock/prix sticky à droite
+- Import rapide LCSC : ref → prévisualisation → pré-remplissage en un clic
 - Calcul automatique prix total (quantité × unitaire)
-- Champs vides masqués automatiquement
+- **Mode série** : après validation, reste sur la page avec un bandeau vert de confirmation — pas besoin de naviguer pour ajouter le composant suivant
+
+### ✏️ Édition
+- Même layout que l'ajout, données pré-remplies
+- Calcul automatique prix total mis à jour en temps réel
 
 ### 📥 Import CSV LCSC
 Deux formats détectés automatiquement :
@@ -49,7 +53,7 @@ Deux formats détectés automatiquement :
 | Export commande | `LCSC Part Number`, `Manufacture Part Number`, `Ext.Price(€)` |
 | Export panier (`export_cart_*.csv`) | `LCSC#`, `MPN`, `Extended Price(€)` |
 
-- Drag & drop ou sélection fichier
+- Drag & drop ou sélection fichier, bouton désactivé sans fichier sélectionné
 - Déduplication automatique par référence LCSC
 - Enrichissement en arrière-plan après import
 
@@ -58,7 +62,7 @@ Scrape `wmsc.lcsc.com` pour récupérer catégorie, image et datasheet.
 Thread daemon, ~0.6s entre requêtes. Bouton 📷 pour relancer manuellement.
 
 ### 🖼️ Symbole & Footprint EasyEDA
-Sur la fiche composant : grande photo + 2 vignettes (symbole / footprint) côte à côte.
+Sur la fiche composant : grande photo (180×180) + 2 vignettes (symbole / footprint) côte à côte.
 Chargement à la demande, cache dans `instance/easyeda_pngs/`, lightbox au clic.
 
 ### 🗂️ Projets
@@ -72,7 +76,7 @@ Chargement à la demande, cache dans `instance/easyeda_pngs/`, lightbox au clic.
 ### 🏷️ Étiquettes imprimables
 - Impression multi-étiquettes depuis la sélection ou la fiche
 - QR code généré en Python pur (zéro dépendance externe)
-- Copies multiples par étiquette
+- Copies multiples par étiquette, grille auto-fill dans l'aperçu
 
 ### ⚙️ Configuration des étiquettes (`/label-settings`)
 - Format (largeur × hauteur mm), couleurs fond/texte/badges
@@ -95,6 +99,7 @@ Chargement à la demande, cache dans `instance/easyeda_pngs/`, lightbox au clic.
 | 💾 Sauvegarde | ZIP complet (base + images) |
 | 📊 Stats | Composants, projets, tailles, alertes de complétude |
 | 🔍 Enrichissement | Relance sur tous les composants incomplets |
+| 🖼️ EasyEDA | Télécharge les symboles/footprints manquants + réconciliation avec les fichiers existants |
 | 🧹 Nettoyage | Supprime les images orphelines |
 
 ---
@@ -105,6 +110,8 @@ Chargement à la demande, cache dans `instance/easyeda_pngs/`, lightbox au clic.
 stock_composants/
 ├── run.py                              # Point d'entrée (debug=True, use_reloader=False)
 ├── requirements.txt
+├── README.md
+├── CHANGELOG.md
 └── app/
     ├── __init__.py                     # Factory Flask, context_processor app_name
     ├── models/
@@ -127,7 +134,7 @@ stock_composants/
     │   ├── partials/category_select.html
     │   ├── components/
     │   │   ├── index.html              # Tableau stock
-    │   │   ├── add.html                # Ajout + import rapide LCSC
+    │   │   ├── add.html                # Ajout + import rapide LCSC + mode série
     │   │   ├── edit.html               # Édition (même layout que add)
     │   │   ├── detail.html             # Fiche composant
     │   │   ├── import.html             # Import CSV drag & drop
@@ -186,6 +193,9 @@ Flask doit tourner avec `use_reloader=False` (déjà configuré). Les logs affic
 **QR code ne fonctionne pas sur mobile**
 Configurer l'adresse de base dans ⚙️ Paramètres → Général → "Adresse de base".
 Ex : `http://192.168.1.50:5000`. Lancer aussi Flask avec `host='0.0.0.0'` dans `run.py`.
+
+**Symboles/footprints affichés dans les fiches mais compteur ⚙️ indique des manquants**
+Utiliser le bouton **🔗 Réconcilier avec les fichiers** dans les paramètres — les fichiers PNG existent mais leurs chemins ne sont pas enregistrés en base.
 
 **BOM KiCad non reconnue**
 Les composants KiCad doivent avoir un champ `LCSC Part Number` (ou variante) renseigné.

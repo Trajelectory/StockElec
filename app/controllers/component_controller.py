@@ -103,8 +103,9 @@ def add():
             flash("Récupération des données LCSC en arrière-plan…", "info")
             _enrich_async([(comp_id, lcsc_num)])
 
-        flash("Composant ajouté avec succès.", "success")
-        return redirect(url_for("components.index"))
+        # Mode série : reste sur la page d'ajout avec confirmation
+        desc = data.get("description") or data.get("lcsc_part_number") or "Composant"
+        return redirect(url_for("components.add", added=desc[:60]))
 
     from ..models.category import CategoryModel
     return ComponentView.render_add(category_groups=CategoryModel.get_grouped_for_stock())
@@ -557,6 +558,91 @@ def settings():
                         deleted += 1
             flash(f"🧹 {deleted} image(s) orpheline(s) supprimée(s).", "success")
 
+        # ── Réconciliation EasyEDA (fichiers présents mais pas en base) ─
+        elif action == "reconcile_easyeda":
+            instance_path = os.path.abspath(
+                os.path.join(component_bp.root_path, "..", "..", "instance")
+            )
+            pngs_dir = os.path.join(instance_path, "easyeda_pngs")
+            db = get_db()
+            updated = 0
+            if os.path.isdir(pngs_dir):
+                # Groupe les fichiers par référence LCSC
+                files = os.listdir(pngs_dir)
+                refs = {}
+                for f in files:
+                    if not f.endswith(".png"): continue
+                    # Format attendu : C149504_symbol.png ou C149504_footprint.png
+                    if "_symbol." in f:
+                        ref = f.split("_symbol.")[0].upper()
+                        refs.setdefault(ref, {})["symbol"] = f"easyeda_pngs/{f}"
+                    elif "_footprint." in f:
+                        ref = f.split("_footprint.")[0].upper()
+                        refs.setdefault(ref, {})["footprint"] = f"easyeda_pngs/{f}"
+
+                for ref, paths in refs.items():
+                    row = db.execute(
+                        "SELECT id, symbol_png, footprint_png FROM components WHERE lcsc_part_number = ?",
+                        (ref,)
+                    ).fetchone()
+                    if not row: continue
+                    sym = paths.get("symbol")
+                    fp  = paths.get("footprint")
+                    # Met à jour seulement les colonnes vides
+                    if (sym and not row["symbol_png"]) or (fp and not row["footprint_png"]):
+                        ComponentModel.save_easyeda_pngs(
+                            row["id"],
+                            sym if not row["symbol_png"] else None,
+                            fp  if not row["footprint_png"] else None,
+                        )
+                        updated += 1
+
+            if updated:
+                flash(f"🔗 {updated} composant(s) mis à jour — chemins EasyEDA réconciliés.", "success")
+            else:
+                flash("✅ Aucun écart trouvé entre les fichiers et la base.", "info")
+
+        # ── Téléchargement EasyEDA en masse ─────────────────────────
+        elif action == "easyeda_all":
+            from ..services.easyeda import fetch_and_save
+            import threading
+            db = get_db()
+            # Composants avec ref LCSC mais sans symbol ou footprint
+            rows = db.execute(
+                """SELECT id, lcsc_part_number FROM components
+                   WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+                     AND (symbol_png IS NULL OR symbol_png = ''
+                          OR footprint_png IS NULL OR footprint_png = '')"""
+            ).fetchall()
+            if not rows:
+                flash("✅ Tous les symboles et footprints sont déjà téléchargés.", "success")
+            else:
+                instance_path = os.path.abspath(
+                    os.path.join(component_bp.root_path, "..", "..", "instance")
+                )
+                def _fetch_all_easyeda(items, inst_path):
+                    import time
+                    _db_app = component_bp.wsgi_app if hasattr(component_bp, 'wsgi_app') else None
+                    for comp_id, lcsc_ref in items:
+                        try:
+                            result = fetch_and_save(lcsc_ref, inst_path)
+                            sym = result.get("symbol_png")
+                            fp  = result.get("footprint_png")
+                            if sym or fp:
+                                ComponentModel.save_easyeda_pngs(comp_id, sym, fp)
+                            time.sleep(0.5)
+                        except Exception:
+                            pass
+
+                items = [(r["id"], r["lcsc_part_number"]) for r in rows]
+                t = threading.Thread(
+                    target=_fetch_all_easyeda,
+                    args=(items, instance_path),
+                    daemon=True
+                )
+                t.start()
+                flash(f"🖼️ Téléchargement lancé pour {len(items)} composant(s). Reviens dans quelques minutes.", "info")
+
         # ── Sauvegarde ────────────────────────────────────────────────
         elif action == "backup":
             import zipfile, tempfile
@@ -595,6 +681,12 @@ def settings():
              AND (image_path IS NULL OR image_path = ''
                   OR category IS NULL OR category = '')"""
     ).fetchone()[0]
+    n_no_easyeda = db.execute(
+        """SELECT COUNT(*) FROM components
+           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+             AND (symbol_png IS NULL OR symbol_png = ''
+                  OR footprint_png IS NULL OR footprint_png = '')"""
+    ).fetchone()[0]
 
     # Taille des fichiers
     instance_path = os.path.abspath(
@@ -629,6 +721,7 @@ def settings():
         "n_no_image":   n_no_image,
         "n_no_cat":     n_no_cat,
         "n_to_enrich":  n_to_enrich,
+        "n_no_easyeda": n_no_easyeda,
         "db_size":      fmt_size(db_size),
         "img_size":     fmt_size(img_size),
         "prj_size":     fmt_size(prj_size),
