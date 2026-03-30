@@ -1,0 +1,802 @@
+{% extends "base.html" %}
+{% block title %}Plan de rangement — StockElec{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1>📦 Rangement</h1>
+    <div style="display:flex;gap:.5rem;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="toggleConfig()">⚙️ Gérer les plateaux</button>
+        <button class="btn btn-primary btn-sm" id="btn-save" onclick="saveAll()">💾 Sauvegarder</button>
+    </div>
+</div>
+
+<!-- ── Panel config ───────────────────────────────────────────────── -->
+<div id="config-panel" style="display:none;margin-bottom:1.25rem">
+    <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+            <div class="card-title" style="margin:0">⚙️ Plateaux <span style="font-weight:400;font-size:.8rem;color:var(--text-muted)">({{ config.plateaux|length }} au total)</span></div>
+            <div style="display:flex;gap:.5rem">
+                <button class="btn btn-secondary btn-sm" onclick="addPlateau()">➕ Ajouter</button>
+                <button class="btn btn-primary btn-sm" onclick="saveConfig()">💾 Appliquer</button>
+            </div>
+        </div>
+        <div id="plateau-list"
+             style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;max-height:260px;overflow-y:auto;padding-right:.25rem;margin-bottom:.6rem">
+            {% for p in config.plateaux %}
+            <div class="plateau-cfg-row"
+                 style="display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                <input type="text" placeholder="ID" value="{{ p.id }}"
+                       class="form-input cfg-pid" style="width:44px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono);padding:.25rem;font-size:.8rem"/>
+                <input type="text" placeholder="Nom" value="{{ p.label }}"
+                       class="form-input cfg-plabel" style="flex:1;padding:.25rem .4rem;font-size:.8rem"/>
+                <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+                    <button type="button" onclick="stepInput(this.nextElementSibling,-1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" value="{{ p.cols }}" min="1" max="20" class="cfg-pcols"
+                           style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+                    <button type="button" onclick="stepInput(this.previousElementSibling,+1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
+                <span style="font-size:.7rem;color:var(--text-faint)">×</span>
+                <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+                    <button type="button" onclick="stepInput(this.nextElementSibling,-1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" value="{{ p.rows }}" min="1" max="20" class="cfg-prows"
+                           style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+                    <button type="button" onclick="stepInput(this.previousElementSibling,+1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
+                <button onclick="removePlateau(this)" class="btn btn-danger btn-sm" style="padding:.2rem .4rem;font-size:.75rem">🗑</button>
+            </div>
+            {% endfor %}
+        </div>
+        <span style="font-size:.72rem;color:var(--text-muted)">💡 L'ID + n° de case devient l'emplacement (ex: A3, B12)</span>
+    </div>
+</div>
+
+<!-- ── Tabs ───────────────────────────────────────────────────────── -->
+<div class="gf-tabs-wrapper">
+    <button class="gf-tabs-arrow gf-tabs-arrow-left" id="tabs-left" onclick="scrollTabs(-1)">◀</button>
+    <div class="gf-tabs-bar" id="gf-tabs-bar">
+        {% for p in config.plateaux %}
+    <button class="gf-tab {% if loop.first %}gf-tab-active{% endif %}"
+            data-pid="{{ p.id }}" onclick="switchTab('{{ p.id }}')"
+            style="display:flex;flex-direction:column;align-items:center;gap:.2rem;padding:.5rem 1rem;border:none;background:{% if loop.first %}var(--accent){% else %}transparent{% endif %};color:{% if loop.first %}#fff{% else %}var(--text-muted){% endif %};border-radius:7px;cursor:pointer;transition:all .15s;white-space:nowrap;min-width:90px">
+        <span style="font-weight:800;font-size:.9rem;font-family:var(--mono)">{{ p.id }}</span>
+        <span style="font-size:.7rem;opacity:.85">{{ p.label }}</span>
+        <span class="gf-tab-count" data-pid="{{ p.id }}" style="font-size:.65rem;opacity:.7">{{ p.cols }}×{{ p.rows }}</span>
+    </button>
+    {% endfor %}
+    </div>
+    <button class="gf-tabs-arrow gf-tabs-arrow-right" id="tabs-right" onclick="scrollTabs(1)">▶</button>
+</div>
+
+<!-- ── Stats ──────────────────────────────────────────────────────── -->
+<div id="plateau-stats" style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;font-size:.82rem;color:var(--text-muted)">
+    <span id="stat-nom" style="font-weight:700;color:var(--text)"></span>
+    <span id="stat-dims"></span>
+    <span id="stat-fill"></span>
+    <div style="flex:1;height:4px;background:var(--border);border-radius:2px;max-width:200px">
+        <div id="stat-bar" style="height:100%;background:var(--accent);border-radius:2px;transition:width .3s;width:0%"></div>
+    </div>
+</div>
+
+<!-- ── Grille ─────────────────────────────────────────────────────── -->
+<div id="gf-grid-container">
+    {% for p in config.plateaux %}
+    <div class="gf-plateau" data-pid="{{ p.id }}"
+         style="display:{% if loop.first %}flex{% else %}none{% endif %};justify-content:center">
+        <div class="gf-grid" id="grid-{{ p.id }}"
+             data-pid="{{ p.id }}" data-cols="{{ p.cols }}" data-rows="{{ p.rows }}"
+             style="display:grid;grid-template-columns:repeat({{ p.cols }},88px);grid-template-rows:repeat({{ p.rows }},88px);gap:6px">
+            {# On rend toutes les cases — les cases "absorbées" par un span seront masquées via JS #}
+            {% for row in range(p.rows) %}
+            {% for col in range(p.cols) %}
+            {% set idx = row * p.cols + col + 1 %}
+            {% set cell_id = p.id ~ idx %}
+            {% set comp_id = assignments.get(cell_id) %}
+            {% set comp = components | selectattr('id', 'equalto', comp_id) | first if comp_id else none %}
+            {% set size = sizes.get(cell_id, '1x1') %}
+            {% set sw = size.split('x')[0] | int %}
+            {% set sh = size.split('x')[1] | int %}
+            <div class="gf-cell {% if comp %}gf-filled{% endif %}"
+                 id="cell-{{ cell_id }}"
+                 data-cell="{{ cell_id }}"
+                 data-pid="{{ p.id }}"
+                 data-row="{{ row + 1 }}"
+                 data-col="{{ col + 1 }}"
+                 data-sw="{{ sw }}"
+                 data-sh="{{ sh }}"
+                 onclick="openPopup('{{ cell_id }}')"
+                 oncontextmenu="openContextMenu(event, '{{ cell_id }}')"
+                 title="{{ cell_id }}{% if comp %} — {{ comp.description or comp.lcsc_part_number }}{% endif %}"
+                 style="grid-column: {{ col+1 }} / span {{ sw }};grid-row: {{ row+1 }} / span {{ sh }};">
+
+                <span class="gf-cell-id">{{ cell_id }}{% if size != '1x1' %} <span style="opacity:.6;font-size:.5rem">{{ size }}</span>{% endif %}</span>
+
+                {% if comp %}
+                    {% if comp.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=comp.image_path.split('images/')|last) }}"
+                         class="gf-cell-img" style="width:{{ [40, sw*40]|min }}px;height:{{ [40, sh*40]|min }}px"/>
+                    {% else %}
+                    <span class="gf-cell-icon">📦</span>
+                    {% endif %}
+                    <span class="gf-cell-name">{{ (comp.description or comp.lcsc_part_number or '?')[:35] }}</span>
+                    <span class="gf-cell-qty">{{ comp.quantity }} pcs</span>
+                {% else %}
+                    <span class="gf-cell-plus">+</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ── Popup ──────────────────────────────────────────────────────── -->
+<div id="cell-popup" onclick="if(event.target===this)closePopup()"
+     style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.75);align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;width:500px;max-width:95vw;height:600px;display:flex;flex-direction:column;gap:.75rem;box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;gap:.75rem">
+            <div>
+                <div style="font-weight:800;font-size:1rem" id="popup-title">Case A1</div>
+                <div style="font-size:.75rem;color:var(--text-muted)" id="popup-current">Vide</div>
+            </div>
+            <span id="popup-remaining" style="margin-left:auto;font-size:.75rem;color:var(--text-muted)"></span>
+            <button onclick="closePopup()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1">✕</button>
+        </div>
+
+        <!-- Taille de la boîte -->
+        <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--bg-surface);border-radius:var(--radius-sm);flex-wrap:wrap">
+            <span style="font-size:.78rem;color:var(--text-muted);font-weight:600">📐 Taille de la boîte :</span>
+            {% for size in ['1x1','2x1','1x2','2x2','3x1','1x3','3x2','2x3','3x3','4x1','1x4'] %}
+            <button class="gf-size-btn" data-size="{{ size }}" onclick="selectSize('{{ size }}')"
+                    style="padding:.25rem .55rem;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .12s;font-family:var(--mono)">
+                {{ size }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <input type="text" id="popup-search" class="form-input"
+               placeholder="🔍 Chercher un composant, une référence LCSC…"
+               oninput="filterPopup(this.value)"/>
+        <div id="popup-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.2rem;padding-right:.25rem"></div>
+        <div style="display:flex;gap:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">
+            <button class="btn btn-danger btn-sm" onclick="clearCell()">🗑️ Vider la case</button>
+            <button class="btn btn-secondary btn-sm" onclick="closePopup()" style="margin-left:auto">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Menu contextuel (clic droit) ──────────────────────────── -->
+<div id="ctx-menu"
+     style="display:none;position:fixed;z-index:500;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem;box-shadow:var(--shadow);min-width:180px">
+    <div id="ctx-cell-label"
+         style="font-size:.7rem;font-weight:700;color:var(--text-muted);padding:.3rem .6rem .4rem;font-family:var(--mono)"></div>
+    <button class="ctx-item" onclick="ctxAssign()">
+        📦 Assigner un composant
+    </button>
+    <div id="ctx-led-btn" style="display:none">
+        <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
+        <button class="ctx-item" onclick="ctxLed()">
+            💡 Allumer la LED
+        </button>
+    </div>
+    <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
+    <button class="ctx-item ctx-item-danger" onclick="ctxClear()">
+        🗑️ Vider la case
+    </button>
+</div>
+
+<style>
+/* Cache les flèches natives des inputs number */
+/* ── Barre d'onglets ─────────────────────────────────────────────── */
+.gf-tabs-wrapper {
+    position: relative;
+    margin-bottom: 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+}
+.gf-tabs-bar {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    gap: 0;
+    padding: .35rem;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.gf-tabs-bar::-webkit-scrollbar { display: none; }
+
+/* Flèches intégrées */
+.gf-tabs-arrow {
+    flex-shrink: 0;
+    width: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: .75rem;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+}
+.gf-tabs-arrow:hover { background: var(--bg-hover); color: var(--accent); }
+.gf-tabs-arrow.visible { opacity: 1; pointer-events: auto; }
+.gf-tabs-arrow-left  { border-right: 1px solid var(--border); }
+.gf-tabs-arrow-right { border-left:  1px solid var(--border); }
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+
+/* Taille de base d'une cellule */
+:root { --gf-cell: 88px; --gf-gap: 6px; }
+
+.gf-cell {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-card);
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px; padding: 8px 6px 6px;
+    transition: border-color .15s, background .15s, transform .1s;
+    position: relative; overflow: hidden;
+    min-width: 0; min-height: 0;
+    box-sizing: border-box;
+}
+.gf-cell:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(124,108,255,.25);
+}
+.gf-cell.gf-filled { border-color: var(--accent); background: var(--accent-dim); }
+.gf-cell.gf-filled:hover { background: rgba(124,108,255,.2); }
+.gf-cell.gf-hidden { display: none !important; }
+
+.gf-cell-id {
+    position: absolute; top: 4px; left: 6px;
+    font-size: .55rem; font-weight: 800;
+    font-family: var(--mono); letter-spacing: .02em;
+    color: var(--text-faint); line-height: 1;
+}
+.gf-cell.gf-filled .gf-cell-id { color: var(--accent); }
+
+.gf-cell-img {
+    object-fit: contain; border-radius: 6px;
+    background: #fff; flex-shrink: 0;
+    /* taille calculée dynamiquement via JS */
+}
+.gf-cell-icon { flex-shrink: 0; }
+.gf-cell-plus { opacity: .1; }
+
+.gf-cell-name {
+    font-weight: 600; color: var(--text);
+    text-align: center; line-height: 1.3;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 96%;
+    /* font-size et line-clamp calculés dynamiquement */
+}
+.gf-cell-qty {
+    font-weight: 700; color: var(--accent);
+    /* font-size calculé dynamiquement */
+}
+
+.ctx-item {
+    display: block; width: 100%;
+    padding: .45rem .75rem;
+    background: transparent; border: none;
+    color: var(--text); font-size: .83rem;
+    text-align: left; cursor: pointer;
+    border-radius: 6px;
+    transition: background .1s;
+}
+.ctx-item:hover { background: var(--bg-hover); }
+.ctx-item-danger { color: var(--danger); }
+.ctx-item-danger:hover { background: rgba(244,67,54,.1); }
+
+.gf-size-btn {
+    padding: .28rem .6rem;
+    border-radius: 5px;
+    border: 2px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: .78rem; font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: var(--mono);
+    letter-spacing: .02em;
+}
+.gf-size-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.gf-size-btn.active {
+    border-color: var(--accent);
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(124,108,255,.4);
+    transform: scale(1.08);
+}
+</style>
+
+<script>
+const COMPONENTS  = {{ components | tojson }};
+let   assignments = {{ assignments | tojson }};
+let   sizes       = {{ sizes | tojson }};
+let   currentCell = null;
+let   currentSize = '1x1';
+let   activePid   = '{{ config.plateaux[0].id if config.plateaux else "" }}';
+const CONFIG      = {{ config | tojson }};
+
+// ── Init — masque les cases absorbées par les spans ───────────────
+function initGrid(pid) {
+    const p = CONFIG.plateaux.find(x => x.id === pid);
+    if (!p) return;
+
+    // Réinitialise — re-affiche toutes les cases
+    document.querySelectorAll(`[data-pid="${pid}"].gf-cell`).forEach(c => {
+        c.classList.remove('gf-hidden');
+    });
+
+    // Masque les cases couvertes par un span
+    document.querySelectorAll(`[data-pid="${pid}"].gf-cell`).forEach(cell => {
+        const cellId = cell.dataset.cell;
+        const size   = sizes[cellId] || '1x1';
+        const [sw, sh] = size.split('x').map(Number);
+        if (sw === 1 && sh === 1) return;
+
+        const col  = parseInt(cell.dataset.col);
+        const row  = parseInt(cell.dataset.row);
+
+        // Masque toutes les cases dans le rectangle sauf la cellule d'origine
+        for (let r = row; r < row + sh; r++) {
+            for (let c2 = col; c2 < col + sw; c2++) {
+                if (r === row && c2 === col) continue;
+                const idx     = (r - 1) * p.cols + (c2 - 1) + 1;
+                const covId   = pid + idx;
+                const covCell = document.getElementById(`cell-${covId}`);
+                if (covCell) covCell.classList.add('gf-hidden');
+            }
+        }
+
+        // Ajuste le style de la cellule maître
+        cell.style.gridColumn = `${col} / span ${sw}`;
+        cell.style.gridRow    = `${row} / span ${sh}`;
+    });
+}
+
+// ── Supprime les flèches natives des inputs number ────────────────
+// (géré via CSS -moz-appearance et webkit ci-dessous)
+
+// ── +/− pour les inputs col/rangée ───────────────────────────────
+function stepInput(input, delta) {
+    const val = parseInt(input.value) || 1;
+    const min = parseInt(input.min) || 1;
+    const max = parseInt(input.max) || 20;
+    input.value = Math.min(max, Math.max(min, val + delta));
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────
+function switchTab(pid) {
+    activePid = pid;
+    document.querySelectorAll('.gf-plateau').forEach(el => {
+        el.style.display = el.dataset.pid === pid ? 'flex' : 'none';
+    });
+    document.querySelectorAll('.gf-tab').forEach(btn => {
+        const active = btn.dataset.pid === pid;
+        btn.style.background = active ? 'var(--accent)' : 'transparent';
+        btn.style.color      = active ? '#fff' : 'var(--text-muted)';
+    });
+    updateStats(pid);
+}
+
+function updateStats(pid) {
+    const p = CONFIG.plateaux.find(x => x.id === pid);
+    if (!p) return;
+    const total  = p.cols * p.rows;
+    const filled = Object.entries(assignments).filter(([k,v]) => k.startsWith(pid) && v).length;
+    const pct    = total ? Math.round(filled / total * 100) : 0;
+    document.getElementById('stat-nom').textContent  = p.label;
+    document.getElementById('stat-dims').textContent = `${p.cols}×${p.rows} cases`;
+    document.getElementById('stat-fill').textContent = `${filled}/${total} occupées · ${pct}%`;
+    document.getElementById('stat-bar').style.width  = pct + '%';
+}
+
+function updateTabCount(pid) {
+    const p      = CONFIG.plateaux.find(x => x.id === pid);
+    if (!p) return;
+    const total  = p.cols * p.rows;
+    const filled = Object.entries(assignments).filter(([k,v]) => k.startsWith(pid) && v).length;
+    const el     = document.querySelector(`.gf-tab-count[data-pid="${pid}"]`);
+    if (el) el.textContent = filled ? `${filled}/${total}` : `${p.cols}×${p.rows}`;
+}
+
+// ── Popup ────────────────────────────────────────────────────────
+function openPopup(cellId) {
+    currentCell = cellId;
+    currentSize = sizes[cellId] || '1x1';
+    const compId = assignments[cellId];
+    const comp   = compId ? COMPONENTS.find(c => c.id == compId) : null;
+
+    document.getElementById('popup-title').textContent   = `Case ${cellId}`;
+    document.getElementById('popup-current').textContent = comp
+        ? `Actuellement : ${comp.description || comp.lcsc_part_number}`
+        : 'Case vide';
+
+    // Met à jour les boutons de taille
+    document.querySelectorAll('.gf-size-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.size === currentSize);
+    });
+    // Compteur
+    const placed    = new Set(Object.values(assignments).map(v => String(v)));
+    const remaining = COMPONENTS.filter(c => !placed.has(String(c.id))).length;
+    document.getElementById('popup-remaining').textContent = `${remaining} sans emplacement`;
+
+    document.getElementById('popup-search').value = '';
+    filterPopup('');
+
+    document.getElementById('cell-popup').style.display = 'flex';
+    setTimeout(() => document.getElementById('popup-search').focus(), 60);
+}
+
+function closePopup() {
+    document.getElementById('cell-popup').style.display = 'none';
+    currentCell = null;
+}
+
+function selectSize(size) {
+    currentSize = size;
+    document.querySelectorAll('.gf-size-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.size === size);
+    });
+}
+
+function filterPopup(q) {
+    const lq   = q.toLowerCase();
+    const list = document.getElementById('popup-list');
+    const cur  = assignments[currentCell];
+    const placed = new Set(Object.values(assignments).map(v => String(v)));
+
+    const filtered = COMPONENTS.filter(c =>
+        String(c.id) === String(cur) || !placed.has(String(c.id))
+    ).filter(c =>
+        !q
+        || (c.description || '').toLowerCase().includes(lq)
+        || (c.lcsc_part_number || '').toLowerCase().includes(lq)
+        || (c.manufacture_part_number || '').toLowerCase().includes(lq)
+        || (c.package || '').toLowerCase().includes(lq)
+    ).slice(0, 50);
+
+    if (!filtered.length) {
+        list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem">Aucun résultat</div>';
+        return;
+    }
+
+    list.innerHTML = filtered.map(c => {
+        const isCur    = cur == c.id;
+        const placed2  = Object.entries(assignments).find(([k,v]) => v == c.id && k !== currentCell);
+        return `<div onclick="selectComp(${c.id})"
+            style="display:flex;align-items:center;gap:.65rem;padding:.45rem .6rem;border-radius:7px;cursor:pointer;
+                   background:${isCur ? 'var(--accent-dim)' : 'transparent'};
+                   border:1px solid ${isCur ? 'var(--accent)' : 'transparent'};transition:background .1s"
+            onmouseover="this.style.background='${isCur ? 'var(--accent-dim)' : 'var(--bg-hover)'}'"
+            onmouseout="this.style.background='${isCur ? 'var(--accent-dim)' : 'transparent'}'">
+            ${c.image_path
+                ? `<img src="/images/${c.image_path.split('images/').pop()}" style="width:36px;height:36px;object-fit:contain;border-radius:5px;background:#fff;flex-shrink:0"/>`
+                : `<div style="width:36px;height:36px;background:var(--bg-surface);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">📦</div>`}
+            <div style="flex:1;min-width:0">
+                <div style="font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${isCur ? 'var(--accent)' : 'var(--text)'}">
+                    ${c.description || c.manufacture_part_number || '—'}
+                </div>
+                <div style="font-size:.7rem;color:var(--text-muted);display:flex;gap:.4rem;margin-top:1px;flex-wrap:wrap">
+                    <span style="font-family:var(--mono)">${c.lcsc_part_number || ''}</span>
+                    ${c.package ? `<span style="background:var(--border);padding:0 4px;border-radius:3px;font-size:.65rem">${c.package}</span>` : ''}
+                    <span style="color:${c.quantity < 5 ? 'var(--warning)' : 'var(--text-muted)'}">${c.quantity} pcs</span>
+                    ${placed2 ? `<span style="color:var(--info);font-size:.65rem">📍 ${placed2[0]}</span>` : ''}
+                </div>
+            </div>
+            ${isCur ? '<span style="color:var(--accent);font-size:1rem;flex-shrink:0">✓</span>' : ''}
+        </div>`;
+    }).join('');
+}
+
+function selectComp(compId) {
+    if (!currentCell) return;
+    for (const [k, v] of Object.entries(assignments)) {
+        if (v == compId && k !== currentCell) delete assignments[k];
+    }
+    assignments[currentCell] = compId;
+    sizes[currentCell] = currentSize;
+    const cell = currentCell;
+    closePopup();
+    refreshCell(cell);
+    initGrid(activePid);
+    updateStats(activePid);
+    updateTabCount(activePid);
+    autoSave();
+}
+
+function clearCell() {
+    if (!currentCell) return;
+    delete assignments[currentCell];
+    sizes[currentCell] = '1x1';
+    const cell = currentCell;
+    closePopup();
+    refreshCell(cell);
+    initGrid(activePid);
+    updateStats(activePid);
+    updateTabCount(activePid);
+    autoSave();
+}
+
+// ── Rafraîchit une cellule ────────────────────────────────────────
+const CELL_PX = 88; // taille de base en px
+const GAP_PX  = 6;
+
+function cellDims(sw, sh) {
+    // Taille réelle en px de la cellule fusionnée
+    const w = sw * CELL_PX + (sw - 1) * GAP_PX;
+    const h = sh * CELL_PX + (sh - 1) * GAP_PX;
+    return { w, h };
+}
+
+function refreshCell(cellId) {
+    const cell   = document.getElementById(`cell-${cellId}`);
+    if (!cell) return;
+    const compId = assignments[cellId];
+    const comp   = compId ? COMPONENTS.find(c => c.id == compId) : null;
+    const size   = sizes[cellId] || '1x1';
+    const [sw, sh] = size.split('x').map(Number);
+    const { w, h } = cellDims(sw, sh);
+
+    cell.className = 'gf-cell' + (comp ? ' gf-filled' : '');
+    cell.dataset.sw = sw;
+    cell.dataset.sh = sh;
+    cell.title = cellId + (comp ? ' — ' + (comp.description || comp.lcsc_part_number) : '');
+
+    // Dimensions adaptées
+    const imgSize  = Math.min(Math.round(Math.min(w, h) * 0.52), 120);
+    const fontSize = sw === 1 && sh === 1 ? '.52rem'
+                   : sw + sh <= 4         ? '.62rem'
+                   :                        '.72rem';
+    const qtySize  = sw === 1 && sh === 1 ? '.58rem' : '.68rem';
+    const lines    = sh === 1 ? 2 : sh >= 3 ? 5 : 3;
+    const iconSize = Math.min(Math.round(imgSize * 0.8), 64);
+
+    cell.innerHTML = '';
+
+    // Label ID
+    const idSpan = document.createElement('span');
+    idSpan.className = 'gf-cell-id';
+    idSpan.innerHTML = cellId + (size !== '1x1'
+        ? ` <span style="opacity:.55;font-size:.48rem">${size}</span>` : '');
+    cell.appendChild(idSpan);
+
+    if (comp) {
+        if (comp.image_path) {
+            const img = document.createElement('img');
+            img.src = '/images/' + comp.image_path.split('images/').pop();
+            img.className = 'gf-cell-img';
+            img.style.width  = imgSize + 'px';
+            img.style.height = imgSize + 'px';
+            img.style.marginTop = sh === 1 ? '10px' : '14px';
+            cell.appendChild(img);
+        } else {
+            const ic = document.createElement('span');
+            ic.className = 'gf-cell-icon';
+            ic.textContent = '📦';
+            ic.style.fontSize = iconSize + 'px';
+            ic.style.marginTop = sh === 1 ? '8px' : '12px';
+            cell.appendChild(ic);
+        }
+
+        const name = document.createElement('span');
+        name.className = 'gf-cell-name';
+        name.textContent = (comp.description || comp.lcsc_part_number || '?')
+            .slice(0, sw >= 3 ? 80 : sw >= 2 ? 50 : 35);
+        name.style.fontSize = fontSize;
+        name.style.webkitLineClamp = lines;
+        cell.appendChild(name);
+
+        const qty = document.createElement('span');
+        qty.className = 'gf-cell-qty';
+        qty.textContent = comp.quantity + ' pcs';
+        qty.style.fontSize = qtySize;
+        cell.appendChild(qty);
+
+    } else {
+        const plus = document.createElement('span');
+        plus.className = 'gf-cell-plus';
+        plus.textContent = '+';
+        plus.style.fontSize = Math.min(Math.round(h * 0.35), 48) + 'px';
+        cell.appendChild(plus);
+    }
+}
+
+// ── Auto-save ────────────────────────────────────────────────────
+let _saveTimer = null;
+function autoSave() {
+    const btn = document.getElementById('btn-save');
+    btn.textContent = '⏳ Sauvegarde…';
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+        fetch('/rangement/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({assignments, sizes})
+        })
+        .then(r => r.json())
+        .then(() => {
+            btn.textContent = '✅ Sauvegardé';
+            setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 1800);
+        })
+        .catch(() => { btn.textContent = '💾 Sauvegarder'; });
+    }, 600);
+}
+
+function saveAll() {
+    const btn = document.getElementById('btn-save');
+    btn.textContent = '⏳ Sauvegarde…';
+    btn.disabled = true;
+    fetch('/rangement/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({assignments, sizes})
+    }).then(r => r.json()).then(() => {
+        btn.textContent = '✅ Sauvegardé !';
+        setTimeout(() => { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; }, 2000);
+    }).catch(() => { btn.textContent = '❌ Erreur'; btn.disabled = false; });
+}
+
+// ── Config ───────────────────────────────────────────────────────
+function toggleConfig() {
+    const p = document.getElementById('config-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+function addPlateau() {
+    const list = document.getElementById('plateau-list');
+    const div  = document.createElement('div');
+    div.className = 'plateau-cfg-row';
+    div.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)';
+    div.innerHTML = `
+        <input type="text" placeholder="ID" value="" class="form-input cfg-pid" style="width:44px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono);padding:.25rem;font-size:.8rem"/>
+        <input type="text" placeholder="Nom" value="Nouveau plateau" class="form-input cfg-plabel" style="flex:1;padding:.25rem .4rem;font-size:.8rem"/>
+        <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+            <button type="button" onclick="stepInput(this.nextElementSibling,-1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+            <input type="number" value="7" min="1" max="20" class="cfg-pcols" style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+            <button type="button" onclick="stepInput(this.previousElementSibling,+1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+        </div>
+        <span style="font-size:.7rem;color:var(--text-faint)">×</span>
+        <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+            <button type="button" onclick="stepInput(this.nextElementSibling,-1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+            <input type="number" value="4" min="1" max="20" class="cfg-prows" style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+            <button type="button" onclick="stepInput(this.previousElementSibling,+1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+        </div>
+        <button onclick="removePlateau(this)" class="btn btn-danger btn-sm" style="padding:.2rem .4rem;font-size:.75rem">🗑</button>
+    `;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+}
+function removePlateau(btn) {
+    if (!confirm('Supprimer ce plateau ?')) return;
+    btn.closest('.plateau-cfg-row').remove();
+}
+function saveConfig() {
+    const rows = document.querySelectorAll('.plateau-cfg-row');
+    const plateaux = [...rows].map(r => ({
+        id:    r.querySelector('.cfg-pid').value.toUpperCase().trim() || 'X',
+        label: r.querySelector('.cfg-plabel').value.trim() || 'Plateau',
+        cols:  parseInt(r.querySelector('.cfg-pcols').value) || 5,
+        rows:  parseInt(r.querySelector('.cfg-prows').value) || 4,
+    }));
+    fetch('/rangement/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({config: {plateaux}, assignments, sizes})
+    }).then(() => window.location.reload());
+}
+
+// ── Navigation tabs ──────────────────────────────────────────────
+function scrollTabs(dir) {
+    const bar = document.getElementById('gf-tabs-bar');
+    bar.scrollBy({ left: dir * 200, behavior: 'smooth' });
+}
+
+function updateTabsArrows() {
+    const bar   = document.getElementById('gf-tabs-bar');
+    const left  = document.getElementById('tabs-left');
+    const right = document.getElementById('tabs-right');
+    if (!bar || !left || !right) return;
+    left.classList.toggle('visible',  bar.scrollLeft > 5);
+    right.classList.toggle('visible', bar.scrollLeft < bar.scrollWidth - bar.clientWidth - 5);
+}
+
+document.getElementById('gf-tabs-bar')?.addEventListener('scroll', updateTabsArrows);
+
+// ── Menu contextuel ──────────────────────────────────────────────
+let _ctxCell = null;
+
+function openContextMenu(e, cellId) {
+    e.preventDefault();
+    e.stopPropagation();
+    _ctxCell = cellId;
+
+    const menu    = document.getElementById('ctx-menu');
+    const hasCom  = !!assignments[cellId];  // lit l'état réel actuel
+
+    document.getElementById('ctx-cell-label').textContent = `Case ${cellId}`;
+    document.getElementById('ctx-led-btn').style.display = hasCom ? 'block' : 'none';
+
+    // Positionne le menu sous le curseur
+    menu.style.display = 'block';
+    const x = Math.min(e.clientX, window.innerWidth  - menu.offsetWidth  - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = x + 'px';
+    menu.style.top  = y + 'px';
+}
+
+function closeContextMenu() {
+    document.getElementById('ctx-menu').style.display = 'none';
+    _ctxCell = null;
+}
+
+function ctxAssign() {
+    closeContextMenu();
+    if (_ctxCell) openPopup(_ctxCell);
+}
+
+function ctxClear() {
+    closeContextMenu();
+    if (!_ctxCell) return;
+    currentCell = _ctxCell;
+    clearCell();
+}
+
+function ctxLed() {
+    closeContextMenu();
+    if (!_ctxCell) return;
+    // Future intégration Pi — appel API GPIO
+    // fetch(`/api/led/${_ctxCell}/on`, { method: 'POST' })
+    alert(`💡 LED ${_ctxCell} — intégration Pi à venir !`);
+}
+
+// Ferme le menu au clic ailleurs
+document.addEventListener('click', e => {
+    if (!document.getElementById('ctx-menu').contains(e.target)) {
+        closeContextMenu();
+    }
+});
+
+// ── Init ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closePopup(); closeContextMenu(); }
+});
+CONFIG.plateaux.forEach(p => {
+    // Rafraîchit le contenu de toutes les cellules avec la logique adaptative
+    for (let i = 1; i <= p.cols * p.rows; i++) {
+        refreshCell(p.id + i);
+    }
+    initGrid(p.id);
+    updateTabCount(p.id);
+});
+updateStats(activePid);
+updateTabsArrows();
+</script>
+{% endblock %}

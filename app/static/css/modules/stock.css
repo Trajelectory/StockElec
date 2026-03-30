@@ -135,3 +135,21 @@
     margin-bottom: 1rem; font-size: .85rem; color: var(--warning);
     display: flex; align-items: center; gap: .5rem;
 }
+
+/* ── Colonnes masquées selon largeur écran ───────────────────────── */
+.td-description {
+    max-width: 220px;
+}
+.td-desc-link {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1500px) {
+    .col-hide-md { display: none !important; }
+}
+@media (max-width: 1200px) {
+    .col-hide-sm { display: none !important; }
+}

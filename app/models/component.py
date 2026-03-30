@@ -28,6 +28,11 @@ class Component:
         self.datasheet_url           = row["datasheet_url"] if "datasheet_url" in keys else None
         self.symbol_png              = row["symbol_png"]    if "symbol_png"    in keys else None
         self.footprint_png           = row["footprint_png"] if "footprint_png" in keys else None
+        self.attributes              = row["attributes"]          if "attributes"          in keys else None
+        self.description_long        = row["description_long"]    if "description_long"    in keys else None
+        self.mouser_part_number      = row["mouser_part_number"]  if "mouser_part_number"  in keys else None
+        self.digikey_part_number     = row["digikey_part_number"] if "digikey_part_number" in keys else None
+        self.product_url             = row["product_url"]         if "product_url"         in keys else None
         self.created_at              = row["created_at"]
         self.updated_at              = row["updated_at"]
 
@@ -120,20 +125,24 @@ class ComponentModel:
         cursor = db.execute(
             """
             INSERT INTO components (
-                lcsc_part_number, manufacture_part_number, manufacturer,
-                customer_no, package, description, rohs,
+                lcsc_part_number, mouser_part_number, digikey_part_number,
+                manufacture_part_number, manufacturer,
+                customer_no, package, description, description_long, rohs,
                 quantity, min_stock, unit_price, ext_price,
                 category, category_id, location, notes,
                 image_path, datasheet_url
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                data.get("lcsc_part_number"),
-                data.get("manufacture_part_number"),
+                _to_none(data.get("lcsc_part_number")),
+                _to_none(data.get("mouser_part_number")),
+                _to_none(data.get("digikey_part_number")),
+                _to_none(data.get("manufacture_part_number")),
                 data.get("manufacturer"),
                 data.get("customer_no"),
                 data.get("package"),
                 data.get("description"),
+                data.get("description_long"),
                 data.get("rohs"),
                 qty,
                 int(data.get("min_stock") or 0),
@@ -157,11 +166,14 @@ class ComponentModel:
             """
             UPDATE components SET
                 lcsc_part_number        = ?,
+                mouser_part_number      = ?,
+                digikey_part_number     = ?,
                 manufacture_part_number = ?,
                 manufacturer            = ?,
                 customer_no             = ?,
                 package                 = ?,
                 description             = ?,
+                description_long        = ?,
                 rohs                    = ?,
                 quantity                = ?,
                 min_stock               = ?,
@@ -176,12 +188,15 @@ class ComponentModel:
             WHERE id = ?
             """,
             (
-                data.get("lcsc_part_number"),
-                data.get("manufacture_part_number"),
+                _to_none(data.get("lcsc_part_number")),
+                _to_none(data.get("mouser_part_number")),
+                _to_none(data.get("digikey_part_number")),
+                _to_none(data.get("manufacture_part_number")),
                 data.get("manufacturer"),
                 data.get("customer_no"),
                 data.get("package"),
                 data.get("description"),
+                data.get("description_long"),
                 data.get("rohs"),
                 int(data.get("quantity") or 0),
                 int(data.get("min_stock") or 0),
@@ -199,11 +214,11 @@ class ComponentModel:
         db.commit()
 
     @staticmethod
-    def apply_enrichment(component_id: int, enrichment: dict):
+    def apply_enrichment(component_id: int, enrichment: dict, force_attributes: bool = False):
         """
-        Applique les données du scraper LCSC.
-        Ne remplace que les champs encore vides.
-        Met aussi à jour la table categories si les infos sont présentes.
+        Applique les données du scraper LCSC/Mouser/DigiKey.
+        Ne remplace que les champs encore vides, sauf si force_attributes=True
+        (ré-enrichissement explicite : attributes et image_path sont toujours mis à jour).
         """
         if not enrichment:
             return
@@ -259,9 +274,44 @@ class ComponentModel:
                 fields.append(f"{col} = ?")
                 values.append(new_val)
 
-        _maybe("category",      full_path)
-        _maybe("image_path",    enrichment.get("image_path"))
-        _maybe("datasheet_url", enrichment.get("datasheet_url"))
+        # description et description_long : toujours écrasés par l'API distributeur
+        # (la valeur KiCad "0R 0402" est moins précise que "RES 100Ω ±1% 62.5mW 0402")
+        for col in ("description", "description_long"):
+            new_val = enrichment.get(col)
+            if new_val and col in row_keys:
+                fields.append(f"{col} = ?")
+                values.append(new_val)
+
+        _maybe("product_url",             enrichment.get("product_url"))
+        _maybe("mouser_part_number",      enrichment.get("mouser_part_number"))
+        _maybe("digikey_part_number",     enrichment.get("digikey_part_number"))
+        _maybe("manufacture_part_number", enrichment.get("manufacture_part_number"))
+        _maybe("manufacturer",            enrichment.get("manufacturer"))
+        _maybe("package",                 enrichment.get("package"))
+        _maybe("rohs",                    enrichment.get("rohs"))
+        _maybe("category",                full_path)
+        _maybe("datasheet_url",           enrichment.get("datasheet_url"))
+
+        # image_path : toujours écrit si on en a une nouvelle (quelle que soit la source)
+        # En mode force, on écrase même si déjà présent (ré-enrichissement explicite)
+        new_image = enrichment.get("image_path")
+        if new_image and "image_path" in row_keys:
+            if not row["image_path"] or force_attributes:
+                fields.append("image_path = ?")
+                values.append(new_image)
+
+        # Attributs techniques — toujours écrasés si on en a de nouveaux
+        attrs = enrichment.get("attributes")
+        if attrs and "attributes" in row_keys:
+            import json as _json
+            fields.append("attributes = ?")
+            values.append(_json.dumps(attrs, ensure_ascii=False))
+
+        # Prix — cas particulier : on met à jour même si déjà présent si la valeur est 0 ou None
+        unit_price = enrichment.get("unit_price")
+        if unit_price and "unit_price" in row_keys and not row["unit_price"]:
+            fields.append("unit_price = ?")
+            values.append(unit_price)
 
         # category_id : pas dans row.keys() si migration ancienne DB
         try:
@@ -353,16 +403,8 @@ class ComponentModel:
     @staticmethod
     def import_from_csv_rows(rows):
         """
-        rows : liste de dicts CSV LCSC.
-
-        Retourne un dict :
-          {
-            "inserted":      int,
-            "skipped":       int,          # lignes vides / sans ref
-            "duplicates":    [str, ...],   # refs LCSC déjà en stock
-            "errors":        [str, ...],
-            "component_ids": [(id, lcsc_ref), ...]   # pour enrichissement
-          }
+        rows : liste de dicts CSV.
+        Supporte les colonnes LCSC, Mouser et DigiKey.
         """
         db = get_db()
         inserted = 0
@@ -370,26 +412,57 @@ class ComponentModel:
         duplicates = []
         errors = []
         component_ids = []
+        mouser_ids    = []
+        digikey_ids   = []
+
+        # Détecte les colonnes disponibles
+        if not rows:
+            return {"inserted": 0, "skipped": 0, "duplicates": [], "errors": [], "component_ids": []}
+
+        headers = list(rows[0].keys())
+        lc_headers = {h.lower().strip(): h for h in headers}
+
+        def _col(*candidates):
+            for c in candidates:
+                if c in lc_headers:
+                    return lc_headers[c]
+            return None
+
+        lcsc_col    = _col("lcsc part number", "lcsc#", "lcsc part #", "lcsc")
+        mouser_col  = _col("mouser", "mouser part number", "mouser part #", "mouser#")
+        digikey_col = _col("digikey", "digi-key", "digikey part number", "digikey part #", "digikey#")
+        qty_col     = _col("quantity", "qty", "quantité", "qté")
+        desc_col    = _col("description", "value", "comment", "val")
+        mfr_col     = _col("manufacture part number", "mpn", "manufacturer part number")
+        mfr_name_col = _col("manufacturer")
+        pkg_col     = _col("package")
+        price_col   = _col("unit price(€)", "unit price", "prix unitaire")
+        ext_col     = _col("ext.price(€)", "extended price(€)", "ext price")
+        rohs_col    = _col("rohs")
+        cust_col    = _col("customer no.", "customer #", "customer_no")
+        min_stock_col = _col("min_stock", "min stock", "seuil alerte", "seuil")
+        cat_col       = _col("category", "catégorie", "categorie")
+        loc_col       = _col("location", "emplacement", "location")
+        notes_col     = _col("notes", "remarques", "comment")
 
         for i, row in enumerate(rows, start=1):
             try:
-                # ── Mapping flexible des colonnes ──────────────────────────────
-                # Supporte à la fois le format export commande LCSC
-                # ("LCSC#", "MPN", "Extended Price(€)"…)
-                # et le format historique ("LCSC Part Number", "Manufacture Part Number"…)
-                lcsc     = _clean(row.get("LCSC Part Number")
-                                  or row.get("LCSC#")
-                                  or row.get("LCSC Part #")
-                                  or row.get("LCSC"))
-                mfr_part = _clean(row.get("Manufacture Part Number")
-                                  or row.get("MPN"))
-                desc     = _clean(row.get("Description"))
+                lcsc        = _clean(row.get(lcsc_col,    "") if lcsc_col    else "")
+                mouser_ref  = _clean(row.get(mouser_col,  "") if mouser_col  else "")
+                digikey_ref = _clean(row.get(digikey_col, "") if digikey_col else "")
+                desc        = _clean(row.get(desc_col,    "") if desc_col    else "")
+                mfr_part    = _clean(row.get(mfr_col,     "") if mfr_col     else "")
+                min_stock_v = int(_clean(row.get(min_stock_col, "") if min_stock_col else "") or 0)
+                category_v  = _clean(row.get(cat_col,   "") if cat_col   else "")
+                location_v  = _clean(row.get(loc_col,   "") if loc_col   else "")
+                notes_v     = _clean(row.get(notes_col, "") if notes_col else "")
 
-                if not any([lcsc, mfr_part, desc]):
+                # Ignore les lignes sans aucune ref fournisseur
+                if not any([lcsc, mouser_ref, digikey_ref]):
                     skipped += 1
                     continue
 
-                # --- Déduplication ---
+                # Déduplication
                 if lcsc:
                     existing = db.execute(
                         "SELECT id FROM components WHERE lcsc_part_number = ?", (lcsc,)
@@ -397,48 +470,67 @@ class ComponentModel:
                     if existing:
                         duplicates.append(lcsc)
                         continue
+                if not lcsc and mouser_ref:
+                    existing = db.execute(
+                        "SELECT id FROM components WHERE mouser_part_number = ?", (mouser_ref,)
+                    ).fetchone()
+                    if existing:
+                        duplicates.append(mouser_ref)
+                        continue
+                if not lcsc and not mouser_ref and digikey_ref:
+                    existing = db.execute(
+                        "SELECT id FROM components WHERE digikey_part_number = ?", (digikey_ref,)
+                    ).fetchone()
+                    if existing:
+                        duplicates.append(digikey_ref)
+                        continue
 
-                qty  = int(float(row.get("Quantity") or 0))
-                unit = _to_float(row.get("Unit Price(€)"))
-                # Export panier LCSC : "Extended Price(€)" au lieu de "Ext.Price(€)"
-                ext  = _to_float(row.get("Ext.Price(€)")
-                                 or row.get("Extended Price(€)"))
+                qty  = int(float(row.get(qty_col, 0) if qty_col else 0))
+                unit = _to_float(row.get(price_col) if price_col else None)
+                ext  = _to_float(row.get(ext_col)   if ext_col   else None)
                 if ext is None and unit is not None:
                     ext = round(unit * qty, 4)
-
-                # Customer # (export panier) ou Customer NO. (export commande)
-                customer = _clean(row.get("Customer NO.")
-                                  or row.get("Customer #"))
-
-                # RoHS : "yes"/"no" → "YES"/"NO"
-                rohs_raw = _clean(row.get("RoHS") or row.get("Rohs") or "")
+                rohs_raw = _clean(row.get(rohs_col, "") if rohs_col else "")
                 rohs = rohs_raw.upper() if rohs_raw else None
+                customer = _clean(row.get(cust_col, "") if cust_col else "")
 
                 cursor = db.execute(
                     """
                     INSERT INTO components (
-                        lcsc_part_number, manufacture_part_number, manufacturer,
+                        lcsc_part_number, mouser_part_number, digikey_part_number,
+                        manufacture_part_number, manufacturer,
                         customer_no, package, description, rohs,
-                        quantity, unit_price, ext_price
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        quantity, min_stock, unit_price, ext_price,
+                        category, location, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        lcsc,
-                        mfr_part,
-                        _clean(row.get("Manufacturer")),
-                        customer,
-                        _clean(row.get("Package")),
+                        _to_none(lcsc),
+                        _to_none(mouser_ref),
+                        _to_none(digikey_ref),
+                        _to_none(mfr_part),
+                        _clean(row.get(mfr_name_col, "") if mfr_name_col else ""),
+                        _to_none(customer),
+                        _clean(row.get(pkg_col, "") if pkg_col else ""),
                         desc,
                         rohs,
                         qty,
+                        min_stock_v,
                         unit,
                         ext,
+                        _to_none(category_v),
+                        _to_none(location_v),
+                        _to_none(notes_v),
                     ),
                 )
                 new_id = cursor.lastrowid
-                component_ids.append((new_id, lcsc))
+                if lcsc:
+                    component_ids.append((new_id, lcsc))
+                elif mouser_ref:
+                    mouser_ids.append((new_id, mouser_ref))
+                elif digikey_ref:
+                    digikey_ids.append((new_id, digikey_ref))
                 inserted += 1
-
 
             except Exception as exc:
                 errors.append(f"Ligne {i} : {exc}")
@@ -450,6 +542,8 @@ class ComponentModel:
             "duplicates":    duplicates,
             "errors":        errors,
             "component_ids": component_ids,
+            "mouser_ids":    mouser_ids,
+            "digikey_ids":   digikey_ids,
         }
 
 
@@ -504,3 +598,11 @@ def _to_float(value):
         return float(str(value).replace(",", ".").strip())
     except (ValueError, TypeError):
         return None
+
+
+def _to_none(value):
+    """Convertit une chaîne vide en None (NULL en SQLite) — évite les violations UNIQUE."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s if s else None

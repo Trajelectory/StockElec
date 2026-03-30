@@ -207,7 +207,7 @@
         </p>
 
         {% if preview_comp %}
-        <a href="{{ url_for('components.label', component_id=preview_comp.id) }}"
+        <a href="{{ url_for('components.labels_print', ids=preview_comp.id|string) }}"
            target="_blank" class="btn btn-secondary" style="margin-top:.75rem">
             🖨️ Tester l'impression sur ce composant
         </a>

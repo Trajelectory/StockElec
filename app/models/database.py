@@ -103,10 +103,15 @@ def init_db(app):
         # Migrations à chaud pour DB existantes
         existing_cols = {r[1] for r in db.execute("PRAGMA table_info(components)").fetchall()}
         for col, typedef in [
-            ("image_path",    "TEXT"),
-            ("datasheet_url", "TEXT"),
-            ("category_id",   "INTEGER"),
-            ("min_stock",     "INTEGER DEFAULT 0"),
+            ("image_path",          "TEXT"),
+            ("datasheet_url",       "TEXT"),
+            ("category_id",         "INTEGER"),
+            ("min_stock",           "INTEGER DEFAULT 0"),
+            ("attributes",          "TEXT"),
+            ("description_long",    "TEXT"),
+            ("mouser_part_number",  "TEXT"),
+            ("digikey_part_number", "TEXT"),
+            ("product_url",         "TEXT"),
         ]:
             if col not in existing_cols:
                 db.execute(f"ALTER TABLE components ADD COLUMN {col} {typedef}")
@@ -117,7 +122,7 @@ def init_db(app):
             db.execute("ALTER TABLE projects ADD COLUMN image_path TEXT")
 
         # Migration components : symbole et footprint EasyEDA (chemins PNG)
-        for col in ("symbol_svg", "footprint_svg", "symbol_png", "footprint_png"):
+        for col in ("symbol_png", "footprint_png"):
             if col not in existing_cols:
                 db.execute(f"ALTER TABLE components ADD COLUMN {col} TEXT")
 

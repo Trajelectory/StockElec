@@ -164,33 +164,43 @@
 {% if report.missing %}
 <div class="bom-section">
     <div class="bom-section-header bom-header-missing">
-        <span>❌ Absent du stock — à commander</span>
+        <span>⚠️ Absent du stock — créés automatiquement (qté : 0, enrichissement en cours)</span>
         <span class="bom-section-count">{{ report.missing|length }}</span>
     </div>
+    {% if report.new_count %}
+    <div style="padding:.6rem .85rem;background:var(--info-dim);border:1px solid rgba(56,189,248,.3);border-top:none;font-size:.82rem;color:var(--info)">
+        🔍 {{ report.new_count }} composant(s) créé(s) dans le stock — les infos LCSC (image, description, fabricant…) arrivent en arrière-plan
+    </div>
+    {% endif %}
     <div class="table-wrapper">
     <table class="data-table">
         <thead><tr>
-            <th></th>
+            <th class="th-check"><input type="checkbox" id="check-all-missing" onchange="toggleAll('missing', this.checked)" checked/></th>
             <th>Référence LCSC</th>
             <th>Désignateur</th>
             <th>Valeur / Description</th>
             <th class="th-center">Qté nécessaire</th>
-            <th></th>
         </tr></thead>
         <tbody>
         {% for c in report.missing %}
         <tr>
-            <td><span class="badge" style="background:rgba(244,67,54,.12);color:#f44336">✗</span></td>
-            <td class="td-mono">{{ c.lcsc }}</td>
+            <td class="td-check">
+                <input type="checkbox" class="bom-check bom-check-missing" checked
+                       name="missing_id" value="{{ loop.index }}"
+                       onchange="syncMissingQty(this, 'qty-missing-{{ loop.index }}')"/>
+                <input type="hidden" name="missing_qty_{{ loop.index }}"     id="qty-missing-{{ loop.index }}" value="{{ c.bom_qty }}"/>
+                <input type="hidden" name="missing_desc_{{ loop.index }}"    value="{{ c.value or c.lcsc }}"/>
+                <input type="hidden" name="missing_lcsc_{{ loop.index }}"    value="{{ c.lcsc    if c.source == 'lcsc'    else '' }}"/>
+                <input type="hidden" name="missing_mouser_{{ loop.index }}"  value="{{ c.mouser  if c.mouser  is defined else '' }}"/>
+                <input type="hidden" name="missing_digikey_{{ loop.index }}" value="{{ c.digikey if c.digikey is defined else '' }}"/>
+            </td>
+            <td class="td-mono">
+                <a href="https://www.lcsc.com/product-detail/{{ c.lcsc }}.html"
+                   target="_blank" style="color:var(--accent)">{{ c.lcsc }}</a>
+            </td>
             <td class="td-secondary">{{ c.ref or '—' }}</td>
             <td>{{ c.value or '—' }}</td>
             <td class="td-center td-qty">{{ c.bom_qty }}</td>
-            <td>
-                <a href="https://www.lcsc.com/search?q={{ c.lcsc }}"
-                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-                    🛒 LCSC
-                </a>
-            </td>
         </tr>
         {% endfor %}
         </tbody>
@@ -279,6 +289,10 @@ function syncQty(checkbox, hiddenId) {
     const hidden = document.getElementById(hiddenId);
     if (hidden) hidden.disabled = !checkbox.checked;
 }
+function syncMissingQty(checkbox, hiddenId) {
+    const hidden = document.getElementById(hiddenId);
+    if (hidden) hidden.disabled = !checkbox.checked;
+}
 document.querySelectorAll('.bom-check').forEach(cb => {
     const hid = cb.getAttribute('onchange')?.match(/qty-[a-z]+-\d+/)?.[0];
     if (hid) syncQty(cb, hid);
@@ -287,7 +301,10 @@ function toggleAll(group, checked) {
     document.querySelectorAll(`.bom-check-${group}`).forEach(cb => {
         cb.checked = checked;
         const hid = cb.getAttribute('onchange')?.match(/qty-[a-z]+-\d+/)?.[0];
-        if (hid) syncQty(cb, hid);
+        if (hid) {
+            if (group === 'missing') syncMissingQty(cb, hid);
+            else syncQty(cb, hid);
+        }
     });
 }
 </script>

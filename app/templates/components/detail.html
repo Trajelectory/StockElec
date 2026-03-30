@@ -29,7 +29,7 @@
                         {% else %}
                             <div class="dcomp-gallery-main-empty">
                                 <span>📷</span>
-                                {% if component.lcsc_part_number %}
+                                {% if component.lcsc_part_number or component.digikey_part_number or component.mouser_part_number %}
                                 <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
                                         onclick="enrichComponent({{ component.id }})">Récupérer</button>
                                 {% endif %}
@@ -77,6 +77,9 @@
                     <!-- Titre + badges -->
                     <div class="dcomp-title-block">
                         <h1 class="dcomp-title">{{ component.description or '—' }}</h1>
+                        {% if component.description_long %}
+                        <p class="dcomp-subtitle">{{ component.description_long }}</p>
+                        {% endif %}
                         <div class="dcomp-badges">
                             {% if component.rohs == 'YES' %}<span class="badge badge-green">RoHS</span>{% endif %}
                             {% if component.package %}<span class="badge badge-gray">{{ component.package }}</span>{% endif %}
@@ -95,13 +98,38 @@
                     <!-- Grille de champs compacte -->
                     <div class="dcomp-fields-grid">
 
-                        {% if component.lcsc_part_number %}
-                        <div class="dcomp-field">
-                            <span class="dcomp-lbl">LCSC</span>
-                            <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
-                               target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">
-                                {{ component.lcsc_part_number }} 🛒
-                            </a>
+                        <!-- Refs fournisseurs sur une seule ligne -->
+                        {% if component.lcsc_part_number or component.mouser_part_number or component.digikey_part_number %}
+                        <div class="dcomp-field dcomp-field-full dcomp-refs-row">
+                            {% if component.lcsc_part_number %}
+                            <div class="dcomp-ref-item">
+                                <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>LCSC</span>
+                                <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
+                                   target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">
+                                    {{ component.lcsc_part_number }}
+                                </a>
+                            </div>
+                            {% endif %}
+                            {% if component.mouser_part_number %}
+                            <div class="dcomp-ref-item">
+                                <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>Mouser</span>
+                                {% if component.product_url and 'mouser' in component.product_url %}
+                                <a href="{{ component.product_url }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.mouser_part_number }}</a>
+                                {% else %}
+                                <a href="https://www.mouser.fr/Search/Refine?Keyword={{ component.mouser_part_number }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.mouser_part_number }}</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if component.digikey_part_number %}
+                            <div class="dcomp-ref-item">
+                                <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>DigiKey</span>
+                                {% if component.product_url and 'digikey' in component.product_url %}
+                                <a href="{{ component.product_url }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.digikey_part_number }}</a>
+                                {% else %}
+                                <a href="https://www.digikey.fr/fr/products/result?keywords={{ component.digikey_part_number }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.digikey_part_number }}</a>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endif %}
 
@@ -158,6 +186,18 @@
 
                     {% if component.notes %}
                     <p class="dcomp-notes">{{ component.notes }}</p>
+                    {% endif %}
+
+                    {% if attributes_dict %}
+                    <div class="dcomp-attrs">
+                        <div class="dcomp-attrs-title">⚙️ Caractéristiques</div>
+                        <div class="dcomp-attrs-grid">
+                            {% for key, val in attributes_dict.items() %}
+                            <span class="dcomp-attr-key">{{ key }}</span>
+                            <span class="dcomp-attr-val">{{ val }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
                     {% endif %}
 
                 </div>
@@ -221,7 +261,7 @@
             {% endif %}
 
             <div class="dcomp-stock-actions">
-                <a href="{{ url_for('components.label', component_id=component.id) }}"
+                <a href="{{ url_for('components.labels_print', ids=component.id|string) }}"
                    class="btn btn-secondary btn-full" target="_blank">🏷️ Imprimer étiquette</a>
                 <a href="{{ url_for('components.edit', component_id=component.id) }}"
                    class="btn btn-primary btn-full">✏️ Modifier</a>
@@ -361,6 +401,30 @@
     gap: .3rem .75rem;
 }
 .dcomp-field { display: flex; align-items: baseline; gap: .4rem; }
+.dcomp-field-full { grid-column: 1 / -1; }
+
+/* Ligne des refs fournisseurs */
+.dcomp-refs-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .4rem .75rem;
+    align-items: center;
+    padding-bottom: .6rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: .2rem;
+}
+.dcomp-ref-item {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    min-width: 0;
+}
+.dcomp-ref-item .dcomp-val {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .dcomp-lbl {
     font-size: .7rem; color: var(--text-muted);
     width: 70px; flex-shrink: 0;

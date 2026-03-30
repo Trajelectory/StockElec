@@ -29,6 +29,8 @@ class ProjectComponent:
         # Colonnes jointes depuis components
         self.description             = row["description"]             if "description"             in keys else None
         self.lcsc_part_number        = row["lcsc_part_number"]        if "lcsc_part_number"        in keys else None
+        self.mouser_part_number      = row["mouser_part_number"]      if "mouser_part_number"      in keys else None
+        self.digikey_part_number     = row["digikey_part_number"]     if "digikey_part_number"     in keys else None
         self.manufacture_part_number = row["manufacture_part_number"] if "manufacture_part_number" in keys else None
         self.manufacturer            = row["manufacturer"]            if "manufacturer"            in keys else None
         self.package                 = row["package"]                 if "package"                 in keys else None
@@ -83,7 +85,8 @@ class ProjectModel:
         rows = db.execute(
             """
             SELECT pc.*,
-                   c.description, c.lcsc_part_number, c.manufacture_part_number,
+                   c.description, c.lcsc_part_number, c.mouser_part_number, c.digikey_part_number,
+                   c.manufacture_part_number,
                    c.manufacturer, c.package, c.category,
                    c.quantity AS stock_quantity,
                    c.unit_price, c.image_path

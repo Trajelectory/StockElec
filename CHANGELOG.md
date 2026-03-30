@@ -2,9 +2,77 @@
 
 ---
 
+## v2.1 — Support multi-distributeurs 🌐
+
+> Intégration complète Mouser et DigiKey, corrections de fond, nettoyage de code.
+
+### 🛒 Multi-distributeurs (Mouser + DigiKey)
+- Support **Mouser** via API officielle v1 (`/search/partnumber`) — clé configurable dans les Paramètres
+- Support **DigiKey** via API officielle v4 — OAuth2 Client Credentials (2-legged), token mis en cache
+- Prévisualisation unifiée à l'ajout : saisie d'une ref LCSC, Mouser ou DigiKey → détection automatique de la source → pré-remplissage du formulaire
+- Import BOM KiCad avec colonnes multi-sources : `LCSC`, `Mouser`, `DigiKey` détectées automatiquement
+- Enrichissement async après import pour chaque source (threads avec `app_context`)
+- Badges colorés avec logo distributeur dans toutes les vues (stock, accueil, projets, détail)
+- Badges **cliquables** — lien direct vers la fiche produit du distributeur
+- Colonne `product_url` en base — URL exacte retournée par l'API, convertie en locale `.fr`
+
+### 🔁 Double enrichissement Mouser → LCSC
+- Si l'API Mouser retourne peu d'attributs techniques, recherche automatique sur LCSC par MPN
+- Complète `attributes`, `package`, `datasheet_url`, `description_long` et l'image depuis LCSC
+- Délai de 0.4s entre les appels pour respecter les serveurs LCSC
+
+### 🖼️ Gestion des images améliorée
+- Téléchargement immédiat de l'image au moment de la création (plus d'attente async pour la preview)
+- Encodage URL automatique pour les URLs avec espaces (ex: `PTA SERIES 45MM.JPG`)
+- Vérification du `Content-Type` de la réponse — rejette les pages HTML servies à la place des images
+- Détection des fichiers corrompus dans le cache — retéléchargement automatique
+- `Referer` adapté selon le domaine de l'image (mouser.com / digikey.com)
+- `Accept: image/*` ajouté aux headers pour signaler explicitement qu'on veut une image
+
+### 🔑 Enrichissement via route `/enrich/<id>`
+- Route multi-source : DigiKey → Mouser → LCSC selon la ref disponible
+- Nouveau paramètre `force_attributes=True` pour écraser les attributs existants (ré-enrichissement)
+- Bouton "Récupérer" visible pour toutes les sources (plus LCSC uniquement)
+
+### 📊 Export CSV enrichi
+- 19 colonnes au lieu de 15 : ajout `mouser_part_number`, `digikey_part_number`, `description_long`, `product_url`
+- Encodage `utf-8-sig` pour compatibilité Excel (caractères spéciaux : Ω, µ, °...)
+- Export accessible depuis la page Stock (bouton "⬇️ Export CSV") et depuis les Paramètres
+
+### 🐛 Bugs corrigés
+| Composant | Bug | Correction |
+|---|---|---|
+| DigiKey API | Préfixe `118-` dans les refs rejeté par `/productdetails` | Essai avec et sans préfixe numérique |
+| DigiKey API | Fallback `/keyword` ne récupérait pas les `Parameters` | 2e appel `/productdetails` avec la ref exacte trouvée |
+| DigiKey API | Token expiré entre preview et enrich async → 401 silencieux | Refresh automatique du token sur 401 |
+| DigiKey URL | URLs construites manuellement → 404 | Utilisation de `ProductUrl` retourné par l'API |
+| Mouser prix | `"1,92 €"` → crash float (€ non retiré) | Nettoyage complet avant `float()` |
+| Mouser attrs | Attributs dupliqués (ex: `Conditionnement`) écrasés | Concaténation `"Reel / Cut Tape"` |
+| Mouser RoHS | Champ `ROHSStatus` non lu | Détection `"compliant"` dans la valeur |
+| Mouser requête | `IncludeExtendedAttributes` inexistant dans l'API v1 | Remplacé par `partSearchOptions: "Exact"` |
+| BOM projets | Threads enrich sans `app_context` → SQLite inaccessible | `with app.app_context()` sur tous les threads |
+| BOM description | Valeur KiCad (`0R 0402`) écrasait la description API | `description` et `description_long` toujours écrasés par l'enrich |
+| `apply_enrichment` | `_maybe` bloquait si description déjà remplie | `description`/`description_long` sortis de `_maybe` |
+| Page accueil | Colonnes `mouser_part_number`/`digikey_part_number` absentes du SELECT | Ajoutées avec `product_url` |
+| Page projet | `ProjectComponent` ne mappait pas les refs Mouser/DigiKey | Attributs ajoutés dans `__init__` |
+| Page projet | Bouton 🛒 LCSC-only dans les fiches projet | Redirige vers le bon distributeur |
+| Import CSV | `min_stock`, `category`, `location`, `notes` absents de l'INSERT | Détection colonnes + insertion |
+
+### 🧹 Nettoyage & qualité
+- Suppression de `lcsc_api.py` — 8 Ko de code mort jamais importé
+- Suppression des templates orphelins : `dashboard.html`, `gridfinity.html`, `label.html`
+- Suppression de la route `label` (redirect inutile) et `digikey_debug` (debug temporaire)
+- Suppression de `symbol_svg`/`footprint_svg` de la migration (colonnes jamais utilisées)
+- `SECRET_KEY` lue depuis variable d'environnement `SECRET_KEY` avec fallback
+- `Pillow` ajouté dans `requirements.txt`
+- Import inutilisé `secure_filename` retiré de `project_controller.py`
+- Reset BDD complet dans les Paramètres (phase de test) — confirmation par saisie de `RESET`
+
+---
+
 ## v2.0 — Refonte majeure 🎉
 
-> Release publique. Réécriture complète du design, nouvelles fonctionnalités atelier, plan Gridfinity.
+> Release publique. Réécriture complète du design, nouvelles fonctionnalités atelier, plan de rangement.
 
 ### 🎨 Design system v2
 - Nouveau design sombre violet/indigo (`#7c6cff`) — fini le bleu
@@ -32,14 +100,14 @@
 ### ⬇️ Export CSV
 - Un clic pour télécharger tout le stock en `.csv` (`/export/csv`)
 
-### 📦 Plan Gridfinity ⭐ *nouveauté*
+### 📦 Plan de rangement ⭐
 - Page visuelle pour planifier l'organisation physique de son atelier
-- Grille de cases cliquables représentant les plateaux Gridfinity imprimés en 3D
+- Grille de cases cliquables représentant les plateaux imprimés en 3D
 - Plusieurs plateaux configurables (ID, nom, colonnes × rangées)
 - Navigation par **tabs** — un onglet par plateau, affichage instantané sans rechargement
 - Barre de progression : taux d'occupation de chaque plateau
-- Popup de recherche et d'assignation — n'affiche que les composants sans emplacement
-- Sauvegarde automatique en BDD dès l'assignation, mise à jour du champ `location`
+- Popup de recherche et d'assignation
+- Sauvegarde automatique en BDD dès l'assignation
 
 ### ⚙️ Paramètres
 - Bouton **🗑️ Vider l'historique** avec confirmation
@@ -48,17 +116,6 @@
 ### 🔧 Serveur de production
 - Remplacement du serveur de développement Flask par **Waitress**
 - Démarrage propre, sans warning, avec fallback automatique si Waitress absent
-- `pip install waitress` pour l'activer
-
-### 🐛 Bugs corrigés
-| Composant | Bug | Correction |
-|---|---|---|
-| CSS | `.td-qty-wrap { display:flex }` cassait l'alignement vertical | Supprimé du `legacy.css` |
-| CSS | `.proj-cat-row { display:flex }` cassait le tableau projets | Supprimé du `legacy.css` |
-| Dashboard | `{% continue %}` non supporté Jinja2 | Remplacé par `{% if vis %}` |
-| Migration DB | Table `stock_movements` sans colonne `quantity` | Détection et recréation automatique |
-| Navbar | Lien brand pointait vers route supprimée | Corrigé vers `components.home` |
-| Étiquettes | Aperçu affichait l'image brute sans structure | Reconstruction HTML inline |
 
 ---
 

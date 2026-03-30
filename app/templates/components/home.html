@@ -4,7 +4,7 @@
 {% block content %}
 
 <!-- ── Titre + recherche : centré dans 860px ─────────────────────── -->
-<div style="max-width:860px;margin:3rem auto 0;padding:0 1rem">
+<div style="max-width:860px;margin:0.75rem auto 0;padding:0 1rem">
 
     <div style="text-align:center;margin-bottom:2.5rem">
         <div style="font-size:2.5rem;margin-bottom:.5rem">⚡</div>
@@ -13,7 +13,7 @@
         </h1>
         <p style="color:var(--text-muted);font-size:.9rem;margin-top:.35rem">
             {{ stats.n_components or 0 }} références · {{ stats.n_total_qty or 0 }} pièces
-            {% if stats.n_alerts > 0 %}
+            {% if (stats.n_alerts or 0) > 0 %}
             · <a href="{{ url_for('components.alerts') }}" style="color:var(--danger)">⚠️ {{ stats.n_alerts }} alerte{{ 's' if stats.n_alerts > 1 }}</a>
             {% endif %}
         </p>
@@ -36,8 +36,8 @@
         <a href="{{ url_for('components.stock') }}" class="btn btn-secondary btn-sm">📦 Tout le stock</a>
         <a href="{{ url_for('components.add') }}"   class="btn btn-secondary btn-sm">➕ Ajouter</a>
         <a href="{{ url_for('projects.index') }}"   class="btn btn-secondary btn-sm">🗂️ Projets</a>
-        <a href="{{ url_for('components.alerts') }}" class="btn btn-secondary btn-sm {% if stats.n_alerts > 0 %}btn-danger{% endif %}">
-            🔔 Alertes {% if stats.n_alerts > 0 %}<span style="font-weight:700">{{ stats.n_alerts }}</span>{% endif %}
+        <a href="{{ url_for('components.alerts') }}" class="btn btn-secondary btn-sm {% if (stats.n_alerts or 0) > 0 %}btn-danger{% endif %}">
+            🔔 Alertes {% if (stats.n_alerts or 0) > 0 %}<span style="font-weight:700">{{ stats.n_alerts }}</span>{% endif %}
         </a>
         <a href="{{ url_for('components.reorder') }}" class="btn btn-secondary btn-sm">🛒 Commander</a>
     </div>
@@ -55,7 +55,7 @@
             <thead><tr>
                 <th class="th-img"></th>
                 <th>Composant</th>
-                <th>LCSC</th>
+                <th>Référence</th>
                 <th class="th-center">Stock</th>
                 <th class="th-right" style="white-space:nowrap">Prix unit.</th>
             </tr></thead>
@@ -78,7 +78,21 @@
                     <span class="badge badge-gray" style="font-size:.62rem;margin-left:.35rem">{{ c.package }}</span>
                     {% endif %}
                 </td>
-                <td class="td-mono td-secondary" style="font-size:.78rem;white-space:nowrap">{{ c.lcsc_part_number or '—' }}</td>
+                <td style="white-space:nowrap">
+                    {%- if c.lcsc_part_number %}
+                        <a href="https://www.lcsc.com/product-detail/{{ c.lcsc_part_number }}.html" target="_blank" rel="noopener" style="text-decoration:none">
+                            <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ c.lcsc_part_number }}</span>
+                        </a>
+                    {%- elif c.mouser_part_number %}
+                        <a href="{{ c.product_url if c.product_url and 'mouser' in c.product_url else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ c.mouser_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+                            <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ c.mouser_part_number }}</span>
+                        </a>
+                    {%- elif c.digikey_part_number %}
+                        <a href="{{ c.product_url if c.product_url and 'digikey' in c.product_url else 'https://www.digikey.fr/fr/products/result?keywords=' ~ c.digikey_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+                            <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ c.digikey_part_number }}</span>
+                        </a>
+                    {%- else %}—{%- endif %}
+                </td>
                 <td class="td-center td-qty" style="font-weight:700;color:{% if c.quantity == 0 %}var(--danger){% elif c.min_stock and c.quantity <= c.min_stock %}var(--warning){% else %}var(--text){% endif %}">
                     {{ c.quantity }}
                 </td>

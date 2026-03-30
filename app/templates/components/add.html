@@ -18,6 +18,7 @@
 <!-- ══ Formulaire ════════════════════════════════════════════════════ -->
 <form method="post" action="{{ url_for('components.add') }}" id="add-form" enctype="multipart/form-data">
 <input type="hidden" name="datasheet_url" id="f-datasheet"/>
+<input type="hidden" name="image_url"    id="f-image-url"/>
 
 <div class="add-layout">
 
@@ -27,30 +28,32 @@
         <!-- Bloc unique : Import + Identification + Organisation -->
         <div class="add-section">
 
-            <!-- Import rapide LCSC -->
-            <div id="lcsc-lookup">
+            <!-- Import rapide unifié LCSC / Mouser -->
+            <div id="smart-lookup">
                 <div class="lcsc-lookup-header" style="margin-bottom:.75rem">
                     <div>
-                        <span class="lcsc-lookup-title">⚡ Import rapide depuis LCSC</span>
-                        <span class="lcsc-lookup-hint">Colle une référence LCSC pour pré-remplir le formulaire</span>
+                        <span class="lcsc-lookup-title">⚡ Import rapide</span>
+                        <span class="lcsc-lookup-hint">Référence LCSC <span style="opacity:.5">·</span> ou Mouser — détection automatique</span>
                     </div>
+                    <div id="smart-source-badge" style="display:none;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:99px;background:var(--accent-dim);color:var(--accent)"></div>
                 </div>
                 <div class="lcsc-lookup-row">
-                    <input type="text" id="lcsc-ref-input" class="form-input lcsc-ref-input"
-                           placeholder="ex: C149504" maxlength="20"
-                           autocomplete="off" spellcheck="false"/>
-                    <button type="button" class="btn btn-primary" id="lcsc-lookup-btn" onclick="lookupLCSC()">
+                    <input type="text" id="smart-ref-input" class="form-input lcsc-ref-input"
+                           placeholder="ex: C149504 ou 652-3852A-282101AL"
+                           autocomplete="off" spellcheck="false"
+                           oninput="detectSource(this.value)"/>
+                    <button type="button" class="btn btn-primary" id="smart-lookup-btn" onclick="lookupSmart()">
                         🔍 Rechercher
                     </button>
                 </div>
-                <div id="lcsc-lookup-status" class="lcsc-status" style="display:none"></div>
-                <div id="lcsc-preview-box" class="lcsc-preview" style="display:none">
-                    <img id="lcsc-preview-img" src="" alt="" class="lcsc-preview-img"/>
+                <div id="smart-lookup-status" class="lcsc-status" style="display:none"></div>
+                <div id="smart-preview-box" class="lcsc-preview" style="display:none">
+                    <img id="smart-preview-img" src="" alt="" class="lcsc-preview-img"/>
                     <div class="lcsc-preview-info">
-                        <div class="lcsc-preview-name" id="lcsc-preview-name"></div>
-                        <div class="lcsc-preview-meta" id="lcsc-preview-meta"></div>
+                        <div class="lcsc-preview-name" id="smart-preview-name"></div>
+                        <div class="lcsc-preview-meta" id="smart-preview-meta"></div>
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="applyPreview()">
+                    <button type="button" class="btn btn-primary" onclick="applySmartPreview()">
                         ✓ Utiliser ces données
                     </button>
                 </div>
@@ -69,11 +72,27 @@
                        placeholder="ex: 100kΩ ±1% 125mW 0805 Thick Film Resistor"/>
             </div>
 
+            <div class="add-field-full">
+                <label class="add-label">Sous-description <span class="add-hint-inline">optionnel — pré-rempli par LCSC</span></label>
+                <input type="text" name="description_long" id="f-description-long" class="form-input"
+                       placeholder="ex: Resistors - Chip Resistor - Surface Mount RoHS"/>
+            </div>
+
             <div class="add-row-3">
                 <div class="add-field">
                     <label class="add-label">Référence LCSC</label>
                     <input type="text" name="lcsc_part_number" id="f-lcsc" class="form-input mono-input"
                            placeholder="C149504"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">Référence Mouser</label>
+                    <input type="text" name="mouser_part_number" id="f-mouser" class="form-input mono-input"
+                           placeholder="652-3852A-282101AL"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">Référence DigiKey</label>
+                    <input type="text" name="digikey_part_number" id="f-digikey" class="form-input mono-input"
+                           placeholder="296-6501-1-ND"/>
                 </div>
                 <div class="add-field">
                     <label class="add-label">Réf. fabricant</label>
@@ -217,26 +236,69 @@
 </form>
 
 <script>
-let _previewData = null;
+let _smartPreviewData = null;
 
-document.getElementById('lcsc-ref-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); lookupLCSC(); }
+// ── Détection automatique LCSC / Mouser / DigiKey ───────────────
+function isLCSC(ref) {
+    return /^C\d+$/i.test(ref.trim());
+}
+function isDigiKey(ref) {
+    // Refs DigiKey : contiennent "-ND" ou "-1-ND" ou commencent par des chiffres-lettres typiques
+    return /-ND$/i.test(ref.trim()) || /-\d+-ND$/i.test(ref.trim());
+}
+function detectSourceType(ref) {
+    if (!ref) return null;
+    if (isLCSC(ref))    return 'lcsc';
+    if (isDigiKey(ref)) return 'digikey';
+    return 'mouser';
+}
+
+function detectSource(val) {
+    const badge = document.getElementById('smart-source-badge');
+    const ref   = val.trim();
+    if (!ref) { badge.style.display = 'none'; return; }
+    badge.style.display = 'inline-flex';
+    const src = detectSourceType(ref);
+    if (src === 'lcsc') {
+        badge.innerHTML = `<img src="/static/img/lcsc.png" style="width:13px;height:13px;object-fit:contain;border-radius:2px;margin-right:.2rem"> LCSC`;
+        badge.className = 'src-badge src-badge-lcsc';
+    } else if (src === 'digikey') {
+        badge.innerHTML = `<img src="/static/img/digikey.png" style="width:13px;height:13px;object-fit:contain;border-radius:2px;margin-right:.2rem"> DigiKey`;
+        badge.className = 'src-badge src-badge-digikey';
+    } else {
+        badge.innerHTML = `<img src="/static/img/mouser.png" style="width:13px;height:13px;object-fit:contain;border-radius:2px;margin-right:.2rem"> Mouser`;
+        badge.className = 'src-badge src-badge-mouser';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('smart-ref-input');
+    if (input) input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); lookupSmart(); }
+    });
 });
 
-function lookupLCSC() {
-    const ref    = document.getElementById('lcsc-ref-input').value.trim().toUpperCase();
+function lookupSmart() {
+    const ref    = document.getElementById('smart-ref-input').value.trim();
+    const btn    = document.getElementById('smart-lookup-btn');
+    const status = document.getElementById('smart-lookup-status');
+    const box    = document.getElementById('smart-preview-box');
     if (!ref) return;
-    const btn    = document.getElementById('lcsc-lookup-btn');
-    const status = document.getElementById('lcsc-lookup-status');
-    const box    = document.getElementById('lcsc-preview-box');
+
+    const source = detectSourceType(ref);
+    const url = source === 'lcsc'
+        ? `/api/lcsc-preview?ref=${encodeURIComponent(ref.toUpperCase())}`
+        : source === 'digikey'
+        ? `/api/digikey-preview?ref=${encodeURIComponent(ref)}`
+        : `/api/mouser-preview?ref=${encodeURIComponent(ref)}`;
 
     btn.disabled = true;
     btn.textContent = '⏳ Recherche…';
     status.style.display = 'none';
     box.style.display = 'none';
-    _previewData = null;
+    _smartPreviewData = null;
 
-    fetch(`/api/lcsc-preview?ref=${encodeURIComponent(ref)}`)
+    fetch(url)
         .then(r => r.json())
         .then(data => {
             btn.disabled = false;
@@ -247,13 +309,20 @@ function lookupLCSC() {
                 status.style.display = 'block';
                 return;
             }
-            _previewData = data;
-            const img = document.getElementById('lcsc-preview-img');
-            img.src   = data.image_url || '';
+            data._source = source;
+            _smartPreviewData = data;
+
+            const img = document.getElementById('smart-preview-img');
+            img.src = data.image_url || '';
             img.style.display = data.image_url ? 'block' : 'none';
-            document.getElementById('lcsc-preview-name').textContent = data.description || data.lcsc_part_number;
-            document.getElementById('lcsc-preview-meta').textContent =
-                [data.manufacturer, data.package, data.category].filter(Boolean).join(' · ');
+
+            document.getElementById('smart-preview-name').textContent =
+                data.description || data.lcsc_part_number || ref;
+            document.getElementById('smart-preview-meta').textContent =
+                [data.manufacturer, data.package || data.manufacture_part_number,
+                 data.unit_price ? parseFloat(data.unit_price).toFixed(4) + ' €' : '']
+                .filter(Boolean).join(' · ');
+
             box.style.display = 'flex';
         })
         .catch(() => {
@@ -265,32 +334,50 @@ function lookupLCSC() {
         });
 }
 
-function applyPreview() {
-    if (!_previewData) return;
-    const d = _previewData;
-    setVal('f-lcsc',         d.lcsc_part_number);
-    setVal('f-description',  d.description);
-    setVal('f-mfr-part',     d.manufacture_part_number);
-    setVal('f-manufacturer', d.manufacturer);
-    setVal('f-package',      d.package);
-    setVal('f-category',     d.category);
-    setVal('f-datasheet',    d.datasheet_url);
+function applySmartPreview() {
+    if (!_smartPreviewData) return;
+    const d = _smartPreviewData;
+
+    if (d._source === 'lcsc') {
+        setVal('f-lcsc',    d.lcsc_part_number);
+        setVal('f-mouser',  '');
+        setVal('f-digikey', '');
+        setVal('f-package', d.package);
+        const rohs = document.getElementById('f-rohs');
+        if (d.rohs && rohs) rohs.value = d.rohs;
+    } else if (d._source === 'digikey') {
+        setVal('f-digikey', d.digikey_part_number);
+        setVal('f-lcsc',    '');
+        setVal('f-mouser',  '');
+        setVal('f-package', d.package);
+        const rohs = document.getElementById('f-rohs');
+        if (d.rohs && rohs) rohs.value = d.rohs;
+    } else {
+        setVal('f-mouser',  d.mouser_part_number);
+        setVal('f-lcsc',    '');
+        setVal('f-digikey', '');
+    }
+    setVal('f-description',      d.description);
+    setVal('f-description-long', d.description_long);
+    setVal('f-mfr-part',         d.manufacture_part_number);
+    setVal('f-manufacturer',     d.manufacturer);
+    setVal('f-category',         d.category);
+    setVal('f-datasheet',        d.datasheet_url);
+    setVal('f-image-url',        d.image_url || '');
     if (d.unit_price) {
         setVal('f-unit-price', parseFloat(d.unit_price).toFixed(4));
         autoCalcTotal();
     }
-    const rohs = document.getElementById('f-rohs');
-    if (d.rohs && rohs) rohs.value = d.rohs;
 
-    document.getElementById('lcsc-preview-box').style.display = 'none';
-    const status = document.getElementById('lcsc-lookup-status');
-    status.className = 'lcsc-status lcsc-status-ok';
-    status.textContent = '✅ Formulaire pré-rempli — vérifie la quantité puis enregistre.';
+    document.getElementById('smart-preview-box').style.display = 'none';
+    const status = document.getElementById('smart-lookup-status');
+    const src    = d._source === 'lcsc' ? 'LCSC' : d._source === 'digikey' ? 'DigiKey' : 'Mouser';
+    status.className   = 'lcsc-status lcsc-status-ok';
+    status.textContent = `✅ Formulaire pré-rempli depuis ${src} — vérifie la quantité puis enregistre.`;
     status.style.display = 'block';
 
-    const qtyInput = document.getElementById('f-quantity');
-    qtyInput.focus();
-    qtyInput.select();
+    document.getElementById('f-quantity').focus();
+    document.getElementById('f-quantity').select();
 }
 
 function autoCalcTotal() {

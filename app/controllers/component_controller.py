@@ -3,6 +3,9 @@ import csv
 import os
 import math
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 from flask import Blueprint, request, redirect, url_for, flash, jsonify, send_from_directory, render_template
 
@@ -34,6 +37,7 @@ def home():
 
     recent = db.execute("""
         SELECT id, description, manufacture_part_number, lcsc_part_number,
+               mouser_part_number, digikey_part_number, product_url,
                package, quantity, min_stock, unit_price, image_path
         FROM components
         ORDER BY created_at DESC LIMIT 5
@@ -128,25 +132,32 @@ def export_csv():
     from ..models.database import get_db
     db = get_db()
     rows = db.execute("""
-        SELECT lcsc_part_number, manufacture_part_number, manufacturer,
-               description, package, rohs, quantity, min_stock,
-               unit_price, ext_price, category, location, notes,
-               datasheet_url, created_at
+        SELECT lcsc_part_number, mouser_part_number, digikey_part_number,
+               manufacture_part_number, manufacturer,
+               description, description_long, package, rohs,
+               quantity, min_stock, unit_price, ext_price,
+               category, location, notes, datasheet_url, product_url,
+               created_at
         FROM components ORDER BY description
     """).fetchall()
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["LCSC", "Réf. fab.", "Fabricant", "Description", "Package",
-                     "RoHS", "Quantité", "Seuil alerte", "Prix unit.", "Prix total",
-                     "Catégorie", "Emplacement", "Notes", "Datasheet", "Créé le"])
+    writer.writerow([
+        "LCSC", "Mouser", "DigiKey",
+        "Réf. fab.", "Fabricant",
+        "Description", "Description longue", "Package", "RoHS",
+        "Quantité", "Seuil alerte", "Prix unit.", "Prix total",
+        "Catégorie", "Emplacement", "Notes", "Datasheet", "Lien produit",
+        "Créé le",
+    ])
     for r in rows:
         writer.writerow(list(r))
 
     from flask import Response
     return Response(
         output.getvalue(),
-        mimetype="text/csv",
+        mimetype="text/csv; charset=utf-8-sig",
         headers={"Content-Disposition": "attachment; filename=stockelec_export.csv"}
     )
 
@@ -260,12 +271,33 @@ def add():
         uploaded = _save_component_image(request.files.get("image_file"))
         if uploaded:
             data["image_path"] = uploaded
-            ComponentModel.update(comp_id, data)
+        elif data.get("image_url") and not data.get("image_path"):
+            # Image récupérée via preview DigiKey/Mouser — télécharger immédiatement
+            local_path = _download_image_from_url(
+                data["image_url"],
+                ref=data.get("digikey_part_number") or data.get("mouser_part_number") or "component"
+            )
+            if local_path:
+                data["image_path"] = local_path
 
-        lcsc_num = data.get("lcsc_part_number")
+        comp_id = ComponentModel.create(data)
+
+        lcsc_num    = data.get("lcsc_part_number")
+        mouser_num  = data.get("mouser_part_number")
+        digikey_num = data.get("digikey_part_number")
+
         if lcsc_num:
             flash("Récupération des données LCSC en arrière-plan…", "info")
             _enrich_async([(comp_id, lcsc_num)])
+        elif mouser_num:
+            # L'enrich async récupère les attributs techniques — l'image sera skippée
+            # si déjà téléchargée via preview (apply_enrichment vérifie image_path non vide)
+            flash("Récupération des données Mouser en arrière-plan…", "info")
+            _enrich_async_source(comp_id, mouser_num, "mouser")
+        elif digikey_num:
+            # Idem DigiKey — les Parameters ne sont disponibles que via enrich async
+            flash("Récupération des données DigiKey en arrière-plan…", "info")
+            _enrich_async_source(comp_id, digikey_num, "digikey")
 
         # Mode série : reste sur la page d'ajout avec confirmation
         desc = data.get("description") or data.get("lcsc_part_number") or "Composant"
@@ -299,6 +331,8 @@ def import_csv():
         duplicates    = result["duplicates"]
         errors        = result["errors"]
         component_ids = result["component_ids"]
+        mouser_ids    = result.get("mouser_ids", [])
+        digikey_ids   = result.get("digikey_ids", [])
 
         for e in errors[:5]:
             flash(e, "warning")
@@ -316,6 +350,12 @@ def import_csv():
         if component_ids:
             flash(f"🔍 Récupération LCSC en cours pour {len(component_ids)} composant(s)…", "info")
             _enrich_async(component_ids)
+        if mouser_ids:
+            for cid, mref in mouser_ids:
+                _enrich_async_source(cid, mref, "mouser")
+        if digikey_ids:
+            for cid, dref in digikey_ids:
+                _enrich_async_source(cid, dref, "digikey")
 
         return redirect(url_for("components.stock"))
 
@@ -331,14 +371,41 @@ def enrich(component_id):
     comp = ComponentModel.get_by_id(component_id)
     if not comp:
         return jsonify({"ok": False, "error": "Composant introuvable"}), 404
-    if not comp.lcsc_part_number:
-        return jsonify({"ok": False, "error": "Pas de référence LCSC"}), 400
 
-    info = lcsc_scraper.enrich_component(comp.lcsc_part_number)
-    if info:
-        ComponentModel.apply_enrichment(component_id, info)
-        return jsonify({"ok": True, "fields": list(info.keys())})
-    return jsonify({"ok": False, "error": "Aucune donnée retournée par LCSC"})
+    # DigiKey
+    if comp.digikey_part_number:
+        from ..services import digikey_scraper
+        client_id     = SettingsModel.get("digikey_client_id", "")
+        client_secret = SettingsModel.get("digikey_client_secret", "")
+        if not client_id or not client_secret:
+            return jsonify({"ok": False, "error": "Identifiants DigiKey non configurés"}), 400
+        info = digikey_scraper.enrich_component(comp.digikey_part_number, client_id, client_secret)
+        if info:
+            ComponentModel.apply_enrichment(component_id, info, force_attributes=True)
+            return jsonify({"ok": True, "source": "digikey", "fields": list(info.keys())})
+        return jsonify({"ok": False, "error": "Aucune donnée retournée par DigiKey"})
+
+    # Mouser
+    if comp.mouser_part_number:
+        from ..services import mouser_scraper
+        api_key = SettingsModel.get("mouser_api_key", "")
+        if not api_key:
+            return jsonify({"ok": False, "error": "Clé API Mouser non configurée"}), 400
+        info = mouser_scraper.enrich_component(comp.mouser_part_number, api_key)
+        if info:
+            ComponentModel.apply_enrichment(component_id, info, force_attributes=True)
+            return jsonify({"ok": True, "source": "mouser", "fields": list(info.keys())})
+        return jsonify({"ok": False, "error": "Aucune donnée retournée par Mouser"})
+
+    # LCSC
+    if comp.lcsc_part_number:
+        info = lcsc_scraper.enrich_component(comp.lcsc_part_number)
+        if info:
+            ComponentModel.apply_enrichment(component_id, info, force_attributes=True)
+            return jsonify({"ok": True, "source": "lcsc", "fields": list(info.keys())})
+        return jsonify({"ok": False, "error": "Aucune donnée retournée par LCSC"})
+
+    return jsonify({"ok": False, "error": "Aucune référence distributeur (LCSC / Mouser / DigiKey)"}), 400
 
 
 # ------------------------------------------------------------------ #
@@ -375,18 +442,26 @@ def lcsc_preview():
     info = lcsc_scraper.extract_info(raw)
 
     # Champs du formulaire
+    prod_name = raw.get("productNameEn") or raw.get("productIntroEn") or raw.get("productDescEn", "")
+    prod_desc = ""
+    for key in ("productDescEn", "productIntroEn"):
+        val = raw.get(key, "")
+        if val and val != prod_name:
+            prod_desc = val
+            break
+
     preview = {
         "ok":                       True,
         "lcsc_part_number":         raw.get("productCode", ref),
         "manufacture_part_number":  raw.get("productModel", ""),
         "manufacturer":             raw.get("brandNameEn", ""),
-        "description":              raw.get("productIntroEn") or raw.get("productNameEn") or raw.get("productDescEn", ""),
+        "description":              prod_name,
+        "description_long":         prod_desc,
         "package":                  raw.get("encapStandard", ""),
         "rohs":                     "YES" if raw.get("isEnvironment") else "",
         "category":                 "",
         "image_url":                info.get("image_url", ""),
         "datasheet_url":            info.get("datasheet_url", ""),
-        # Prix : on prend le premier palier
         "unit_price":               "",
     }
 
@@ -406,14 +481,95 @@ def lcsc_preview():
     return jsonify(preview)
 
 
-# ------------------------------------------------------------------ #
-#  Étiquettes imprimables
-# ------------------------------------------------------------------ #
+@component_bp.route("/api/mouser-preview")
+def mouser_preview():
+    """
+    GET /api/mouser-preview?ref=652-3852A-282101AL
+    Retourne les infos Mouser pour pré-remplir le formulaire d'ajout.
+    """
+    from ..services import mouser_scraper
 
-@component_bp.route("/component/<int:component_id>/label")
-def label(component_id):
-    """Étiquette pour un seul composant — redirige vers la page multi."""
-    return redirect(url_for("components.labels_print", ids=str(component_id)))
+    ref     = request.args.get("ref", "").strip()
+    api_key = SettingsModel.get("mouser_api_key", "")
+
+    if not ref:
+        return jsonify({"ok": False, "error": "Référence manquante"}), 400
+    if not api_key:
+        return jsonify({"ok": False, "error": "Clé API Mouser non configurée — va dans ⚙️ Paramètres"}), 400
+
+    part = mouser_scraper.fetch_product(ref, api_key)
+    if not part:
+        return jsonify({"ok": False, "error": f"Référence « {ref} » introuvable sur Mouser"}), 404
+
+    info = mouser_scraper.extract_info(part)
+    return jsonify({
+        "ok":                       True,
+        "source":                   "mouser",
+        "mouser_part_number":       info.get("mouser_part_number", ref),
+        "lcsc_part_number":         "",
+        "digikey_part_number":      "",
+        "manufacture_part_number":  info.get("manufacture_part_number", ""),
+        "manufacturer":             info.get("manufacturer", ""),
+        "description":              info.get("description", ""),
+        "description_long":         "",
+        "package":                  info.get("package", ""),
+        "rohs":                     info.get("rohs", ""),
+        "category":                 info.get("category_name", ""),
+        "image_url":                info.get("image_url", ""),
+        "datasheet_url":            info.get("datasheet_url", ""),
+        "unit_price":               info.get("unit_price", ""),
+        "product_url":              info.get("product_url", ""),
+    })
+
+
+# ------------------------------------------------------------------ #
+#  DigiKey preview
+# ------------------------------------------------------------------ #
+@component_bp.route("/api/digikey-preview")
+def digikey_preview():
+    """
+    GET /api/digikey-preview?ref=296-6501-1-ND
+    Retourne les infos DigiKey pour pré-remplir le formulaire d'ajout.
+    """
+    from ..services import digikey_scraper
+
+    ref           = request.args.get("ref", "").strip()
+    client_id     = SettingsModel.get("digikey_client_id", "")
+    client_secret = SettingsModel.get("digikey_client_secret", "")
+
+    if not ref:
+        return jsonify({"ok": False, "error": "Référence manquante"}), 400
+    if not client_id or not client_secret:
+        return jsonify({"ok": False, "error": "Identifiants DigiKey non configurés — va dans ⚙️ Paramètres"}), 400
+
+    product = digikey_scraper.fetch_product(ref, client_id, client_secret)
+    if not product:
+        return jsonify({"ok": False, "error": f"Référence « {ref} » introuvable sur DigiKey"}), 404
+
+    info = digikey_scraper.extract_info(product)
+
+    preview = {
+        "ok":                       True,
+        "source":                   "digikey",
+        "digikey_part_number":      info.get("digikey_part_number", ref),
+        "lcsc_part_number":         "",
+        "mouser_part_number":       "",
+        "manufacture_part_number":  info.get("manufacture_part_number", ""),
+        "manufacturer":             info.get("manufacturer", ""),
+        "description":              info.get("description", ""),
+        "description_long":         info.get("description_long", ""),
+        "package":                  info.get("package", ""),
+        "rohs":                     info.get("rohs", ""),
+        "category":                 info.get("category_name", ""),
+        "image_url":                info.get("image_url", ""),
+        "datasheet_url":            info.get("datasheet_url", ""),
+        "unit_price":               info.get("unit_price", ""),
+        "product_url":              info.get("product_url", ""),
+    }
+
+    return jsonify(preview)
+
+
 
 
 @component_bp.route("/labels")
@@ -485,6 +641,67 @@ def detail(component_id):
 # ------------------------------------------------------------------ #
 #  Helpers image composant
 # ------------------------------------------------------------------ #
+
+def _download_image_from_url(image_url: str, ref: str) -> str | None:
+    """Télécharge une image depuis une URL distante, retourne le chemin relatif ou None."""
+    if not image_url:
+        return None
+    import urllib.request
+    import urllib.parse
+    import uuid as _uuid
+
+    images_dir = os.path.abspath(
+        os.path.join(component_bp.root_path, "..", "..", "instance", "images")
+    )
+    os.makedirs(images_dir, exist_ok=True)
+
+    # Encoder l'URL pour gérer les espaces et caractères de contrôle
+    parsed = urllib.parse.urlsplit(image_url)
+    safe_url = urllib.parse.urlunsplit(
+        parsed._replace(path=urllib.parse.quote(parsed.path, safe="/%"))
+    )
+
+    clean_url = safe_url.split("?")[0]
+    ext = os.path.splitext(clean_url)[-1].lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+        ext = ".jpg"
+
+    filename = f"{_uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(images_dir, filename)
+
+    try:
+        # Referer adapté selon le domaine de l'image
+        if "mouser.com" in safe_url:
+            referer = "https://www.mouser.com/"
+        elif "digikey.com" in safe_url:
+            referer = "https://www.digikey.com/"
+        else:
+            referer = "https://www.google.com/"
+        req = urllib.request.Request(
+            safe_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                "Referer":    referer,
+                "Accept":     "image/webp,image/apng,image/*,*/*;q=0.8",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            content_type = r.headers.get("Content-Type", "")
+            content = r.read()
+        if len(content) < 500:
+            logger.warning("[add] Image trop petite pour %s (%d bytes)", ref, len(content))
+            return None
+        if "text/html" in content_type or content[:15].lstrip().startswith(b"<"):
+            logger.warning("[add] Réponse HTML reçue à la place de l'image pour %s", ref)
+            return None
+        with open(filepath, "wb") as f:
+            f.write(content)
+        logger.info("[add] Image téléchargée pour %s → %s", ref, filename)
+        return f"images/{filename}"
+    except Exception as e:
+        logger.warning("[add] Échec téléchargement image %s : %s", ref, e)
+        return None
+
 
 def _save_component_image(file_storage) -> str | None:
     """Sauvegarde une image uploadée pour un composant, retourne le chemin relatif ou None."""
@@ -707,7 +924,8 @@ def settings():
 
         # ── Paramètres généraux ──────────────────────────────────────
         if action == "save_general":
-            for key in ("app_name", "base_url", "default_min_stock"):
+            for key in ("app_name", "base_url", "default_min_stock",
+                        "mouser_api_key", "digikey_client_id", "digikey_client_secret"):
                 val = request.form.get(key, "").strip()
                 SettingsModel.set(key, val)
             flash("Paramètres généraux sauvegardés.", "success")
@@ -858,6 +1076,34 @@ def settings():
             return send_file(tmp.name, as_attachment=True, download_name=fname,
                              mimetype="application/zip")
 
+        # ── Reset complet BDD (garde settings) ──────────────────────
+        elif action == "reset_db":
+            confirm = request.form.get("confirm_reset", "").strip()
+            if confirm != "RESET":
+                flash("❌ Confirmation incorrecte — tape RESET pour valider.", "danger")
+            else:
+                db = get_db()
+                # Supprime toutes les données sauf settings
+                db.execute("DELETE FROM stock_movements")
+                db.execute("DELETE FROM project_components")
+                db.execute("DELETE FROM projects")
+                db.execute("DELETE FROM components")
+                db.execute("DELETE FROM categories")
+                # Remet les séquences autoincrement à zéro
+                db.execute("DELETE FROM sqlite_sequence WHERE name != 'settings'")
+                db.commit()
+                # Supprime aussi les images et PNGs EasyEDA
+                instance_path = os.path.abspath(
+                    os.path.join(component_bp.root_path, "..", "..", "instance")
+                )
+                import shutil
+                for folder in ("images", "easyeda_pngs", "project_images"):
+                    folder_path = os.path.join(instance_path, folder)
+                    if os.path.isdir(folder_path):
+                        shutil.rmtree(folder_path)
+                        os.makedirs(folder_path, exist_ok=True)
+                flash("💥 Base de données vidée — paramètres conservés.", "success")
+
         return redirect(url_for("components.settings"))
 
     # ── GET : collecte les stats ─────────────────────────────────────
@@ -916,9 +1162,12 @@ def settings():
 
     # Paramètres courants
     current = {
-        "app_name":          SettingsModel.get("app_name", "StockElec"),
-        "base_url":          SettingsModel.get("base_url", ""),
-        "default_min_stock": SettingsModel.get("default_min_stock", "0"),
+        "app_name":               SettingsModel.get("app_name", "StockElec"),
+        "base_url":               SettingsModel.get("base_url", ""),
+        "default_min_stock":      SettingsModel.get("default_min_stock", "0"),
+        "mouser_api_key":         SettingsModel.get("mouser_api_key", ""),
+        "digikey_client_id":      SettingsModel.get("digikey_client_id", ""),
+        "digikey_client_secret":  SettingsModel.get("digikey_client_secret", ""),
     }
 
     stats = {
@@ -967,11 +1216,14 @@ def api_list():
 def _form_to_dict(form):
     return {
         "lcsc_part_number":        form.get("lcsc_part_number"),
+        "mouser_part_number":      form.get("mouser_part_number"),
+        "digikey_part_number":     form.get("digikey_part_number"),
         "manufacture_part_number": form.get("manufacture_part_number"),
         "manufacturer":            form.get("manufacturer"),
         "customer_no":             form.get("customer_no"),
         "package":                 form.get("package"),
         "description":             form.get("description"),
+        "description_long":        form.get("description_long"),
         "rohs":                    form.get("rohs"),
         "quantity":                form.get("quantity"),
         "min_stock":               form.get("min_stock"),
@@ -981,10 +1233,12 @@ def _form_to_dict(form):
         "location":                form.get("location"),
         "notes":                   form.get("notes"),
         "datasheet_url":           form.get("datasheet_url"),
+        "image_url":               form.get("image_url"),
     }
 
 
 def _enrich_async(component_ids):
+    """Enrichissement LCSC en arrière-plan pour une liste de (comp_id, lcsc_ref)."""
     from flask import current_app
     app = current_app._get_current_object()
 
@@ -998,18 +1252,54 @@ def _enrich_async(component_ids):
     threading.Thread(target=worker, daemon=True).start()
 
 
+def _enrich_async_source(comp_id: int, ref: str, source: str):
+    """
+    Enrichissement Mouser ou DigiKey en arrière-plan.
+    source : 'mouser' | 'digikey'
+    """
+    from flask import current_app
+    app = current_app._get_current_object()
+
+    def worker():
+        with app.app_context():
+            try:
+                from ..models.settings import SettingsModel as SM
+                if source == "mouser":
+                    from ..services import mouser_scraper
+                    api_key = SM.get("mouser_api_key", "")
+                    if not api_key:
+                        return
+                    info = mouser_scraper.enrich_component(ref, api_key)
+                elif source == "digikey":
+                    from ..services import digikey_scraper
+                    client_id     = SM.get("digikey_client_id", "")
+                    client_secret = SM.get("digikey_client_secret", "")
+                    if not client_id or not client_secret:
+                        return
+                    info = digikey_scraper.enrich_component(ref, client_id, client_secret)
+                else:
+                    return
+                if info:
+                    ComponentModel.apply_enrichment(comp_id, info)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning("[%s] enrichissement échoué : %s", source, e)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+
 # ------------------------------------------------------------------ #
-#  Plan Gridfinity
+#  Plan de rangement
 # ------------------------------------------------------------------ #
 
-@component_bp.route("/gridfinity")
-def gridfinity():
+@component_bp.route("/rangement")
+def rangement():
     from ..models.database import get_db
     import json as _json
     db = get_db()
 
     # Config des plateaux (sauvegardée en settings)
-    raw = SettingsModel.get("gridfinity_config", "")
+    raw = SettingsModel.get("rangement_config", "")
     try:
         config = _json.loads(raw) if raw else {"plateaux": [
             {"id": "A", "label": "Plateau A", "cols": 5, "rows": 4},
@@ -1018,11 +1308,18 @@ def gridfinity():
         config = {"plateaux": [{"id": "A", "label": "Plateau A", "cols": 5, "rows": 4}]}
 
     # Assignations case → composant
-    raw_assign = SettingsModel.get("gridfinity_assign", "")
+    raw_assign = SettingsModel.get("rangement_assign", "")
     try:
         assignments = _json.loads(raw_assign) if raw_assign else {}
     except Exception:
         assignments = {}
+
+    # Tailles des cases
+    raw_sizes = SettingsModel.get("rangement_sizes", "")
+    try:
+        sizes = _json.loads(raw_sizes) if raw_sizes else {}
+    except Exception:
+        sizes = {}
 
     # Tous les composants pour le sélecteur
     components = db.execute("""
@@ -1031,29 +1328,55 @@ def gridfinity():
         FROM components ORDER BY description
     """).fetchall()
 
-    return render_template("components/gridfinity.html",
+    return render_template("components/rangement.html",
         config=config,
         assignments=assignments,
+        sizes=sizes,
         components=[dict(c) for c in components],
     )
 
 
-@component_bp.route("/gridfinity/save", methods=["POST"])
-def gridfinity_save():
+@component_bp.route("/rangement/save", methods=["POST"])
+def rangement_save():
     import json as _json
     data = request.get_json() or {}
 
     if "config" in data:
-        SettingsModel.set("gridfinity_config", _json.dumps(data["config"]))
+        SettingsModel.set("rangement_config", _json.dumps(data["config"]))
+
     if "assignments" in data:
-        SettingsModel.set("gridfinity_assign", _json.dumps(data["assignments"]))
-        # Met aussi à jour le champ location des composants
+        new_assignments = data["assignments"]
+
         from ..models.database import get_db
         db = get_db()
-        for cell_id, comp_id in data["assignments"].items():
+
+        # Lit les ANCIENNES assignations avant d'écraser
+        raw_old = SettingsModel.get("rangement_assign", "")
+        try:
+            old_assignments = _json.loads(raw_old) if raw_old else {}
+        except Exception:
+            old_assignments = {}
+
+        # Sauvegarde les nouvelles
+        SettingsModel.set("rangement_assign", _json.dumps(new_assignments))
+
+        # IDs des composants encore assignés dans le nouvel état
+        assigned_ids = {str(v) for v in new_assignments.values() if v}
+
+        # Vide le location des composants retirés
+        for cell_id, comp_id in old_assignments.items():
+            if comp_id and str(comp_id) not in assigned_ids:
+                db.execute("UPDATE components SET location='' WHERE id=?", (comp_id,))
+
+        # Met à jour le location des composants assignés
+        for cell_id, comp_id in new_assignments.items():
             if comp_id:
                 db.execute("UPDATE components SET location=? WHERE id=?",
                            (cell_id, comp_id))
+
         db.commit()
+
+    if "sizes" in data:
+        SettingsModel.set("rangement_sizes", _json.dumps(data["sizes"]))
 
     return jsonify({"ok": True})

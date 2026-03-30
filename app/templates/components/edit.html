@@ -24,11 +24,28 @@
                        value="{{ component.description or '' }}"/>
             </div>
 
+            <div class="add-field-full">
+                <label class="add-label">Sous-description <span class="add-hint-inline">optionnel</span></label>
+                <input type="text" name="description_long" class="form-input"
+                       value="{{ component.description_long or '' }}"
+                       placeholder="ex: Resistors - Chip Resistor - Surface Mount RoHS"/>
+            </div>
+
             <div class="add-row-3">
                 <div class="add-field">
                     <label class="add-label">Référence LCSC</label>
                     <input type="text" name="lcsc_part_number" class="form-input mono-input"
                            value="{{ component.lcsc_part_number or '' }}" placeholder="C149504"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">Référence Mouser</label>
+                    <input type="text" name="mouser_part_number" class="form-input mono-input"
+                           value="{{ component.mouser_part_number or '' }}" placeholder="652-3852A-282101AL"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">Référence DigiKey</label>
+                    <input type="text" name="digikey_part_number" class="form-input mono-input"
+                           value="{{ component.digikey_part_number or '' }}" placeholder="296-6501-1-ND"/>
                 </div>
                 <div class="add-field">
                     <label class="add-label">Réf. fabricant</label>
@@ -116,14 +133,32 @@
 
             <div class="add-field">
                 <label class="add-label">Quantité <span class="add-required">*</span></label>
-                <input type="number" name="quantity" id="f-quantity" class="form-input add-qty-input"
-                       value="{{ component.quantity }}" min="0" required/>
+                <div style="display:flex;align-items:stretch;width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+                    <button type="button" onclick="stepField('f-quantity',-1)"
+                            style="width:40px;flex-shrink:0;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1.3rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" name="quantity" id="f-quantity"
+                           value="{{ component.quantity }}" min="0" required
+                           style="flex:1;min-width:0;border:none;background:transparent;color:var(--accent);font-size:1.6rem;font-weight:800;text-align:center;padding:.5rem 0"/>
+                    <button type="button" onclick="stepField('f-quantity',+1)"
+                            style="width:40px;flex-shrink:0;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1.3rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
             </div>
 
             <div class="add-field">
                 <label class="add-label">Seuil d'alerte 🔔</label>
-                <input type="number" name="min_stock" class="form-input"
-                       value="{{ component.min_stock or 0 }}" min="0"/>
+                <div style="display:flex;align-items:stretch;width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+                    <button type="button" onclick="stepField('f-min-stock',-1)"
+                            style="width:36px;flex-shrink:0;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" name="min_stock" id="f-min-stock"
+                           value="{{ component.min_stock or 0 }}" min="0"
+                           style="flex:1;min-width:0;border:none;background:transparent;color:var(--text);font-size:.95rem;font-weight:700;text-align:center;padding:.4rem 0"/>
+                    <button type="button" onclick="stepField('f-min-stock',+1)"
+                            style="width:36px;flex-shrink:0;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
                 <span class="add-hint">0 = pas d'alerte</span>
             </div>
 
@@ -139,7 +174,7 @@
 
             <div class="add-field">
                 <label class="add-label">Prix total (€)
-                    <span class="add-hint-inline" id="total-auto-hint">auto</span>
+                    <span class="add-hint-inline" id="total-auto-hint"> = <strong id="total-display">{{ '%.2f'|format(component.ext_price or 0) }} €</strong></span>
                 </label>
                 <input type="number" name="ext_price" id="f-ext-price" class="form-input"
                        step="0.01" min="0"
@@ -157,19 +192,33 @@
 </div>
 </form>
 
+<style>
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+</style>
+
 <script>
+function stepField(id, delta) {
+    const el  = document.getElementById(id);
+    const val = parseFloat(el.value) || 0;
+    const min = parseFloat(el.min ?? 0);
+    el.value  = Math.max(min, val + delta);
+    el.dispatchEvent(new Event('input'));
+}
+
 function autoCalcTotal() {
     const unit = parseFloat(document.getElementById('f-unit-price').value) || 0;
     const qty  = parseFloat(document.getElementById('f-quantity').value)   || 0;
-    const hint = document.getElementById('total-auto-hint');
+    const display = document.getElementById('total-display');
     const ext  = document.getElementById('f-ext-price');
     if (unit > 0 && qty > 0) {
         const total = (unit * qty).toFixed(2);
         ext.placeholder = total;
-        hint.textContent = `= ${total} €`;
+        if (display) display.textContent = total + ' €';
     } else {
         ext.placeholder = '0.00';
-        hint.textContent = 'auto';
+        if (display) display.textContent = '—';
     }
 }
 document.getElementById('f-quantity').addEventListener('input', autoCalcTotal);

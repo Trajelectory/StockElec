@@ -26,10 +26,18 @@ class ComponentView:
 
     @staticmethod
     def render_detail(component, projects_using=None):
+        import json as _json
+        attrs = {}
+        if component.attributes:
+            try:
+                attrs = _json.loads(component.attributes)
+            except Exception:
+                pass
         return render_template(
             "components/detail.html",
             component=component,
             projects_using=projects_using or [],
+            attributes_dict=attrs,
         )
 
     @staticmethod

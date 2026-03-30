@@ -1,7 +1,6 @@
 import os
 import uuid
 from flask import Blueprint, request, redirect, url_for, flash, jsonify, render_template, current_app
-from werkzeug.utils import secure_filename
 
 from ..models.project import ProjectModel, STATUS_OPTIONS
 from ..models.component import ComponentModel
@@ -205,7 +204,8 @@ def import_bom(project_id):
         report = _analyse_bom(rows, project_id)
         if report is None:
             flash(
-                "Impossible de trouver une colonne LCSC dans ce fichier. "
+                "Impossible de trouver une colonne LCSC ou Mouser dans ce fichier. "
+                "Colonnes attendues : 'LCSC', 'Mouser', 'LCSC Part Number', etc."
                 "Colonnes détectées : " + ", ".join(rows[0].keys()),
                 "danger",
             )
@@ -221,22 +221,77 @@ def import_bom(project_id):
     return render_template("projects/import_bom.html", project=project)
 
 
+@project_bp.route("/<int:project_id>/import-bom/create-missing", methods=["POST"])
+def create_missing(project_id):
+    """Crée un composant manquant dans le stock et lance l'enrichissement LCSC."""
+    from ..models.component import ComponentModel as CM
+    from ..models.database import get_db
+    from ..services import lcsc_scraper
+    import threading
+
+    lcsc    = request.form.get("lcsc", "").strip().upper()
+    desc    = request.form.get("description", lcsc)
+    qty     = request.form.get("quantity", 0, type=int)
+
+    if not lcsc:
+        flash("Référence LCSC manquante.", "danger")
+        return redirect(url_for("projects.detail", project_id=project_id))
+
+    db = get_db()
+    # Vérifie si déjà existant
+    existing = db.execute(
+        "SELECT id FROM components WHERE lcsc_part_number=?", (lcsc,)
+    ).fetchone()
+
+    if existing:
+        comp_id = existing["id"]
+        flash(f"⚠️ {lcsc} existe déjà dans le stock.", "info")
+    else:
+        comp_id = CM.create({
+            "lcsc_part_number": lcsc,
+            "description":      "",
+            "description_long": desc or "",
+            "quantity":         qty,
+            "min_stock":        0,
+        })
+        flash(f"✅ {lcsc} créé dans le stock — enrichissement en cours…", "success")
+        # Enrichissement en arrière-plan
+        def _enrich():
+            try:
+                info = lcsc_scraper.enrich_component(lcsc)
+                if info:
+                    CM.apply_enrichment(comp_id, info)
+            except Exception:
+                pass
+        threading.Thread(target=_enrich, daemon=True).start()
+
+    # Ajoute au projet
+    try:
+        ProjectModel.add_component(project_id, comp_id, max(1, qty))
+    except Exception:
+        pass
+
+    return redirect(url_for("projects.detail", project_id=project_id))
+
+
 @project_bp.route("/<int:project_id>/import-bom/apply", methods=["POST"])
 def apply_bom(project_id):
-    """
-    Reçoit la liste des composants validés depuis le rapport BOM
-    et les ajoute au projet (uniquement ceux qui sont en stock).
-    """
+    from ..models.component import ComponentModel as CM
+    from ..models.database import get_db
+    from ..services import lcsc_scraper
+    import threading
+
     project = ProjectModel.get_by_id(project_id)
     if not project:
         flash("Projet introuvable.", "danger")
         return redirect(url_for("projects.index"))
 
+    db = get_db()
     added = 0
-    # Le formulaire envoie des paires component_id[N] / quantity[N]
+
+    # ── 1. Composants existants cochés ──────────────────────────────
     component_ids = request.form.getlist("component_id")
     quantities    = request.form.getlist("quantity")
-
     for comp_id, qty in zip(component_ids, quantities):
         try:
             ProjectModel.add_component(project_id, int(comp_id), int(qty))
@@ -244,7 +299,116 @@ def apply_bom(project_id):
         except Exception:
             pass
 
-    flash(f"{added} composant(s) ajouté(s) au projet depuis la BOM.", "success")
+    # ── 2. Composants manquants cochés → créer + enrichir ───────────
+    missing_ids = request.form.getlist("missing_id")
+    to_enrich = []
+    to_enrich_mouser  = []
+    to_enrich_digikey = []
+
+    for idx in missing_ids:
+        qty         = request.form.get(f"missing_qty_{idx}",     0,   type=int)
+        desc        = request.form.get(f"missing_desc_{idx}",    "")
+        lcsc        = request.form.get(f"missing_lcsc_{idx}",    "").strip().upper()
+        mouser_ref  = request.form.get(f"missing_mouser_{idx}",  "").strip()
+        digikey_ref = request.form.get(f"missing_digikey_{idx}", "").strip()
+
+        if not lcsc and not mouser_ref and not digikey_ref:
+            continue
+
+        # Cherche si déjà en stock
+        existing = None
+        if lcsc:
+            existing = db.execute(
+                "SELECT id FROM components WHERE lcsc_part_number=?", (lcsc,)
+            ).fetchone()
+        if not existing and mouser_ref:
+            existing = db.execute(
+                "SELECT id FROM components WHERE mouser_part_number=?", (mouser_ref,)
+            ).fetchone()
+        if not existing and digikey_ref:
+            existing = db.execute(
+                "SELECT id FROM components WHERE digikey_part_number=?", (digikey_ref,)
+            ).fetchone()
+
+        if existing:
+            comp_id = existing["id"]
+            # Complète les refs manquantes
+            updates = {}
+            row = db.execute(
+                "SELECT lcsc_part_number, mouser_part_number, digikey_part_number FROM components WHERE id=?",
+                (comp_id,)
+            ).fetchone()
+            if lcsc       and not row["lcsc_part_number"]:    updates["lcsc_part_number"]    = lcsc
+            if mouser_ref and not row["mouser_part_number"]:  updates["mouser_part_number"]  = mouser_ref
+            if digikey_ref and not row["digikey_part_number"]: updates["digikey_part_number"] = digikey_ref
+            if updates:
+                fields = ", ".join(f"{k} = ?" for k in updates)
+                db.execute(f"UPDATE components SET {fields} WHERE id = ?",
+                           list(updates.values()) + [comp_id])
+                db.commit()
+        else:
+            comp_data = {
+                "description":      "",
+                "description_long": desc or "",
+                "quantity":         0,
+                "min_stock":        0,
+            }
+            if lcsc:        comp_data["lcsc_part_number"]    = lcsc
+            if mouser_ref:  comp_data["mouser_part_number"]  = mouser_ref
+            if digikey_ref: comp_data["digikey_part_number"] = digikey_ref
+            comp_id = CM.create(comp_data)
+            if lcsc:
+                to_enrich.append((comp_id, lcsc))
+            elif mouser_ref:
+                to_enrich_mouser.append((comp_id, mouser_ref))
+            elif digikey_ref:
+                to_enrich_digikey.append((comp_id, digikey_ref))
+
+        try:
+            ProjectModel.add_component(project_id, comp_id, max(1, qty))
+            added += 1
+        except Exception:
+            pass
+
+    # Enrichissement en arrière-plan — LCSC
+    if to_enrich:
+        from flask import current_app as _ca2
+        _app2 = _ca2._get_current_object()
+        def _enrich_missing():
+            with _app2.app_context():
+                for cid, lcsc_ref in to_enrich:
+                    try:
+                        info = lcsc_scraper.enrich_component(lcsc_ref)
+                        if info:
+                            CM.apply_enrichment(cid, info)
+                    except Exception:
+                        pass
+        threading.Thread(target=_enrich_missing, daemon=True).start()
+        flash(f"🔍 Enrichissement LCSC en cours pour {len(to_enrich)} nouveau(x) composant(s)…", "info")
+
+    # Enrichissement en arrière-plan — Mouser
+    if to_enrich_mouser:
+        from flask import current_app as _app
+        _app_obj = _app._get_current_object()
+        def _enrich_mouser():
+            with _app_obj.app_context():
+                from .component_controller import _enrich_async_source
+                for cid, mref in to_enrich_mouser:
+                    _enrich_async_source(cid, mref, "mouser")
+        threading.Thread(target=_enrich_mouser, daemon=True).start()
+
+    # Enrichissement en arrière-plan — DigiKey
+    if to_enrich_digikey:
+        from flask import current_app as _app
+        _app_obj = _app._get_current_object()
+        def _enrich_digikey():
+            with _app_obj.app_context():
+                from .component_controller import _enrich_async_source
+                for cid, dref in to_enrich_digikey:
+                    _enrich_async_source(cid, dref, "digikey")
+        threading.Thread(target=_enrich_digikey, daemon=True).start()
+
+    flash(f"✅ {added} composant(s) ajouté(s) au projet.", "success")
     return redirect(url_for("projects.detail", project_id=project_id))
 
 
@@ -282,6 +446,17 @@ _VAL_COLS = [
 ]
 
 
+# Noms de colonnes DigiKey reconnus
+_DIGIKEY_COLS = [
+    "digikey", "digi-key", "digikey part number", "digikey part #",
+    "digikey#", "digikey_part_number", "dk part number", "dk#",
+]
+_MOUSER_COLS = [
+    "mouser", "mouser part number", "mouser part #",
+    "mouser#", "mouser_part_number", "mouser no", "mouser number",
+]
+
+
 def _find_col(headers: list[str], candidates: list[str]) -> str | None:
     """Retourne le premier header (original) qui matche un candidat (insensible casse)."""
     lc = {h.lower().strip(): h for h in headers}
@@ -294,105 +469,225 @@ def _find_col(headers: list[str], candidates: list[str]) -> str | None:
 def _analyse_bom(rows: list[dict], project_id: int) -> dict | None:
     """
     Analyse les lignes CSV et compare avec le stock.
-
-    Retourne un dict avec :
-      lcsc_col, qty_col, ref_col, val_col  — noms de colonnes détectés
-      ok       — liste de composants en stock avec quantité suffisante
-      low      — liste en stock mais quantité insuffisante
-      missing  — liste absente du stock
-      no_lcsc  — lignes sans référence LCSC
+    Supporte les colonnes LCSC, Mouser et/ou DigiKey.
     """
     from ..models.database import get_db
+    from ..models.component import ComponentModel as CM
 
-    headers = list(rows[0].keys())
-    lcsc_col = _find_col(headers, _LCSC_COLS)
-    if not lcsc_col:
-        return None  # Impossible d'analyser sans colonne LCSC
+    headers    = list(rows[0].keys())
+    lcsc_col   = _find_col(headers, _LCSC_COLS)
+    mouser_col = _find_col(headers, _MOUSER_COLS)
+    digikey_col = _find_col(headers, _DIGIKEY_COLS)
 
-    qty_col  = _find_col(headers, _QTY_COLS)
-    ref_col  = _find_col(headers, _REF_COLS)
-    val_col  = _find_col(headers, _VAL_COLS)
+    if not lcsc_col and not mouser_col and not digikey_col:
+        return None
+
+    qty_col = _find_col(headers, _QTY_COLS)
+    ref_col = _find_col(headers, _REF_COLS)
+    val_col = _find_col(headers, _VAL_COLS)
 
     db = get_db()
 
-    ok      = []   # en stock, quantité suffisante
-    low     = []   # en stock, mais pas assez
-    missing = []   # absent du stock
-    no_lcsc = []   # ligne sans ref LCSC
+    ok      = []
+    low     = []
+    missing = []
+    no_lcsc = []
+    new_ids        = []
+    new_mouser_ids  = []
+    new_digikey_ids = []
 
-    # Récupère les composants déjà dans le projet (pour pré-cocher)
     already = {
         pc.component_id
         for pc in ProjectModel.get_components(project_id)
     }
 
     for row in rows:
-        lcsc_ref = row.get(lcsc_col, "").strip().upper()
-        qty_raw  = row.get(qty_col, "1").strip() if qty_col else "1"
-        ref      = row.get(ref_col, "").strip()  if ref_col  else ""
-        val      = row.get(val_col, "").strip()  if val_col  else ""
+        lcsc_ref    = row.get(lcsc_col,    "").strip().upper() if lcsc_col    else ""
+        mouser_ref  = row.get(mouser_col,  "").strip()         if mouser_col  else ""
+        digikey_ref = row.get(digikey_col, "").strip()         if digikey_col else ""
+        qty_raw     = row.get(qty_col, "1").strip() if qty_col else "1"
+        ref         = row.get(ref_col, "").strip()  if ref_col else ""
+        val         = row.get(val_col, "").strip()  if val_col else ""
 
-        # Quantité : si format "R1, R2, R3" dans le champ qty → compter les virgules
         try:
             bom_qty = int(qty_raw)
         except ValueError:
-            # KiCad peut mettre les refs dans la colonne qty style "R1, R2"
             bom_qty = max(1, qty_raw.count(",") + 1) if qty_raw else 1
 
-        if not lcsc_ref or lcsc_ref in ("", "~", "NA", "N/A", "-"):
-            no_lcsc.append({
-                "ref": ref, "value": val, "qty": bom_qty,
-                "lcsc": lcsc_ref or "—",
-            })
+        _empty = ("", "~", "na", "n/a", "-")
+        has_lcsc    = lcsc_ref.lower()    not in _empty and bool(lcsc_ref)
+        has_mouser  = mouser_ref.lower()  not in _empty and bool(mouser_ref)
+        has_digikey = digikey_ref.lower() not in _empty and bool(digikey_ref)
+
+        if not has_lcsc and not has_mouser and not has_digikey:
+            no_lcsc.append({"ref": ref, "value": val, "qty": bom_qty, "lcsc": "—"})
             continue
 
-        # Cherche dans le stock
-        stock_row = db.execute(
-            "SELECT id, description, quantity, unit_price, image_path "
-            "FROM components WHERE lcsc_part_number = ?",
-            (lcsc_ref,),
-        ).fetchone()
+        # Cherche dans le stock — LCSC > Mouser > DigiKey
+        stock_row = None
+        if has_lcsc:
+            stock_row = db.execute(
+                "SELECT id, description, quantity, unit_price, image_path "
+                "FROM components WHERE lcsc_part_number = ?", (lcsc_ref,)
+            ).fetchone()
+        if not stock_row and has_mouser:
+            stock_row = db.execute(
+                "SELECT id, description, quantity, unit_price, image_path "
+                "FROM components WHERE mouser_part_number = ?", (mouser_ref,)
+            ).fetchone()
+        if not stock_row and has_digikey:
+            stock_row = db.execute(
+                "SELECT id, description, quantity, unit_price, image_path "
+                "FROM components WHERE digikey_part_number = ?", (digikey_ref,)
+            ).fetchone()
 
         entry = {
-            "lcsc":       lcsc_ref,
-            "ref":        ref,
-            "value":      val,
-            "bom_qty":    bom_qty,
-            "already":    False,
+            "lcsc":    lcsc_ref or mouser_ref or digikey_ref,
+            "mouser":  mouser_ref,
+            "digikey": digikey_ref,
+            "ref":     ref,
+            "value":   val,
+            "bom_qty": bom_qty,
+            "already": False,
+            "source":  "lcsc" if has_lcsc else ("mouser" if has_mouser else "digikey"),
         }
 
         if stock_row:
+            comp_id = stock_row["id"]
+            # Met à jour les refs manquantes sur le composant existant
+            updates = {}
+            if has_mouser  and not db.execute("SELECT mouser_part_number  FROM components WHERE id=?", (comp_id,)).fetchone()["mouser_part_number"]:
+                updates["mouser_part_number"]  = mouser_ref
+            if has_digikey and not db.execute("SELECT digikey_part_number FROM components WHERE id=?", (comp_id,)).fetchone()["digikey_part_number"]:
+                updates["digikey_part_number"] = digikey_ref
+            if has_lcsc    and not db.execute("SELECT lcsc_part_number    FROM components WHERE id=?", (comp_id,)).fetchone()["lcsc_part_number"]:
+                updates["lcsc_part_number"]    = lcsc_ref
+            if updates:
+                fields = ", ".join(f"{k} = ?" for k in updates)
+                db.execute(f"UPDATE components SET {fields} WHERE id = ?",
+                           list(updates.values()) + [comp_id])
+                db.commit()
+
             entry.update({
-                "component_id":  stock_row["id"],
-                "description":   stock_row["description"],
-                "stock_qty":     stock_row["quantity"],
-                "unit_price":    stock_row["unit_price"],
-                "image_path":    stock_row["image_path"],
-                "already":       stock_row["id"] in already,
+                "component_id": comp_id,
+                "description":  stock_row["description"],
+                "stock_qty":    stock_row["quantity"],
+                "unit_price":   stock_row["unit_price"],
+                "image_path":   stock_row["image_path"],
+                "already":      comp_id in already,
             })
             if stock_row["quantity"] >= bom_qty:
                 ok.append(entry)
             else:
                 low.append(entry)
         else:
+            comp_data = {
+                # description laissé vide : l'enrich API le remplira avec le vrai nom
+                # val (valeur KiCad ex: "10K", "100nF") va en description_long comme fallback
+                "description":      "",
+                "description_long": val or "",
+                "quantity":         0,
+                "min_stock":        0,
+            }
+            if has_lcsc:
+                comp_data["lcsc_part_number"]    = lcsc_ref
+            if has_mouser:
+                comp_data["mouser_part_number"]  = mouser_ref
+            if has_digikey:
+                comp_data["digikey_part_number"] = digikey_ref
+            comp_id = CM.create(comp_data)
+
+            # Enrichissement : toutes les sources disponibles
+            if has_lcsc:
+                new_ids.append((comp_id, lcsc_ref))
+            if has_mouser:
+                new_mouser_ids.append((comp_id, mouser_ref))
+            if has_digikey:
+                new_digikey_ids.append((comp_id, digikey_ref))
+
             entry.update({
-                "component_id": None,
-                "description":  val or lcsc_ref,
+                "component_id": comp_id,
+                "description":  val or lcsc_ref or mouser_ref or digikey_ref,  # pour le rapport BOM
                 "stock_qty":    0,
                 "unit_price":   None,
                 "image_path":   None,
+                "created":      True,
             })
             missing.append(entry)
 
+    # Enrichissement en arrière-plan — tous avec app_context pour accès SQLite
+    from flask import current_app as _ca
+    _app = _ca._get_current_object()
+
+    if new_ids:
+        import threading
+        from ..services import lcsc_scraper
+
+        def _enrich_lcsc():
+            with _app.app_context():
+                for cid, lcsc_ref in new_ids:
+                    try:
+                        info = lcsc_scraper.enrich_component(lcsc_ref)
+                        if info:
+                            CM.apply_enrichment(cid, info)
+                    except Exception:
+                        pass
+
+        threading.Thread(target=_enrich_lcsc, daemon=True).start()
+
+    if new_mouser_ids:
+        import threading
+        from ..services import mouser_scraper
+        from ..models.settings import SettingsModel
+
+        def _enrich_mouser():
+            with _app.app_context():
+                api_key = SettingsModel.get("mouser_api_key", "")
+                if not api_key:
+                    return
+                for cid, mref in new_mouser_ids:
+                    try:
+                        info = mouser_scraper.enrich_component(mref, api_key)
+                        if info:
+                            CM.apply_enrichment(cid, info)
+                    except Exception:
+                        pass
+
+        threading.Thread(target=_enrich_mouser, daemon=True).start()
+
+    if new_digikey_ids:
+        import threading
+        from ..services import digikey_scraper
+        from ..models.settings import SettingsModel
+
+        def _enrich_digikey():
+            with _app.app_context():
+                client_id     = SettingsModel.get("digikey_client_id", "")
+                client_secret = SettingsModel.get("digikey_client_secret", "")
+                if not client_id or not client_secret:
+                    return
+                for cid, dref in new_digikey_ids:
+                    try:
+                        info = digikey_scraper.enrich_component(dref, client_id, client_secret)
+                        if info:
+                            CM.apply_enrichment(cid, info)
+                    except Exception:
+                        pass
+
+        threading.Thread(target=_enrich_digikey, daemon=True).start()
+
     return {
-        "lcsc_col": lcsc_col,
-        "qty_col":  qty_col,
-        "ref_col":  ref_col,
-        "val_col":  val_col,
-        "ok":       ok,
-        "low":      low,
-        "missing":  missing,
-        "no_lcsc":  no_lcsc,
+        "lcsc_col":     lcsc_col,
+        "mouser_col":   mouser_col,
+        "digikey_col":  digikey_col,
+        "qty_col":      qty_col,
+        "ref_col":      ref_col,
+        "val_col":      val_col,
+        "ok":           ok,
+        "low":          low,
+        "missing":      missing,
+        "no_lcsc":      no_lcsc,
+        "new_count":    len(new_ids) + len(new_mouser_ids) + len(new_digikey_ids),
     }
 
 

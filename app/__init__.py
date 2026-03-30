@@ -1,4 +1,5 @@
 import logging
+import os
 from flask import Flask
 from .models.database import init_db
 
@@ -7,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
-    app.config["SECRET_KEY"] = "change-me-in-production"
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-me-in-production")
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
     init_db(app)
