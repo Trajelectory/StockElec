@@ -271,25 +271,24 @@ def enrich_component(mouser_part_number: str, api_key: str) -> dict:
         try:
             import time
             from . import lcsc_scraper
-            time.sleep(0.4)  # délai poli envers LCSC
-            # search_by_mpn retourne un dict au format fetch_product (result{})
+            time.sleep(0.25)  # délai poli envers LCSC (réduit pour BOM volumineuse)
             lcsc_result = lcsc_scraper.search_by_mpn(mpn)
             if lcsc_result:
                 lcsc_info = lcsc_scraper.extract_info(lcsc_result)
-                # Complète les champs manquants depuis LCSC
                 for key in ("attributes", "package", "datasheet_url", "description_long"):
                     if lcsc_info.get(key) and not info.get(key):
                         info[key] = lcsc_info[key]
-                # Image LCSC si pas d'image Mouser valide
                 if lcsc_info.get("image_url") and not info.get("image_path"):
                     lcsc_code = lcsc_result.get("productCode", mpn)
                     lpath = lcsc_scraper.download_image(lcsc_info["image_url"], lcsc_code)
                     if lpath:
                         info["image_path"] = lpath
                 lcsc_code = lcsc_result.get("productCode", "?")
-                logger.info("[Mouser→LCSC] %s — complété depuis LCSC %s : %s",
-                            mouser_part_number, lcsc_code,
-                            [k for k in ("attributes","package","datasheet_url","image_path") if info.get(k)])
+                enriched = [k for k in ("attributes","package","datasheet_url","image_path") if info.get(k)]
+                logger.info("[Mouser→LCSC] %s — complété depuis %s : %s",
+                            mouser_part_number, lcsc_code, enriched)
+            else:
+                logger.debug("[Mouser→LCSC] %s — MPN %s introuvable sur LCSC", mouser_part_number, mpn)
         except Exception as e:
             logger.warning("[Mouser→LCSC] %s — échec : %s", mouser_part_number, e)
 

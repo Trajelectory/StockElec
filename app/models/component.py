@@ -130,8 +130,8 @@ class ComponentModel:
                 customer_no, package, description, description_long, rohs,
                 quantity, min_stock, unit_price, ext_price,
                 category, category_id, location, notes,
-                image_path, datasheet_url
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                image_path, datasheet_url, product_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 _to_none(data.get("lcsc_part_number")),
@@ -154,6 +154,7 @@ class ComponentModel:
                 data.get("notes"),
                 data.get("image_path"),
                 data.get("datasheet_url"),
+                data.get("product_url"),
             ),
         )
         db.commit()
@@ -184,7 +185,8 @@ class ComponentModel:
                 location                = ?,
                 notes                   = ?,
                 image_path              = ?,
-                datasheet_url           = ?
+                datasheet_url           = ?,
+                product_url             = ?
             WHERE id = ?
             """,
             (
@@ -208,6 +210,7 @@ class ComponentModel:
                 data.get("notes"),
                 data.get("image_path"),
                 data.get("datasheet_url"),
+                data.get("product_url"),
                 component_id,
             ),
         )
@@ -443,16 +446,22 @@ class ComponentModel:
         min_stock_col = _col("min_stock", "min stock", "seuil alerte", "seuil")
         cat_col       = _col("category", "catégorie", "categorie")
         loc_col       = _col("location", "emplacement", "location")
-        notes_col     = _col("notes", "remarques", "comment")
+        notes_col     = _col("notes", "remarques")
 
         for i, row in enumerate(rows, start=1):
             try:
-                lcsc        = _clean(row.get(lcsc_col,    "") if lcsc_col    else "")
+                _lcsc_raw   = _clean(row.get(lcsc_col,    "") if lcsc_col    else "")
+                lcsc        = _lcsc_raw.upper().strip() if _lcsc_raw else None
                 mouser_ref  = _clean(row.get(mouser_col,  "") if mouser_col  else "")
                 digikey_ref = _clean(row.get(digikey_col, "") if digikey_col else "")
+                # Normalisation : espaces internes, tirets, casse
+                if mouser_ref:
+                    mouser_ref  = " ".join(mouser_ref.split())  # espaces multiples → 1
+                if digikey_ref:
+                    digikey_ref = " ".join(digikey_ref.split())
                 desc        = _clean(row.get(desc_col,    "") if desc_col    else "")
                 mfr_part    = _clean(row.get(mfr_col,     "") if mfr_col     else "")
-                min_stock_v = int(_clean(row.get(min_stock_col, "") if min_stock_col else "") or 0)
+                min_stock_v = max(0, int(_clean(row.get(min_stock_col, "") if min_stock_col else "") or 0))
                 category_v  = _clean(row.get(cat_col,   "") if cat_col   else "")
                 location_v  = _clean(row.get(loc_col,   "") if loc_col   else "")
                 notes_v     = _clean(row.get(notes_col, "") if notes_col else "")
@@ -499,10 +508,10 @@ class ComponentModel:
                     INSERT INTO components (
                         lcsc_part_number, mouser_part_number, digikey_part_number,
                         manufacture_part_number, manufacturer,
-                        customer_no, package, description, rohs,
+                        customer_no, package, description, description_long, rohs,
                         quantity, min_stock, unit_price, ext_price,
                         category, location, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         _to_none(lcsc),
@@ -513,6 +522,7 @@ class ComponentModel:
                         _to_none(customer),
                         _clean(row.get(pkg_col, "") if pkg_col else ""),
                         desc,
+                        None,  # description_long — sera rempli par l'enrich API
                         rohs,
                         qty,
                         min_stock_v,
@@ -565,14 +575,18 @@ def _build_where(search, category, low_only=False):
         where += """
             AND (
                 description             LIKE ?
+                OR description_long     LIKE ?
                 OR manufacture_part_number LIKE ?
                 OR lcsc_part_number        LIKE ?
+                OR mouser_part_number      LIKE ?
+                OR digikey_part_number     LIKE ?
                 OR manufacturer            LIKE ?
                 OR package                 LIKE ?
+                OR notes                   LIKE ?
             )
         """
         like = f"%{search}%"
-        params.extend([like, like, like, like, like])
+        params.extend([like, like, like, like, like, like, like, like, like])
 
     if category:
         where += " AND category = ?"

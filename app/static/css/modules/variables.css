@@ -43,6 +43,27 @@
     --shadow-sm: 0 2px 8px rgba(0,0,0,.3);
 }
 
+/* ── Thème clair ────────────────────────────────────────────────── */
+[data-theme="light"] {
+    --bg:          #f4f5f9;
+    --bg-surface:  #ebedf5;
+    --bg-card:     #ffffff;
+    --bg-hover:    #e4e6f0;
+    --border:      #d0d4e8;
+    --border-light:#dde0f0;
+    --text:        #1a1d2e;
+    --text-muted:  #6b74a0;
+    --text-faint:  #9ba3c4;
+    --shadow:      0 4px 24px rgba(0,0,0,.1);
+    --shadow-sm:   0 2px 8px rgba(0,0,0,.07);
+}
+[data-theme="light"] .navbar {
+    background: rgba(244,245,249,.95);
+}
+[data-theme="light"] .data-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
 /* ── Icônes sources ──────────────────────────────────────────────── */
 .src-icon {
     display: inline-block;

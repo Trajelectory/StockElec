@@ -1,0 +1,156 @@
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE — Mobile & Tablette
+   Breakpoints :
+     < 768px  → mobile
+     768-1024px → tablette (Surface Pro, iPad...)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Navbar hamburger ───────────────────────────────────────────── */
+.nav-toggle {
+    display: none;
+    flex-direction: column; justify-content: center; gap: 5px;
+    width: 36px; height: 36px; cursor: pointer;
+    background: none; border: none; padding: 4px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+.nav-toggle span {
+    display: block; height: 2px; width: 22px;
+    background: var(--text-muted); border-radius: 2px;
+    transition: all .2s;
+}
+.nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle.open span:nth-child(2) { opacity: 0; }
+.nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Dropdown menu mobile — superposé au contenu, sous la navbar */
+.nav-mobile-menu {
+    display: none;
+    position: fixed;
+    top: 54px; left: 0; right: 0;
+    background: rgba(11,14,24,.98);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    z-index: 199;
+    padding: .5rem 1rem .75rem;
+    flex-direction: column;
+    gap: .15rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.nav-mobile-menu.open { display: flex; }
+.nav-mobile-menu .nav-link {
+    width: 100%; padding: .65rem .75rem;
+    font-size: .9rem; border-radius: var(--radius-sm);
+}
+.nav-mobile-menu .nav-divider {
+    height: 1px; background: var(--border);
+    margin: .35rem 0;
+}
+.nav-mobile-menu .nav-actions {
+    display: flex; gap: .5rem; flex-wrap: wrap;
+    padding-top: .35rem;
+}
+
+/* ── Tablette (768–1024px) ──────────────────────────────────────── */
+@media (max-width: 1024px) {
+    .main-content { padding: 1.25rem .9rem 3rem; }
+
+    /* Stock : cacher colonnes secondaires */
+    .col-hide-md { display: none !important; }
+
+    /* Filtres : wrap */
+    .table-toolbar { gap: .4rem; }
+    .filter-group { flex-wrap: wrap; }
+}
+
+/* ── Mobile (< 768px) ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Layout général */
+    .main-content { padding: .85rem .7rem 5rem; }
+
+    /* ── Navbar ── */
+    .nav-toggle { display: flex; }
+    /* Cacher les liens desktop — le menu mobile prend le relais */
+    .nav-links { display: none !important; }
+    .nav-right  { display: none !important; }
+    .navbar { padding: 0 1rem; justify-content: space-between; }
+
+    /* ── Tableau stock : scroll horizontal + colonnes cachées ── */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .col-hide-md { display: none !important; }
+    .col-hide-sm { display: none !important; }
+    .col-hide-xs { display: none !important; }
+
+    /* ── Filtres stock ── */
+    .table-toolbar { flex-direction: column; align-items: stretch; }
+    .search-input-wrap { width: 100%; }
+    .filter-group { flex-wrap: wrap; gap: .3rem; }
+    .filter-group .form-select { flex: 1; min-width: 0; }
+    .per-page-wrap { justify-content: flex-end; }
+
+    /* ── Page d'accueil ── */
+    .home-search-wrap { padding: 0 .5rem; }
+
+    /* ── Fiche détail ── */
+    .dcomp-layout { grid-template-columns: 1fr !important; }
+    .dcomp-top { flex-direction: column; }
+    .dcomp-gallery { width: 100%; }
+    .dcomp-sidebar {
+        position: static !important;
+        width: 100% !important;
+        margin-top: 1rem;
+    }
+
+    /* ── Formulaire d'ajout ── */
+    .add-layout { grid-template-columns: 1fr !important; }
+    .add-col-side {
+        position: static !important;
+        width: 100% !important;
+    }
+    .add-ref-row { grid-template-columns: 1fr 1fr !important; }
+
+    /* ── Paramètres ── */
+    .settings-layout { grid-template-columns: 1fr !important; }
+    .stg-tabs { flex-wrap: wrap; gap: .3rem; }
+    .stg-tab { font-size: .8rem; padding: .4rem .65rem; }
+
+    /* ── Projets ── */
+    .proj-cards { grid-template-columns: 1fr !important; }
+
+    /* ── Stats bar ── */
+    .stock-stats-bar { gap: .5rem; padding: .6rem .9rem; }
+    .stock-stat { padding: 0 .6rem; }
+    .stock-stat-val { font-size: 1.1rem; }
+    .stock-stat-sep { height: 22px; }
+
+    /* ── Barre de sélection flottante ── */
+    .selection-bar {
+        width: calc(100% - 2rem);
+        flex-wrap: wrap;
+        bottom: 1rem;
+        gap: .5rem;
+    }
+
+    /* ── Pagination ── */
+    .pagination { flex-wrap: wrap; gap: .25rem; }
+    .page-info { width: 100%; text-align: center; }
+
+    /* ── Boutons d'action tableau ── */
+    .action-btn { width: 30px; height: 30px; font-size: .8rem; }
+
+    /* ── Page rangement ── */
+    .rng-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: .3rem; }
+
+    /* ── Page historique ── */
+    .history-filters { flex-wrap: wrap; gap: .4rem; }
+    .history-filters .form-select { flex: 1; min-width: 120px; }
+}
+
+/* ── Très petit mobile (< 400px) ────────────────────────────────── */
+@media (max-width: 400px) {
+    .add-ref-row { grid-template-columns: 1fr !important; }
+    .stock-stat-sep { display: none; }
+    .stock-stat { padding: 0 .4rem; }
+    .data-table th, .data-table td { padding: .5rem .5rem; }
+}

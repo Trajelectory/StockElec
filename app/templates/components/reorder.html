@@ -4,11 +4,20 @@
 {% block content %}
 <div class="page-header">
     <h1>🛒 Réapprovisionnement</h1>
-    {% if items %}
-    <a href="https://www.lcsc.com/cart" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
-        🛒 Ouvrir LCSC →
-    </a>
-    {% endif %}
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        {% if show_all_zero %}
+        <a href="{{ url_for('components.reorder') }}" class="btn btn-secondary btn-sm">
+            ✕ Masquer ruptures sans seuil
+        </a>
+        {% else %}
+        <a href="{{ url_for('components.reorder', show_zero=1) }}" class="btn btn-secondary btn-sm">
+            📉 Voir toutes les ruptures
+        </a>
+        {% endif %}
+        <a href="https://www.lcsc.com/cart" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
+            🛒 Ouvrir LCSC →
+        </a>
+    </div>
 </div>
 
 {% if items %}
@@ -89,7 +98,17 @@
                 {% if item.lcsc_part_number %}
                 <a href="https://www.lcsc.com/product-detail/{{ item.lcsc_part_number }}.html"
                    target="_blank" class="td-mono" style="font-size:.78rem">
-                    {{ item.lcsc_part_number }}
+                    <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ item.lcsc_part_number }}</span>
+                </a>
+                {% elif item.mouser_part_number %}
+                <a href="{{ item.product_url if item.product_url and 'mouser' in item.product_url else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ item.mouser_part_number }}"
+                   target="_blank" class="td-mono" style="font-size:.78rem">
+                    <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ item.mouser_part_number }}</span>
+                </a>
+                {% elif item.digikey_part_number %}
+                <a href="{{ item.product_url if item.product_url and 'digikey' in item.product_url else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}"
+                   target="_blank" class="td-mono" style="font-size:.78rem">
+                    <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ item.digikey_part_number }}</span>
                 </a>
                 {% else %}
                 <span class="td-secondary">—</span>
@@ -108,9 +127,13 @@
             <td>
                 {% if item.lcsc_part_number %}
                 <a href="https://www.lcsc.com/search?q={{ item.lcsc_part_number }}"
-                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-                    🛒 LCSC
-                </a>
+                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🛒 LCSC</a>
+                {% elif item.mouser_part_number %}
+                <a href="{{ item.product_url if item.product_url and 'mouser' in item.product_url else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ item.mouser_part_number }}"
+                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🛒 Mouser</a>
+                {% elif item.digikey_part_number %}
+                <a href="{{ item.product_url if item.product_url and 'digikey' in item.product_url else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}"
+                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🛒 DigiKey</a>
                 {% endif %}
             </td>
         </tr>

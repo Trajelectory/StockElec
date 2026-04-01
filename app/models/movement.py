@@ -30,7 +30,8 @@ class MovementModel:
         where = "WHERE m.component_id = ?" if component_id else ""
         params = [component_id] if component_id else []
         rows = db.execute(
-            f"""SELECT m.*, c.description, c.lcsc_part_number, c.image_path,
+            f"""SELECT m.*, c.description, c.lcsc_part_number,
+                       c.mouser_part_number, c.digikey_part_number, c.image_path,
                        p.name AS project_name
                 FROM stock_movements m
                 JOIN components c ON c.id = m.component_id

@@ -260,9 +260,10 @@ function useComponent(projectId, componentId, qty, btn) {
         .then(r => r.json())
         .then(data => {
             if (data.ok) document.getElementById(`stock-${componentId}`).textContent = data.new_qty;
-            else alert(data.error);
+            else alert(data.error || 'Erreur');
             btn.disabled = false;
-        });
+        })
+        .catch(() => { btn.disabled = false; alert('Erreur réseau'); });
 }
 function returnComponent(projectId, componentId, qty, btn) {
     if (!confirm(`Restituer ${qty} pièce(s) au stock ?`)) return;
@@ -272,9 +273,10 @@ function returnComponent(projectId, componentId, qty, btn) {
         .then(r => r.json())
         .then(data => {
             if (data.ok) document.getElementById(`stock-${componentId}`).textContent = data.new_qty;
-            else alert(data.error);
+            else alert(data.error || 'Erreur');
             btn.disabled = false;
-        });
+        })
+        .catch(() => { btn.disabled = false; alert('Erreur réseau'); });
 }
 </script>
 {% endblock %}

@@ -54,6 +54,24 @@
                         <span class="settings-hint">pièces — appliqué aux nouveaux composants importés</span>
                     </div>
                 </div>
+                <!-- Composants récents sur la page d'accueil -->
+                <div class="settings-row" style="margin-top:.75rem">
+                    <label class="settings-label" for="home_recent_limit">Composants récents (accueil)</label>
+                    <div class="settings-field">
+                        <div style="display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--bg-surface)">
+                            <button type="button" onclick="stepInput(this.nextElementSibling,-1)"
+                                    style="width:30px;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:.95rem;font-weight:700"
+                                    onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                            <input type="number" name="home_recent_limit" id="home_recent_limit"
+                                   value="{{ current.home_recent_limit }}" min="3" max="20" placeholder="8"
+                                   style="width:52px;border:none;background:transparent;color:var(--text);font-size:.9rem;font-weight:700;text-align:center;padding:.35rem 0"/>
+                            <button type="button" onclick="stepInput(this.previousElementSibling,+1)"
+                                    style="width:30px;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:.95rem;font-weight:700"
+                                    onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                        </div>
+                        <span class="settings-hint">lignes affichées dans la section "Derniers ajoutés"</span>
+                    </div>
+                </div>
                 <div style="margin-top:.75rem">
                     <button type="submit" class="btn btn-primary">💾 Sauvegarder</button>
                 </div>

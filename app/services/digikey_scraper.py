@@ -25,18 +25,21 @@ IMAGES_DIR  = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "instance", "images")
 )
 
-# Cache token en mémoire
+# Cache token en mémoire — protégé par un Lock pour thread safety (Waitress multi-thread)
+import threading as _threading
 _token_cache = {"access_token": None, "expires_at": 0}
+_token_lock  = _threading.Lock()
 
 _SESSION = requests.Session()
 _SESSION.headers.update({"Accept": "application/json"})
 
 
 def _get_token(client_id: str, client_secret: str) -> str | None:
-    """Obtient un access token OAuth2 (2-legged), avec cache."""
+    """Obtient un access token OAuth2 (2-legged), avec cache thread-safe."""
     now = time.time()
-    if _token_cache["access_token"] and now < _token_cache["expires_at"] - 60:
-        return _token_cache["access_token"]
+    with _token_lock:
+        if _token_cache["access_token"] and now < _token_cache["expires_at"] - 60:
+            return _token_cache["access_token"]
 
     try:
         resp = requests.post(
@@ -53,8 +56,9 @@ def _get_token(client_id: str, client_secret: str) -> str | None:
         token = data.get("access_token")
         expires_in = int(data.get("expires_in", 1800))
         if token:
-            _token_cache["access_token"] = token
-            _token_cache["expires_at"]   = now + expires_in
+            with _token_lock:
+                _token_cache["access_token"] = token
+                _token_cache["expires_at"]   = now + expires_in
             logger.info("[DigiKey] Token obtenu, expire dans %ds", expires_in)
             return token
         logger.warning("[DigiKey] Pas de token dans la réponse : %s", data)

@@ -35,16 +35,17 @@ def home():
         FROM components
     """).fetchone()
 
+    home_limit = int(SettingsModel.get("home_recent_limit", "5"))
     recent = db.execute("""
         SELECT id, description, manufacture_part_number, lcsc_part_number,
                mouser_part_number, digikey_part_number, product_url,
                package, quantity, min_stock, unit_price, image_path
         FROM components
-        ORDER BY created_at DESC LIMIT 5
-    """).fetchall()
+        ORDER BY created_at DESC LIMIT ?
+    """, (home_limit,)).fetchall()
 
     return render_template("components/home.html",
-        stats=stats, recent=recent)
+        stats=stats, recent=recent, home_limit=home_limit)
 
 
 @component_bp.route("/stock")
@@ -174,13 +175,30 @@ def history():
 
     component_id = request.args.get("component_id", type=int)
     type_filter  = request.args.get("type", "")
-    limit        = int(request.args.get("limit", 200))
+    per_page     = int(request.args.get("per_page", 50))
+    page         = max(1, int(request.args.get("page", 1)))
+    sort_by      = request.args.get("sort", "date")   # date | type | component
+    order        = request.args.get("order", "desc")
 
-    movements = MovementModel.get_recent(limit=limit, component_id=component_id)
+    # Récupère TOUS les mouvements filtrés pour compter, puis pagine
+    all_movements = MovementModel.get_recent(limit=10000, component_id=component_id)
     if type_filter:
-        movements = [m for m in movements if m["type"] == type_filter]
+        all_movements = [m for m in all_movements if m["type"] == type_filter]
 
-    # Pour le filtre par composant
+    # Tri côté Python (les données viennent déjà triées par date desc par défaut)
+    reverse = (order == "desc")
+    if sort_by == "type":
+        all_movements.sort(key=lambda m: m["type"], reverse=reverse)
+    elif sort_by == "component":
+        all_movements.sort(key=lambda m: (m["description"] or "").lower(), reverse=reverse)
+    # "date" = ordre par défaut de get_recent
+
+    total      = len(all_movements)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page        = min(page, total_pages)
+    offset      = (page - 1) * per_page
+    movements   = all_movements[offset:offset + per_page]
+
     component = None
     if component_id:
         comp = db.execute("SELECT id, description FROM components WHERE id=?", (component_id,)).fetchone()
@@ -188,7 +206,9 @@ def history():
 
     return render_template("components/history.html",
         movements=movements, component=component,
-        type_filter=type_filter, limit=limit,
+        type_filter=type_filter, per_page=per_page, page=page,
+        total=total, total_pages=total_pages,
+        sort_by=sort_by, order=order,
         movement_types=__import__('app.models.movement', fromlist=['MovementModel']).MovementModel.TYPES
     )
 
@@ -202,20 +222,29 @@ def reorder():
     from ..models.database import get_db
     db = get_db()
 
-    # Composants sous le seuil ou sans stock, avec ref LCSC
-    rows = db.execute("""
-        SELECT id, description, lcsc_part_number, manufacture_part_number,
+    show_all_zero = request.args.get("show_zero", "0") == "1"
+
+    if show_all_zero:
+        where = "WHERE quantity = 0 OR (min_stock > 0 AND quantity <= min_stock)"
+    else:
+        where = "WHERE (min_stock > 0 AND quantity <= min_stock) OR quantity = 0"
+
+    rows = db.execute(f"""
+        SELECT id, description, lcsc_part_number, mouser_part_number, digikey_part_number,
+               manufacture_part_number, product_url,
                manufacturer, quantity, min_stock, unit_price, image_path,
                CASE WHEN quantity = 0 THEN 'rupture'
                     WHEN quantity <= min_stock THEN 'bas'
                     ELSE 'ok' END AS stock_status,
-               MAX(0, min_stock * 3 - quantity) AS suggested_qty
+               MAX(0, COALESCE(min_stock, 1) * 3 - quantity) AS suggested_qty
         FROM components
-        WHERE (quantity = 0 OR (min_stock > 0 AND quantity <= min_stock))
+        {where}
         ORDER BY quantity ASC, description
     """).fetchall()
 
-    return render_template("components/reorder.html", items=[dict(r) for r in rows])
+    return render_template("components/reorder.html",
+        items=[dict(r) for r in rows],
+        show_all_zero=show_all_zero)
 
 
 # ------------------------------------------------------------------ #
@@ -334,21 +363,8 @@ def import_csv():
         mouser_ids    = result.get("mouser_ids", [])
         digikey_ids   = result.get("digikey_ids", [])
 
-        for e in errors[:5]:
-            flash(e, "warning")
-
-        parts = [f"{inserted} composant(s) importé(s)"]
-        if skipped:
-            parts.append(f"{skipped} ligne(s) ignorée(s)")
-        flash(", ".join(parts) + ".", "success" if inserted > 0 else "info")
-
-        if duplicates:
-            refs   = ", ".join(duplicates[:10])
-            suffix = f" (et {len(duplicates)-10} autres)" if len(duplicates) > 10 else ""
-            flash(f"⚠️ Déjà en stock, non importés : {refs}{suffix}", "warning")
-
+        # Lance les enrichissements en arrière-plan
         if component_ids:
-            flash(f"🔍 Récupération LCSC en cours pour {len(component_ids)} composant(s)…", "info")
             _enrich_async(component_ids)
         if mouser_ids:
             for cid, mref in mouser_ids:
@@ -357,7 +373,14 @@ def import_csv():
             for cid, dref in digikey_ids:
                 _enrich_async_source(cid, dref, "digikey")
 
-        return redirect(url_for("components.stock"))
+        # Affiche le rapport détaillé plutôt qu'un simple redirect
+        return render_template("components/import_result.html",
+            inserted=inserted, skipped=skipped,
+            duplicates=duplicates, errors=errors,
+            component_ids=component_ids,
+            mouser_ids=mouser_ids, digikey_ids=digikey_ids,
+            total_rows=len(rows),
+        )
 
     return ComponentView.render_import()
 
@@ -741,9 +764,18 @@ def edit(component_id):
             data["image_path"] = comp.image_path
         if not data.get("datasheet_url"):
             data["datasheet_url"] = comp.datasheet_url
-        ComponentModel.update(component_id, data)
-        flash("Composant mis à jour.", "success")
-        return redirect(url_for("components.detail", component_id=component_id))
+        # Préserver product_url si absent du formulaire (champ non affiché dans l'éditeur)
+        if not data.get("product_url"):
+            data["product_url"] = comp.product_url
+        try:
+            ComponentModel.update(component_id, data)
+            flash("Composant mis à jour.", "success")
+            return redirect(url_for("components.detail", component_id=component_id))
+        except Exception as e:
+            if "UNIQUE" in str(e):
+                flash("❌ Cette référence existe déjà dans le stock — modification annulée.", "danger")
+            else:
+                flash(f"❌ Erreur lors de la mise à jour : {e}", "danger")
 
     from ..models.category import CategoryModel
     return ComponentView.render_edit(comp, category_groups=CategoryModel.get_grouped_for_stock())
@@ -751,8 +783,16 @@ def edit(component_id):
 
 @component_bp.route("/component/<int:component_id>/delete", methods=["POST"])
 def delete(component_id):
+    confirm = request.form.get("confirm_delete", "")
+    if confirm != "yes":
+        flash("⚠️ Suppression annulée — confirmation manquante.", "warning")
+        return redirect(url_for("components.detail", component_id=component_id))
+    comp = ComponentModel.get_by_id(component_id)
+    if not comp:
+        flash("Composant introuvable.", "danger")
+        return redirect(url_for("components.stock"))
     ComponentModel.delete(component_id)
-    flash("Composant supprimé.", "success")
+    flash(f"🗑️ « {comp.description or comp.lcsc_part_number or 'Composant'} » supprimé.", "success")
     return redirect(url_for("components.stock"))
 
 
@@ -1066,15 +1106,23 @@ def settings():
                 os.path.join(component_bp.root_path, "..", "..", "instance")
             )
             tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-            with zipfile.ZipFile(tmp.name, "w", zipfile.ZIP_DEFLATED) as zf:
-                for root, dirs, files in os.walk(instance_path):
-                    for f in files:
-                        fp = os.path.join(root, f)
-                        zf.write(fp, os.path.relpath(fp, instance_path))
-            from datetime import datetime
-            fname = f"stockelec_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-            return send_file(tmp.name, as_attachment=True, download_name=fname,
-                             mimetype="application/zip")
+            try:
+                with zipfile.ZipFile(tmp.name, "w", zipfile.ZIP_DEFLATED) as zf:
+                    for root, dirs, files in os.walk(instance_path):
+                        for f in files:
+                            fp = os.path.join(root, f)
+                            zf.write(fp, os.path.relpath(fp, instance_path))
+                from datetime import datetime
+                fname = f"stockelec_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+                response = send_file(tmp.name, as_attachment=True, download_name=fname,
+                                     mimetype="application/zip")
+            finally:
+                # Nettoyage du fichier temporaire après envoi
+                try:
+                    os.unlink(tmp.name)
+                except Exception:
+                    pass
+            return response
 
         # ── Reset complet BDD (garde settings) ──────────────────────
         elif action == "reset_db":
@@ -1165,6 +1213,7 @@ def settings():
         "app_name":               SettingsModel.get("app_name", "StockElec"),
         "base_url":               SettingsModel.get("base_url", ""),
         "default_min_stock":      SettingsModel.get("default_min_stock", "0"),
+        "home_recent_limit":      SettingsModel.get("home_recent_limit", "5"),
         "mouser_api_key":         SettingsModel.get("mouser_api_key", ""),
         "digikey_client_id":      SettingsModel.get("digikey_client_id", ""),
         "digikey_client_secret":  SettingsModel.get("digikey_client_secret", ""),
@@ -1205,6 +1254,22 @@ def component_image(filename):
 
 @component_bp.route("/api/components")
 def api_list():
+    # Filtre par IDs pour le polling d'enrichissement
+    ids_param = request.args.get("ids", "")
+    if ids_param:
+        try:
+            ids = [int(i) for i in ids_param.split(",") if i.strip().isdigit()]
+        except ValueError:
+            ids = []
+        if ids:
+            from ..models.database import get_db
+            db = get_db()
+            placeholders = ",".join("?" * len(ids))
+            rows = db.execute(
+                f"SELECT id, description, attributes, image_path FROM components WHERE id IN ({placeholders})",
+                ids
+            ).fetchall()
+            return jsonify([dict(r) for r in rows])
     search = request.args.get("search")
     return jsonify([c.to_dict() for c in ComponentModel.get_all(search=search)])
 
@@ -1214,26 +1279,46 @@ def api_list():
 # ------------------------------------------------------------------ #
 
 def _form_to_dict(form):
+    def _f(key):
+        v = form.get(key, "").strip()
+        return v if v else None
+
+    def _fnum(key):
+        v = form.get(key, "").strip().replace(",", ".")
+        try:
+            return float(v) if v else None
+        except ValueError:
+            return None
+
+    unit_price = _fnum("unit_price")
+    quantity   = _fnum("quantity")
+    ext_price  = _fnum("ext_price")
+
+    # Recalcul automatique de ext_price si non saisi manuellement
+    if ext_price is None and unit_price is not None and quantity is not None:
+        ext_price = round(unit_price * quantity, 4)
+
     return {
-        "lcsc_part_number":        form.get("lcsc_part_number"),
-        "mouser_part_number":      form.get("mouser_part_number"),
-        "digikey_part_number":     form.get("digikey_part_number"),
-        "manufacture_part_number": form.get("manufacture_part_number"),
-        "manufacturer":            form.get("manufacturer"),
-        "customer_no":             form.get("customer_no"),
-        "package":                 form.get("package"),
+        "lcsc_part_number":        _f("lcsc_part_number"),
+        "mouser_part_number":      _f("mouser_part_number"),
+        "digikey_part_number":     _f("digikey_part_number"),
+        "manufacture_part_number": _f("manufacture_part_number"),
+        "manufacturer":            _f("manufacturer"),
+        "customer_no":             _f("customer_no"),
+        "package":                 _f("package"),
         "description":             form.get("description"),
         "description_long":        form.get("description_long"),
-        "rohs":                    form.get("rohs"),
-        "quantity":                form.get("quantity"),
-        "min_stock":               form.get("min_stock"),
-        "unit_price":              form.get("unit_price"),
-        "ext_price":               form.get("ext_price"),
-        "category":                form.get("category"),
-        "location":                form.get("location"),
+        "rohs":                    _f("rohs"),
+        "quantity":                quantity,
+        "min_stock":               _fnum("min_stock"),
+        "unit_price":              unit_price,
+        "ext_price":               ext_price,
+        "category":                _f("category"),
+        "location":                _f("location"),
         "notes":                   form.get("notes"),
-        "datasheet_url":           form.get("datasheet_url"),
-        "image_url":               form.get("image_url"),
+        "datasheet_url":           _f("datasheet_url"),
+        "product_url":             _f("product_url"),
+        "image_url":               _f("image_url"),
     }
 
 

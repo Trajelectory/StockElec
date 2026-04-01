@@ -12,7 +12,6 @@
     {% endif %}
 </div>
 
-<!-- 
 <div class="stock-stats-bar">
     <div class="stock-stat">
         <span class="stock-stat-val">{{ stats.total_references }}</span>
@@ -33,7 +32,7 @@
         <span class="stock-stat-val">{{ stats.total_manufacturers }}</span>
         <span class="stock-stat-lbl">fabricants</span>
     </div>
-</div> -->
+</div>
 
 <!-- Filtres -->
 <form method="get" class="filter-bar" id="filter-form">
@@ -85,13 +84,23 @@
                            onchange="toggleAll(this.checked)"/>
                 </th>
                 <th class="th-img"></th>
-                <th>Description</th>
+                {% macro sort_th(label, col, cls='') %}
+                {% set new_order = 'asc' if (sort_by == col and order == 'desc') else ('desc' if sort_by == col else 'asc') %}
+                <th class="{{ cls }}">
+                    <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=col, order=new_order, per_page=per_page, page=1, low_stock='1' if low_only else '') }}"
+                       style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:.3rem">
+                        {{ label }}
+                        {% if sort_by == col %}<span style="opacity:.7">{{ '↑' if order == 'asc' else '↓' }}</span>{% endif %}
+                    </a>
+                </th>
+                {% endmacro %}
+                {{ sort_th('Description', 'description') }}
                 <th>Référence</th>
-                <th>Package</th>
-                <th>Catégorie</th>
-                <th>Quantité</th>
-                <th>Prix unit.</th>
-                <th>Emplacement</th>
+                {{ sort_th('Package', 'package', 'col-hide-sm') }}
+                {{ sort_th('Catégorie', 'category', 'col-hide-md') }}
+                {{ sort_th('Quantité', 'quantity') }}
+                {{ sort_th('Prix unit.', 'unit_price', 'col-hide-sm') }}
+                {{ sort_th('Emplacement', 'location', 'col-hide-md') }}
                 <th>Actions</th>
             </tr>
         </thead>
@@ -141,8 +150,8 @@
                         </a>
                     {% else %}—{% endif %}
                 </td>
-                <td><span class="badge badge-gray">{{ c.package or '—' }}</span></td>
-                <td class="td-secondary td-category">{{ c.category or '—' }}</td>
+                <td class="col-hide-sm"><span class="badge badge-gray">{{ c.package or '—' }}</span></td>
+                <td class="td-secondary td-category col-hide-md">{{ c.category or '—' }}</td>
 
                 <!-- Quantité avec ajustement rapide -->
                 <td class="td-qty-wrap" style="vertical-align:middle;text-align:center">
@@ -156,12 +165,13 @@
                         {% endif %}
                     </div>
                 </td>
-                <td class="td-price" style="white-space:nowrap">{% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}</td>
-                <td class="td-secondary" style="white-space:nowrap">{{ c.location or '—' }}</td>
+                <td class="td-price col-hide-sm" style="white-space:nowrap">{% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}</td>
+                <td class="td-secondary col-hide-md" style="white-space:nowrap">{{ c.location or '—' }}</td>
                 <td class="td-actions" style="white-space:nowrap;text-align:right">
                     <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon" title="Modifier">✏️</a>
                     <form method="post" action="{{ url_for('components.delete', component_id=c.id) }}"
-                          style="display:inline" onsubmit="return confirm('Supprimer ce composant ?')">
+                          style="display:inline" onsubmit="return confirm('Supprimer « {{ c.description or c.lcsc_part_number }} » ?')">
+                        <input type="hidden" name="confirm_delete" value="yes"/>
                         <button type="submit" class="btn-icon" title="Supprimer">🗑️</button>
                     </form>
                 </td>
@@ -227,7 +237,7 @@ function adjustQty(id, delta, btn) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({delta})
     })
-    .then(r => r.json())
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
     .then(data => {
         if (data.ok) {
             const qtyEl = document.getElementById(`qty-${id}`);
@@ -235,13 +245,15 @@ function adjustQty(id, delta, btn) {
             qtyEl.className = 'qty-value' +
                 (data.new_qty === 0 ? ' qty-zero' : data.is_low ? ' qty-low' : '');
             const row = document.getElementById(`row-${id}`);
-            row.className = data.new_qty === 0 ? 'row-empty' : data.is_low ? 'row-low' : '';
+            row.classList.remove('row-empty', 'row-low');
+            if (data.new_qty === 0) row.classList.add('row-empty');
+            else if (data.is_low) row.classList.add('row-low');
         } else {
-            alert(data.error);
+            alert(data.error || 'Erreur');
         }
         btn.disabled = false;
     })
-    .catch(() => { btn.disabled = false; });
+    .catch(() => { btn.disabled = false; alert('Erreur réseau'); });
 }
 
 function enrichComponent(id, btn) {
@@ -250,9 +262,11 @@ function enrichComponent(id, btn) {
         .then(r => r.json())
         .then(data => {
             if (data.ok) location.reload();
-            else { btn.textContent = '❌'; btn.title = data.error;
+            else { btn.textContent = '❌'; btn.title = data.error || 'Erreur';
                    setTimeout(() => { btn.textContent='📷'; btn.disabled=false; }, 3000); }
-        });
+        })
+        .catch(() => { btn.textContent = '❌'; btn.title = 'Erreur réseau';
+                       setTimeout(() => { btn.textContent='📷'; btn.disabled=false; }, 3000); });
 }
 
 function openLightbox(src, caption) {

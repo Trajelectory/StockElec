@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Résultat import — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.import_csv') }}" class="btn-back">← Nouvel import</a>
+    <h1>📥 Résultat de l'import</h1>
+</div>
+
+<!-- Résumé général -->
+<div class="dash-row" style="margin-bottom:1.25rem">
+    <div class="card" style="text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--success)">{{ inserted }}</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">importé(s)</div>
+    </div>
+    <div class="card" style="text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--warning)">{{ duplicates|length }}</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">doublon(s)</div>
+    </div>
+    <div class="card" style="text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:var(--text-muted)">{{ skipped }}</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">ignoré(s)</div>
+    </div>
+    <div class="card" style="text-align:center">
+        <div style="font-size:2rem;font-weight:800;color:{{ 'var(--danger)' if errors else 'var(--success)' }}">{{ errors|length }}</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">erreur(s)</div>
+    </div>
+</div>
+
+<!-- Enrichissement en cours -->
+{% set total_enrich = component_ids|length + mouser_ids|length + digikey_ids|length %}
+{% if total_enrich > 0 %}
+<div id="enrich-banner" class="alert alert-info" style="margin-bottom:1rem;display:flex;align-items:center;gap:.75rem">
+    <span id="enrich-spinner" style="display:inline-block;animation:spin 1s linear infinite;font-size:1.1rem">⏳</span>
+    <span id="enrich-text">
+        Enrichissement en cours pour <strong>{{ total_enrich }}</strong> composant(s)
+        {% if component_ids %}— {{ component_ids|length }} LCSC{% endif %}
+        {% if mouser_ids %}— {{ mouser_ids|length }} Mouser{% endif %}
+        {% if digikey_ids %}— {{ digikey_ids|length }} DigiKey{% endif %}
+    </span>
+    <span id="enrich-done" style="display:none;color:var(--success);font-weight:700">✅ Terminé — données récupérées !</span>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+<script>
+// Polling léger : vérifie au bout de 4s, 8s, 15s, 30s si les composants ont été enrichis
+const ids = {{ (component_ids + mouser_ids + digikey_ids) | map(attribute=0) | list | tojson }};
+const delays = [4000, 4000, 7000, 15000];
+let enrichedCount = 0;
+
+function checkEnrich() {
+    if (!ids.length) return;
+    fetch('/api/components?ids=' + ids.join(','))
+        .then(r => r.json())
+        .then(data => {
+            const done = data.filter(c => c.attributes || c.image_path).length;
+            if (done > enrichedCount) {
+                enrichedCount = done;
+                document.getElementById('enrich-text').innerHTML =
+                    `<strong>${done}/${ids.length}</strong> composant(s) enrichis…`;
+            }
+            if (done >= ids.length) {
+                document.getElementById('enrich-spinner').style.display = 'none';
+                document.getElementById('enrich-text').style.display = 'none';
+                document.getElementById('enrich-done').style.display = 'inline';
+            }
+        })
+        .catch(() => {});
+}
+
+let idx = 0;
+function scheduleNext() {
+    if (idx < delays.length) {
+        setTimeout(() => { checkEnrich(); idx++; scheduleNext(); }, delays[idx]);
+    }
+}
+scheduleNext();
+</script>
+{% endif %}
+
+<!-- Erreurs ligne par ligne -->
+{% if errors %}
+<div class="card" style="margin-bottom:1rem;border-color:rgba(239,68,68,.3)">
+    <div class="card-title" style="color:var(--danger)">❌ Erreurs ({{ errors|length }})</div>
+    <table class="data-table">
+        <thead><tr><th>#</th><th>Détail de l'erreur</th></tr></thead>
+        <tbody>
+        {% for e in errors %}
+        <tr><td class="td-mono" style="color:var(--danger);white-space:nowrap">{{ loop.index }}</td>
+            <td style="font-size:.83rem">{{ e }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Doublons -->
+{% if duplicates %}
+<div class="card" style="margin-bottom:1rem;border-color:rgba(245,158,11,.3)">
+    <div class="card-title" style="color:var(--warning)">⚠️ Déjà en stock — non importés ({{ duplicates|length }})</div>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;padding:.25rem 0">
+        {% for ref in duplicates %}
+        <span class="badge badge-gray" style="font-family:var(--mono);font-size:.75rem">{{ ref }}</span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Actions -->
+<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.5rem">
+    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">📦 Voir le stock</a>
+    <a href="{{ url_for('components.import_csv') }}" class="btn btn-secondary">📥 Nouvel import</a>
+</div>
+{% endblock %}

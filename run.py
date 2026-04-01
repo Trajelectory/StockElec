@@ -17,7 +17,7 @@ if __name__ == "__main__":
         from waitress import serve
         log = logging.getLogger("stockelec")
         log.info("StockElec démarré sur http://127.0.0.1:5000")
-        serve(app, host="127.0.0.1", port=5000, threads=8)
+        serve(app, host="0.0.0.0", port=5000, threads=8)
     except ImportError:
         logging.getLogger("stockelec").warning(
             "Waitress non trouvé, utilisation du serveur de développement Flask.\n"

@@ -64,8 +64,8 @@ Conçu pour l'atelier : import depuis LCSC, Mouser et DigiKey, plan visuel de ra
 
 ```bash
 # Clone le repo
-git clone https://github.com/Trajelectory/StockElec.git
-cd StockElec
+git clone https://github.com/ton-user/stockelectory.git
+cd stockelectory
 
 # Installe les dépendances
 pip install -r requirements.txt

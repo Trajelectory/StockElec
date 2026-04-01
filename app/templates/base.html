@@ -1,8 +1,15 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" id="html-root">
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <script>
+    // Restaure le thème avant le rendu pour éviter le flash
+    (function() {
+        var t = localStorage.getItem('theme');
+        if (t) document.documentElement.setAttribute('data-theme', t);
+    })();
+    </script>
     <title>{% block title %}{{ app_name or 'StockElec' }}{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -12,11 +19,11 @@
 
 <nav class="navbar">
     <a class="nav-brand" href="{{ url_for('components.home') }}">
-        <span class="nav-icon">⚡</span>
+        <span class="nav-icon"><img src="{{ url_for('static', filename='img/Logo.png') }}" alt="StockElec" width="32px"></span>
         {{ app_name or 'StockElec' }}
     </a>
     <div class="nav-links">
-<a href="{{ url_for('components.stock') }}"
+        <a href="{{ url_for('components.stock') }}"
            class="nav-link {% if request.endpoint == 'components.stock' %}active{% endif %}">
             <span class="nav-emoji">📦</span> Stock
         </a>
@@ -34,7 +41,7 @@
         </a>
         <a href="{{ url_for('components.rangement') }}"
            class="nav-link {% if request.endpoint == 'components.rangement' %}active{% endif %}">
-            <span class="nav-emoji">📦</span> Rangement
+            <span class="nav-emoji">🗃️</span> Rangement
         </a>
     </div>
     <div class="nav-right">
@@ -55,8 +62,46 @@
            class="nav-link {% if request.endpoint == 'components.settings' %}active{% endif %}">
             <span class="nav-emoji">⚙️</span>
         </a>
+        <button class="nav-link" id="theme-toggle" onclick="toggleTheme()" title="Changer le thème" style="border:none;cursor:pointer;background:none">
+            <span id="theme-icon">🌙</span>
+        </button>
     </div>
+    <!-- Bouton hamburger (mobile uniquement) -->
+    <button class="nav-toggle" id="nav-toggle" aria-label="Menu" onclick="toggleNav()">
+        <span></span><span></span><span></span>
+    </button>
 </nav>
+
+<!-- Menu mobile dropdown (hors navbar, superposé au contenu) -->
+<div class="nav-mobile-menu" id="nav-mobile-menu">
+    <a href="{{ url_for('components.stock') }}"
+       class="nav-link {% if request.endpoint == 'components.stock' %}active{% endif %}">
+        <span class="nav-emoji">📦</span> Stock
+    </a>
+    <a href="{{ url_for('projects.index') }}"
+       class="nav-link {% if request.endpoint and request.endpoint.startswith('projects.') %}active{% endif %}">
+        <span class="nav-emoji">🗂️</span> Projets
+    </a>
+    <a href="{{ url_for('components.history') }}"
+       class="nav-link {% if request.endpoint == 'components.history' %}active{% endif %}">
+        <span class="nav-emoji">📋</span> Historique
+    </a>
+    <a href="{{ url_for('components.reorder') }}"
+       class="nav-link {% if request.endpoint == 'components.reorder' %}active{% endif %}">
+        <span class="nav-emoji">🛒</span> Commandes
+    </a>
+    <a href="{{ url_for('components.rangement') }}"
+       class="nav-link {% if request.endpoint == 'components.rangement' %}active{% endif %}">
+        <span class="nav-emoji">🗃️</span> Rangement
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-actions">
+        <a href="{{ url_for('components.add') }}" class="btn btn-primary btn-sm">➕ Ajouter</a>
+        <a href="{{ url_for('components.alerts') }}" class="btn btn-secondary btn-sm">🔔 Alertes</a>
+        <a href="{{ url_for('components.import_csv') }}" class="btn btn-secondary btn-sm">📥 Import</a>
+        <a href="{{ url_for('components.settings') }}" class="btn btn-secondary btn-sm">⚙️ Paramètres</a>
+    </div>
+</div>
 
 <main class="main-content">
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -68,5 +113,49 @@
 </main>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script>
+function toggleTheme() {
+    const root = document.documentElement;
+    const current = root.getAttribute('data-theme');
+    const next = current === 'light' ? null : 'light';
+    if (next) {
+        root.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+    } else {
+        root.removeAttribute('data-theme');
+        localStorage.removeItem('theme');
+    }
+    updateThemeIcon();
+}
+function updateThemeIcon() {
+    const icon = document.getElementById('theme-icon');
+    if (icon) icon.textContent = document.documentElement.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+}
+updateThemeIcon();
+
+function toggleNav() {
+    const menu = document.getElementById('nav-mobile-menu');
+    const btn  = document.getElementById('nav-toggle');
+    menu.classList.toggle('open');
+    btn.classList.toggle('open');
+}
+// Ferme si clic en dehors
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('nav-mobile-menu');
+    const btn  = document.getElementById('nav-toggle');
+    if (menu && menu.classList.contains('open') &&
+        !menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.classList.remove('open');
+        btn.classList.remove('open');
+    }
+});
+// Ferme au clic sur un lien du menu mobile
+document.querySelectorAll('#nav-mobile-menu .nav-link, #nav-mobile-menu .btn').forEach(function(l) {
+    l.addEventListener('click', function() {
+        document.getElementById('nav-mobile-menu').classList.remove('open');
+        document.getElementById('nav-toggle').classList.remove('open');
+    });
+});
+</script>
 </body>
 </html>

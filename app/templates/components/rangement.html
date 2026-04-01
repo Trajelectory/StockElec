@@ -77,13 +77,20 @@
 </div>
 
 <!-- ── Stats ──────────────────────────────────────────────────────── -->
-<div id="plateau-stats" style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;font-size:.82rem;color:var(--text-muted)">
+<div id="plateau-stats" style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;font-size:.82rem;color:var(--text-muted);flex-wrap:wrap">
     <span id="stat-nom" style="font-weight:700;color:var(--text)"></span>
     <span id="stat-dims"></span>
     <span id="stat-fill"></span>
     <div style="flex:1;height:4px;background:var(--border);border-radius:2px;max-width:200px">
         <div id="stat-bar" style="height:100%;background:var(--accent);border-radius:2px;transition:width .3s;width:0%"></div>
     </div>
+    <!-- Slider zoom -->
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--text-muted);margin-left:auto">
+        🔍
+        <input type="range" min="44" max="120" value="88" step="4" id="cell-zoom"
+               style="width:72px;accent-color:var(--accent)"
+               oninput="document.documentElement.style.setProperty('--gf-cell', this.value + 'px')"/>
+    </label>
 </div>
 
 <!-- ── Grille ─────────────────────────────────────────────────────── -->
@@ -247,6 +254,14 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* Taille de base d'une cellule */
 :root { --gf-cell: 88px; --gf-gap: 6px; }
+
+/* Rangement responsive */
+@media (max-width: 768px) {
+    :root { --gf-cell: 68px; --gf-gap: 4px; }
+}
+@media (max-width: 480px) {
+    :root { --gf-cell: 54px; --gf-gap: 3px; }
+}
 
 .gf-cell {
     border: 2px solid var(--border);
@@ -643,11 +658,16 @@ function autoSave() {
             body: JSON.stringify({assignments, sizes})
         })
         .then(r => r.json())
-        .then(() => {
-            btn.textContent = '✅ Sauvegardé';
-            setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 1800);
+        .then(data => {
+            if (data.ok !== false) {
+                btn.textContent = '✅ Sauvegardé';
+                setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 1800);
+            } else {
+                btn.textContent = '❌ Erreur';
+                setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 2000);
+            }
         })
-        .catch(() => { btn.textContent = '💾 Sauvegarder'; });
+        .catch(() => { btn.textContent = '❌ Erreur réseau'; setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 2000); });
     }, 600);
 }
 
@@ -710,7 +730,13 @@ function saveConfig() {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({config: {plateaux}, assignments, sizes})
-    }).then(() => window.location.reload());
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok !== false) window.location.reload();
+        else alert('Erreur lors de la sauvegarde : ' + (data.error || 'inconnue'));
+    })
+    .catch(() => alert('Erreur lors de la sauvegarde'));
 }
 
 // ── Navigation tabs ──────────────────────────────────────────────

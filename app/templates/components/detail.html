@@ -266,7 +266,8 @@
                 <a href="{{ url_for('components.edit', component_id=component.id) }}"
                    class="btn btn-primary btn-full">✏️ Modifier</a>
                 <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
-                      onsubmit="return confirm('Supprimer ce composant ?')">
+                      onsubmit="return confirm('Supprimer ce composant ? Cette action est irréversible.')">
+                    <input type="hidden" name="confirm_delete" value="yes"/>
                     <button type="submit" class="btn btn-danger btn-full">🗑️ Supprimer</button>
                 </form>
             </div>
@@ -524,9 +525,10 @@ function adjustQty(id, delta, btn) {
             el.textContent = data.new_qty;
             el.className = 'dcomp-qty-val' +
                 (data.new_qty === 0 ? ' qty-zero' : data.is_low ? ' qty-low' : '');
-        } else alert(data.error);
+        } else alert(data.error || 'Erreur');
         btn.disabled = false;
-    });
+    })
+    .catch(() => { btn.disabled = false; alert('Erreur réseau'); });
 }
 
 function openLightbox(src, title) {
@@ -567,10 +569,23 @@ function _replaceWithImg(phId, src, title) {
 
 function enrichComponent(id) {
     const btn = document.getElementById('enrich-btn');
-    btn.textContent = '⏳'; btn.disabled = true;
-    fetch(`/enrich/${id}`, {method:'POST'}).then(r=>r.json()).then(data => {
-        if (data.ok) location.reload();
-        else { btn.textContent='❌'; setTimeout(()=>{ btn.textContent='Récupérer'; btn.disabled=false; },3000); }
+    const orig = btn.textContent;
+    btn.textContent = '⏳ Récupération…'; btn.disabled = true;
+    fetch(`/enrich/${id}`, {method:'POST'})
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            btn.textContent = '✅ Terminé !';
+            setTimeout(() => location.reload(), 800);
+        } else {
+            btn.textContent = '❌ Échec';
+            btn.title = data.error || 'Erreur inconnue';
+            setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.title = ''; }, 3000);
+        }
+    })
+    .catch(() => {
+        btn.textContent = '❌ Erreur réseau';
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
     });
 }
 </script>

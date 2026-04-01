@@ -150,20 +150,30 @@ def remove_component(project_id, component_id):
 
 @project_bp.route("/<int:project_id>/components/<int:component_id>/use", methods=["POST"])
 def use_component(project_id, component_id):
-    """Débite le stock et enregistre un mouvement 'project_use'."""
+    """Débite le stock et enregistre un mouvement."""
     quantity = request.form.get("quantity", 1, type=int)
     result   = ComponentModel.adjust_quantity(component_id, -quantity)
     if result["ok"]:
+        try:
+            from ..models.movement import MovementModel
+            MovementModel.record(component_id, "out", quantity, note=f"Projet #{project_id}")
+        except Exception:
+            pass
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
     return jsonify({"ok": False, "error": result["error"]}), 400
 
 
 @project_bp.route("/<int:project_id>/components/<int:component_id>/return", methods=["POST"])
 def return_component(project_id, component_id):
-    """Recrédite le stock et enregistre un mouvement 'project_return'."""
+    """Recrédite le stock et enregistre un mouvement."""
     quantity = request.form.get("quantity", 1, type=int)
     result   = ComponentModel.adjust_quantity(component_id, +quantity)
     if result["ok"]:
+        try:
+            from ..models.movement import MovementModel
+            MovementModel.record(component_id, "in", quantity, note=f"Retour projet #{project_id}")
+        except Exception:
+            pass
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
     return jsonify({"ok": False, "error": result["error"]}), 400
 
@@ -502,9 +512,9 @@ def _analyse_bom(rows: list[dict], project_id: int) -> dict | None:
     }
 
     for row in rows:
-        lcsc_ref    = row.get(lcsc_col,    "").strip().upper() if lcsc_col    else ""
-        mouser_ref  = row.get(mouser_col,  "").strip()         if mouser_col  else ""
-        digikey_ref = row.get(digikey_col, "").strip()         if digikey_col else ""
+        lcsc_ref    = " ".join(row.get(lcsc_col,    "").split()).upper() if lcsc_col    else ""
+        mouser_ref  = " ".join(row.get(mouser_col,  "").split())        if mouser_col  else ""
+        digikey_ref = " ".join(row.get(digikey_col, "").split())        if digikey_col else ""
         qty_raw     = row.get(qty_col, "1").strip() if qty_col else "1"
         ref         = row.get(ref_col, "").strip()  if ref_col else ""
         val         = row.get(val_col, "").strip()  if val_col else ""
@@ -554,13 +564,17 @@ def _analyse_bom(rows: list[dict], project_id: int) -> dict | None:
 
         if stock_row:
             comp_id = stock_row["id"]
-            # Met à jour les refs manquantes sur le composant existant
+            # Met à jour les refs manquantes sur le composant existant (1 seul SELECT)
+            existing_refs = db.execute(
+                "SELECT lcsc_part_number, mouser_part_number, digikey_part_number FROM components WHERE id=?",
+                (comp_id,)
+            ).fetchone()
             updates = {}
-            if has_mouser  and not db.execute("SELECT mouser_part_number  FROM components WHERE id=?", (comp_id,)).fetchone()["mouser_part_number"]:
+            if has_mouser  and not existing_refs["mouser_part_number"]:
                 updates["mouser_part_number"]  = mouser_ref
-            if has_digikey and not db.execute("SELECT digikey_part_number FROM components WHERE id=?", (comp_id,)).fetchone()["digikey_part_number"]:
+            if has_digikey and not existing_refs["digikey_part_number"]:
                 updates["digikey_part_number"] = digikey_ref
-            if has_lcsc    and not db.execute("SELECT lcsc_part_number    FROM components WHERE id=?", (comp_id,)).fetchone()["lcsc_part_number"]:
+            if has_lcsc    and not existing_refs["lcsc_part_number"]:
                 updates["lcsc_part_number"]    = lcsc_ref
             if updates:
                 fields = ", ".join(f"{k} = ?" for k in updates)
