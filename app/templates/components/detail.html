@@ -5,7 +5,7 @@
 
 <!-- ── Retour simple ───────────────────────────────────────────── -->
 <div style="margin-bottom:.85rem">
-    <a href="{{ url_for('components.stock') }}" class="btn-back">← Retour au stock</a>
+    <a href="{{ url_for('components.stock') }}" class="btn-back">{{ t.detail.back_stock }}</a>
 </div>
 
 <!-- ── Layout principal ───────────────────────────────────────── -->
@@ -25,13 +25,13 @@
                             <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
                                  alt="{{ component.description }}"
                                  onclick="openLightbox(this.src, 'Photo')"
-                                 class="dcomp-gallery-main-img" title="Agrandir"/>
+                                 class="dcomp-gallery-main-img" title="{{ t.detail.title_enlarge }}"/>
                         {% else %}
                             <div class="dcomp-gallery-main-empty">
                                 <span>📷</span>
                                 {% if component.lcsc_part_number or component.digikey_part_number or component.mouser_part_number %}
                                 <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
-                                        onclick="enrichComponent({{ component.id }})">Récupérer</button>
+                                        onclick="enrichComponent({{ component.id }})">{{ t.detail.btn_fetch }}</button>
                                 {% endif %}
                             </div>
                         {% endif %}
@@ -42,30 +42,30 @@
                         <div class="dcomp-gallery-thumb-item" id="gallery-symbol">
                             {% if component.symbol_png %}
                                 <img src="{{ url_for('components.easyeda_png_file', filename=component.symbol_png.split('easyeda_pngs/')|last) }}"
-                                     alt="Symbole" onclick="openLightbox(this.src, 'Symbole')"
-                                     class="dcomp-gallery-thumb-img" title="Agrandir"/>
+                                     alt="{{ t.detail.alt_symbol }}" onclick="openLightbox(this.src, 'Symbole')"
+                                     class="dcomp-gallery-thumb-img" title="{{ t.detail.title_enlarge }}"/>
                             {% else %}
                                 <div class="dcomp-gallery-load" id="sym-placeholder"
-                                     onclick="loadPngs()" title="Charger">
+                                     onclick="loadPngs()" title="{{ t.detail.title_load }}">
                                     <span>〜</span>
-                                    <span class="dcomp-load-hint" id="sym-hint">Charger</span>
+                                    <span class="dcomp-load-hint" id="sym-hint">{{ t.detail.btn_load }}</span>
                                 </div>
                             {% endif %}
-                            <span class="dcomp-gallery-label">Symbole</span>
+                            <span class="dcomp-gallery-label">{{ t.detail.label_symbol }}</span>
                         </div>
                         <div class="dcomp-gallery-thumb-item" id="gallery-footprint">
                             {% if component.footprint_png %}
                                 <img src="{{ url_for('components.easyeda_png_file', filename=component.footprint_png.split('easyeda_pngs/')|last) }}"
-                                     alt="Footprint" onclick="openLightbox(this.src, 'Footprint')"
-                                     class="dcomp-gallery-thumb-img" title="Agrandir"/>
+                                     alt="{{ t.detail.alt_footprint }}" onclick="openLightbox(this.src, 'Footprint')"
+                                     class="dcomp-gallery-thumb-img" title="{{ t.detail.title_enlarge }}"/>
                             {% else %}
                                 <div class="dcomp-gallery-load" id="fp-placeholder"
-                                     onclick="loadPngs()" title="Charger">
+                                     onclick="loadPngs()" title="{{ t.detail.title_load }}">
                                     <span>⬡</span>
-                                    <span class="dcomp-load-hint" id="fp-hint">Charger</span>
+                                    <span class="dcomp-load-hint" id="fp-hint">{{ t.detail.btn_load }}</span>
                                 </div>
                             {% endif %}
-                            <span class="dcomp-gallery-label">Footprint</span>
+                            <span class="dcomp-gallery-label">{{ t.detail.label_footprint }}</span>
                         </div>
                     </div>
                     {% endif %}
@@ -81,7 +81,7 @@
                         <p class="dcomp-subtitle">{{ component.description_long }}</p>
                         {% endif %}
                         <div class="dcomp-badges">
-                            {% if component.rohs == 'YES' %}<span class="badge badge-green">RoHS</span>{% endif %}
+                            {% if component.rohs == 'YES' %}<span class="badge badge-green">{{ t.detail.label_rohs }}</span>{% endif %}
                             {% if component.package %}<span class="badge badge-gray">{{ component.package }}</span>{% endif %}
                             {% if component.category %}
                             <span class="badge badge-blue" title="{{ component.category }}">
@@ -90,7 +90,7 @@
                             {% endif %}
                             {% if component.datasheet_url %}
                             <a href="{{ component.datasheet_url }}" target="_blank" rel="noopener"
-                               class="badge badge-purple" title="Ouvrir la datasheet">📄 DS</a>
+                               class="badge badge-purple" title="{{ t.detail.title_open_ds }}">{{ t.detail.label_ds }}</a>
                             {% endif %}
                         </div>
                     </div>
@@ -103,7 +103,7 @@
                         <div class="dcomp-field dcomp-field-full dcomp-refs-row">
                             {% if component.lcsc_part_number %}
                             <div class="dcomp-ref-item">
-                                <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>LCSC</span>
+                                <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ t.detail.label_lcsc }}</span>
                                 <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
                                    target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">
                                     {{ component.lcsc_part_number }}
@@ -112,8 +112,8 @@
                             {% endif %}
                             {% if component.mouser_part_number %}
                             <div class="dcomp-ref-item">
-                                <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>Mouser</span>
-                                {% if component.product_url and 'mouser' in component.product_url %}
+                                <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ t.detail.label_mouser }}</span>
+                                {% if component.product_url and 'mouser' in (('' ~ (component.product_url or ''))|lower) %}
                                 <a href="{{ component.product_url }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.mouser_part_number }}</a>
                                 {% else %}
                                 <a href="https://www.mouser.fr/Search/Refine?Keyword={{ component.mouser_part_number }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.mouser_part_number }}</a>
@@ -122,8 +122,8 @@
                             {% endif %}
                             {% if component.digikey_part_number %}
                             <div class="dcomp-ref-item">
-                                <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>DigiKey</span>
-                                {% if component.product_url and 'digikey' in component.product_url %}
+                                <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ t.detail.label_digikey }}</span>
+                                {% if component.product_url and 'digikey' in (('' ~ (component.product_url or ''))|lower) %}
                                 <a href="{{ component.product_url }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.digikey_part_number }}</a>
                                 {% else %}
                                 <a href="https://www.digikey.fr/fr/products/result?keywords={{ component.digikey_part_number }}" target="_blank" rel="noopener" class="dcomp-val mono dcomp-lcsc-link">{{ component.digikey_part_number }}</a>
@@ -135,49 +135,49 @@
 
                         {% if component.manufacture_part_number %}
                         <div class="dcomp-field">
-                            <span class="dcomp-lbl">Réf. fab.</span>
+                            <span class="dcomp-lbl">{{ t.detail.label_mpn }}</span>
                             <span class="dcomp-val mono">{{ component.manufacture_part_number }}</span>
                         </div>
                         {% endif %}
 
                         {% if component.manufacturer %}
                         <div class="dcomp-field">
-                            <span class="dcomp-lbl">Fabricant</span>
+                            <span class="dcomp-lbl">{{ t.detail.label_manufacturer }}</span>
                             <span class="dcomp-val">{{ component.manufacturer }}</span>
                         </div>
                         {% endif %}
 
                         {% if component.customer_no %}
                         <div class="dcomp-field">
-                            <span class="dcomp-lbl">N° client</span>
+                            <span class="dcomp-lbl">{{ t.detail.label_customer_no }}</span>
                             <span class="dcomp-val mono">{{ component.customer_no }}</span>
                         </div>
                         {% endif %}
 
                         {% if component.category %}
                         <div class="dcomp-field">
-                            <span class="dcomp-lbl">Catégorie</span>
+                            <span class="dcomp-lbl">{{ t.detail.label_category }}</span>
                             <span class="dcomp-val">{{ component.category }}</span>
                         </div>
                         {% endif %}
 
                         {% if component.location %}
                         <div class="dcomp-field">
-                            <span class="dcomp-lbl">Emplacement</span>
+                            <span class="dcomp-lbl">{{ t.detail.label_location }}</span>
                             <span class="dcomp-val">📍 {{ component.location }}</span>
                         </div>
                         {% endif %}
 
                         {% if component.unit_price is not none %}
                         <div class="dcomp-field">
-                            <span class="dcomp-lbl">Prix unit.</span>
+                            <span class="dcomp-lbl">{{ t.detail.label_unit_price }}</span>
                             <span class="dcomp-val">{{ "%.4f"|format(component.unit_price) }} €</span>
                         </div>
                         {% endif %}
 
                         {% if component.ext_price is not none %}
                         <div class="dcomp-field">
-                            <span class="dcomp-lbl">Prix lot</span>
+                            <span class="dcomp-lbl">{{ t.detail.label_ext_price }}</span>
                             <span class="dcomp-val">{{ "%.2f"|format(component.ext_price) }} €</span>
                         </div>
                         {% endif %}
@@ -190,7 +190,7 @@
 
                     {% if attributes_dict %}
                     <div class="dcomp-attrs">
-                        <div class="dcomp-attrs-title">⚙️ Caractéristiques</div>
+                        <div class="dcomp-attrs-title">{{ t.detail.label_attrs }}</div>
                         <div class="dcomp-attrs-grid">
                             {% for key, val in attributes_dict.items() %}
                             <span class="dcomp-attr-key">{{ key }}</span>
@@ -206,7 +206,7 @@
             <!-- Utilisé dans -->
             {% if projects_using %}
             <div class="dcomp-projects">
-                <span class="dcomp-projects-label">🗂️ Utilisé dans</span>
+                <span class="dcomp-projects-label">{{ t.detail.label_used_in }}</span>
                 <div class="dcomp-project-list">
                     {% for p in projects_using %}
                     <a href="{{ url_for('projects.detail', project_id=p.id) }}"
@@ -234,7 +234,7 @@
     <!-- ══ Colonne stock sticky ═════════════════════════════════ -->
     <div class="dcomp-side">
         <div class="dcomp-stock-card">
-            <div class="dcomp-stock-label">Stock disponible</div>
+            <div class="dcomp-stock-label">{{ t.detail.label_stock }}</div>
 
             <div class="dcomp-qty-row">
                 <button class="dcomp-qty-btn" onclick="adjustQty({{ component.id }}, -1, this)">−</button>
@@ -262,13 +262,13 @@
 
             <div class="dcomp-stock-actions">
                 <a href="{{ url_for('components.labels_print', ids=component.id|string) }}"
-                   class="btn btn-secondary btn-full" target="_blank">🏷️ Imprimer étiquette</a>
+                   class="btn btn-secondary btn-full" target="_blank">{{ t.detail.btn_label }}</a>
                 <a href="{{ url_for('components.edit', component_id=component.id) }}"
-                   class="btn btn-primary btn-full">✏️ Modifier</a>
+                   class="btn btn-primary btn-full">{{ t.detail.btn_edit }}</a>
                 <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
-                      onsubmit="return confirm('Supprimer ce composant ? Cette action est irréversible.')">
+                      onsubmit="return confirm('{{ t.detail.confirm_delete }}')">
                     <input type="hidden" name="confirm_delete" value="yes"/>
-                    <button type="submit" class="btn btn-danger btn-full">🗑️ Supprimer</button>
+                    <button type="submit" class="btn btn-danger btn-full">{{ t.detail.btn_delete }}</button>
                 </form>
             </div>
         </div>
@@ -525,10 +525,10 @@ function adjustQty(id, delta, btn) {
             el.textContent = data.new_qty;
             el.className = 'dcomp-qty-val' +
                 (data.new_qty === 0 ? ' qty-zero' : data.is_low ? ' qty-low' : '');
-        } else alert(data.error || 'Erreur');
+        } else alert(data.error || '{{ t.detail.error_generic }}');
         btn.disabled = false;
     })
-    .catch(() => { btn.disabled = false; alert('Erreur réseau'); });
+    .catch(() => { btn.disabled = false; alert('{{ t.detail.error_network }}'); });
 }
 
 function openLightbox(src, title) {
@@ -570,21 +570,21 @@ function _replaceWithImg(phId, src, title) {
 function enrichComponent(id) {
     const btn = document.getElementById('enrich-btn');
     const orig = btn.textContent;
-    btn.textContent = '⏳ Récupération…'; btn.disabled = true;
+    btn.textContent = '{{ t.detail.btn_fetching }}'; btn.disabled = true;
     fetch(`/enrich/${id}`, {method:'POST'})
     .then(r => r.json())
     .then(data => {
         if (data.ok) {
-            btn.textContent = '✅ Terminé !';
+            btn.textContent = '{{ t.detail.btn_fetch_ok }}';
             setTimeout(() => location.reload(), 800);
         } else {
-            btn.textContent = '❌ Échec';
-            btn.title = data.error || 'Erreur inconnue';
+            btn.textContent = '{{ t.detail.btn_fetch_fail }}';
+            btn.title = data.error || '{{ t.detail.error_unknown }}';
             setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.title = ''; }, 3000);
         }
     })
     .catch(() => {
-        btn.textContent = '❌ Erreur réseau';
+        btn.textContent = '{{ t.detail.error_network }}';
         setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000);
     });
 }

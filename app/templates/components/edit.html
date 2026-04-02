@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% from "partials/category_select.html" import category_select %}
-{% block title %}Modifier — {{ component.description or 'Composant' }}{% endblock %}
+{% block title %}{{ t.form.title_edit }} — {{ component.description or '' }}{% endblock %}
 
 {% block content %}
 <div style="margin-bottom:.85rem">
-    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← Retour</a>
+    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">{{ t.form.back }}</a>
 </div>
 
 <form method="post" action="{{ url_for('components.edit', component_id=component.id) }}" id="edit-form" enctype="multipart/form-data">
@@ -16,16 +16,16 @@
 
         <!-- Identification -->
         <div class="add-section">
-            <div class="add-section-title"><span class="add-section-icon">🔖</span> Identification</div>
+            <div class="add-section-title"><span class="add-section-icon">🔖</span> {{ t.form.section_id }}</div>
 
             <div class="add-field-full">
-                <label class="add-label">Description <span class="add-required">*</span></label>
+                <label class="add-label">{{ t.form.label_description }} <span class="add-required">*</span></label>
                 <input type="text" name="description" class="form-input" required
                        value="{{ component.description or '' }}"/>
             </div>
 
             <div class="add-field-full">
-                <label class="add-label">Sous-description <span class="add-hint-inline">optionnel</span></label>
+                <label class="add-label">{{ t.form.label_desc_long }} <span class="add-hint-inline">{{ t.form.hint_optional }}</span></label>
                 <input type="text" name="description_long" class="form-input"
                        value="{{ component.description_long or '' }}"
                        placeholder="ex: Resistors - Chip Resistor - Surface Mount RoHS"/>
@@ -33,27 +33,27 @@
 
             <div class="add-row-3">
                 <div class="add-field">
-                    <label class="add-label">Référence LCSC</label>
+                    <label class="add-label">{{ t.form.label_lcsc }}</label>
                     <input type="text" name="lcsc_part_number" class="form-input mono-input"
                            value="{{ component.lcsc_part_number or '' }}" placeholder="C149504"/>
                 </div>
                 <div class="add-field">
-                    <label class="add-label">Référence Mouser</label>
+                    <label class="add-label">{{ t.form.label_mouser }}</label>
                     <input type="text" name="mouser_part_number" class="form-input mono-input"
-                           value="{{ component.mouser_part_number or '' }}" placeholder="652-3852A-282101AL"/>
+                           value="{{ component.mouser_part_number or '' }}" placeholder="{{ t.form.ph_mouser }}"/>
                 </div>
                 <div class="add-field">
-                    <label class="add-label">Référence DigiKey</label>
+                    <label class="add-label">{{ t.form.label_digikey }}</label>
                     <input type="text" name="digikey_part_number" class="form-input mono-input"
-                           value="{{ component.digikey_part_number or '' }}" placeholder="296-6501-1-ND"/>
+                           value="{{ component.digikey_part_number or '' }}" placeholder="{{ t.form.ph_digikey }}"/>
                 </div>
                 <div class="add-field">
-                    <label class="add-label">Réf. fabricant</label>
+                    <label class="add-label">{{ t.form.label_mpn }}</label>
                     <input type="text" name="manufacture_part_number" class="form-input mono-input"
                            value="{{ component.manufacture_part_number or '' }}"/>
                 </div>
                 <div class="add-field">
-                    <label class="add-label">Fabricant</label>
+                    <label class="add-label">{{ t.form.label_manufacturer }}</label>
                     <input type="text" name="manufacturer" class="form-input"
                            value="{{ component.manufacturer or '' }}"/>
                 </div>
@@ -61,16 +61,16 @@
 
             <div class="add-row-2">
                 <div class="add-field">
-                    <label class="add-label">Package / Boîtier</label>
+                    <label class="add-label">{{ t.form.label_package }}</label>
                     <input type="text" name="package" class="form-input mono-input"
-                           value="{{ component.package or '' }}" placeholder="0805, SOT-23…"/>
+                           value="{{ component.package or '' }}" placeholder="{{ t.form.ph_package_short }}"/>
                 </div>
                 <div class="add-field">
-                    <label class="add-label">RoHS</label>
+                    <label class="add-label">{{ t.form.label_rohs }}</label>
                     <select name="rohs" class="form-input">
-                        <option value="">— Non renseigné</option>
-                        <option value="YES" {% if component.rohs == 'YES' %}selected{% endif %}>✅ YES</option>
-                        <option value="NO"  {% if component.rohs == 'NO'  %}selected{% endif %}>❌ NO</option>
+                        <option value="">{{ t.form.rohs_none }}</option>
+                        <option value="YES" {% if component.rohs == 'YES' %}selected{% endif %}>{{ t.form.rohs_yes }}</option>
+                        <option value="NO"  {% if component.rohs == 'NO'  %}selected{% endif %}>{{ t.form.rohs_no }}</option>
                     </select>
                 </div>
             </div>
@@ -78,14 +78,14 @@
             <!-- Image manuelle -->
             <div class="add-inner-sep"></div>
             <div class="add-field-full">
-                <label class="add-label">🖼️ Image du composant</label>
+                <label class="add-label">{{ t.form.label_image_edit }}</label>
                 <div class="img-upload-wrap">
                     {% if component.image_path %}
                     <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
                          class="img-upload-preview" id="img-preview" alt=""/>
                     {% else %}
                     <div class="img-upload-placeholder" id="img-preview-empty">
-                        <span>📷</span><span style="font-size:.75rem;color:var(--text-muted)">Aucune image</span>
+                        <span>📷</span><span style="font-size:.75rem;color:var(--text-muted)">{{ t.form.no_image }}</span>
                     </div>
                     {% endif %}
                     <div class="img-upload-controls">
@@ -95,7 +95,7 @@
                                    accept=".jpg,.jpeg,.png,.webp" hidden
                                    onchange="previewImage(this)"/>
                         </label>
-                        <span class="img-upload-hint">JPG, PNG ou WEBP — remplace l'image existante</span>
+                        <span class="img-upload-hint">{{ t.form.hint_image_edit }}</span>
                     </div>
                 </div>
             </div>
@@ -103,24 +103,24 @@
 
         <!-- Organisation -->
         <div class="add-section">
-            <div class="add-section-title"><span class="add-section-icon">🗂️</span> Organisation</div>
+            <div class="add-section-title"><span class="add-section-icon">🗂️</span> {{ t.form.section_org }}</div>
 
             <div class="add-row-2">
                 <div class="add-field">
-                    <label class="add-label">Catégorie</label>
+                    <label class="add-label">{{ t.form.label_category }}</label>
                     {{ category_select("category", component.category or "", category_groups) }}
                 </div>
                 <div class="add-field">
-                    <label class="add-label">Emplacement</label>
+                    <label class="add-label">{{ t.form.label_location }}</label>
                     <input type="text" name="location" class="form-input"
-                           value="{{ component.location or '' }}" placeholder="Boîte A3, Tiroir 12…"/>
+                           value="{{ component.location or '' }}" placeholder="{{ t.form.ph_location }}"/>
                 </div>
             </div>
 
             <div class="add-field-full">
-                <label class="add-label">Notes</label>
+                <label class="add-label">{{ t.form.label_notes }}</label>
                 <textarea name="notes" class="form-input" rows="3"
-                          placeholder="Remarques, liens…">{{ component.notes or '' }}</textarea>
+                          placeholder="{{ t.form.ph_notes_short }}">{{ component.notes or '' }}</textarea>
             </div>
         </div>
 
@@ -129,10 +129,10 @@
     <!-- ── Colonne latérale : Stock & Prix ────────────────────────── -->
     <div class="add-col-side">
         <div class="add-section add-section-sticky">
-            <div class="add-section-title"><span class="add-section-icon">📦</span> Stock &amp; Prix</div>
+            <div class="add-section-title"><span class="add-section-icon">📦</span> {{ t.form.section_stock }}</div>
 
             <div class="add-field">
-                <label class="add-label">Quantité <span class="add-required">*</span></label>
+                <label class="add-label">{{ t.form.label_qty }} <span class="add-required">*</span></label>
                 <div style="display:flex;align-items:stretch;width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
                     <button type="button" onclick="stepField('f-quantity',-1)"
                             style="width:40px;flex-shrink:0;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1.3rem;font-weight:700;transition:background .1s"
@@ -147,7 +147,7 @@
             </div>
 
             <div class="add-field">
-                <label class="add-label">Seuil d'alerte 🔔</label>
+                <label class="add-label">{{ t.form.label_min_stock }}</label>
                 <div style="display:flex;align-items:stretch;width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
                     <button type="button" onclick="stepField('f-min-stock',-1)"
                             style="width:36px;flex-shrink:0;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1rem;font-weight:700;transition:background .1s"
@@ -159,13 +159,13 @@
                             style="width:36px;flex-shrink:0;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1rem;font-weight:700;transition:background .1s"
                             onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
                 </div>
-                <span class="add-hint">0 = pas d'alerte</span>
+                <span class="add-hint">{{ t.form.hint_0_alert }}</span>
             </div>
 
             <div class="add-separator"></div>
 
             <div class="add-field">
-                <label class="add-label">Prix unitaire (€)</label>
+                <label class="add-label">{{ t.form.label_unit_price }}</label>
                 <input type="number" name="unit_price" id="f-unit-price" class="form-input"
                        step="0.0001" min="0"
                        value="{{ component.unit_price or '' }}" placeholder="0.0000"
@@ -183,9 +183,9 @@
 
             <div class="add-separator"></div>
 
-            <button type="submit" class="btn btn-primary btn-full">💾 Enregistrer</button>
+            <button type="submit" class="btn btn-primary btn-full">{{ t.form.btn_save }}</button>
             <a href="{{ url_for('components.detail', component_id=component.id) }}"
-               class="btn btn-secondary btn-full" style="margin-top:.4rem">Annuler</a>
+               class="btn btn-secondary btn-full" style="margin-top:.4rem">{{ t.form.btn_cancel }}</a>
         </div>
     </div>
 

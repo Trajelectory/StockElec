@@ -4,10 +4,12 @@ from .database import get_db
 class MovementModel:
 
     TYPES = {
-        "in":     ("📥", "Entrée",       "mv-badge-in"),
-        "out":    ("📤", "Sortie",       "mv-badge-out"),
-        "adjust": ("🔧", "Ajustement",   "mv-badge-adj"),
-        "init":   ("🌱", "Initialisation","mv-badge-init"),
+        "in":             ("📥", "Entrée",          "mv-badge-in"),
+        "out":            ("📤", "Sortie",           "mv-badge-out"),
+        "adjust":         ("🔧", "Ajustement",       "mv-badge-adj"),
+        "init":           ("🌱", "Initialisation",   "mv-badge-init"),
+        "project_use":    ("🔩", "Projet — débit",   "mv-badge-out"),
+        "project_return": ("↩️",  "Projet — retour",  "mv-badge-in"),
     }
 
     @staticmethod

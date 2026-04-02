@@ -3,27 +3,27 @@
 
 {% block content %}
 <div class="page-header">
-    <a href="{{ url_for('components.import_csv') }}" class="btn-back">← Nouvel import</a>
-    <h1>📥 Résultat de l'import</h1>
+    <a href="{{ url_for('components.import_csv') }}" class="btn-back">{{ t.import_result.back }}</a>
+    <h1>{{ t.import_result.title }}</h1>
 </div>
 
 <!-- Résumé général -->
 <div class="dash-row" style="margin-bottom:1.25rem">
     <div class="card" style="text-align:center">
         <div style="font-size:2rem;font-weight:800;color:var(--success)">{{ inserted }}</div>
-        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">importé(s)</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">{{ t.import_result.imported }}</div>
     </div>
     <div class="card" style="text-align:center">
         <div style="font-size:2rem;font-weight:800;color:var(--warning)">{{ duplicates|length }}</div>
-        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">doublon(s)</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">{{ t.import_result.duplicates }}</div>
     </div>
     <div class="card" style="text-align:center">
         <div style="font-size:2rem;font-weight:800;color:var(--text-muted)">{{ skipped }}</div>
-        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">ignoré(s)</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">{{ t.import_result.skipped }}</div>
     </div>
     <div class="card" style="text-align:center">
         <div style="font-size:2rem;font-weight:800;color:{{ 'var(--danger)' if errors else 'var(--success)' }}">{{ errors|length }}</div>
-        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">erreur(s)</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.25rem">{{ t.import_result.errors }}</div>
     </div>
 </div>
 
@@ -38,7 +38,7 @@
         {% if mouser_ids %}— {{ mouser_ids|length }} Mouser{% endif %}
         {% if digikey_ids %}— {{ digikey_ids|length }} DigiKey{% endif %}
     </span>
-    <span id="enrich-done" style="display:none;color:var(--success);font-weight:700">✅ Terminé — données récupérées !</span>
+    <span id="enrich-done" style="display:none;color:var(--success);font-weight:700">{{ t.import_result.enrich_done }}</span>
 </div>
 <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 <script>
@@ -82,7 +82,7 @@ scheduleNext();
 <div class="card" style="margin-bottom:1rem;border-color:rgba(239,68,68,.3)">
     <div class="card-title" style="color:var(--danger)">❌ Erreurs ({{ errors|length }})</div>
     <table class="data-table">
-        <thead><tr><th>#</th><th>Détail de l'erreur</th></tr></thead>
+        <thead><tr><th>#</th><th>{{ t.import_result.col_error }}</th></tr></thead>
         <tbody>
         {% for e in errors %}
         <tr><td class="td-mono" style="color:var(--danger);white-space:nowrap">{{ loop.index }}</td>
@@ -107,7 +107,7 @@ scheduleNext();
 
 <!-- Actions -->
 <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1.5rem">
-    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">📦 Voir le stock</a>
-    <a href="{{ url_for('components.import_csv') }}" class="btn btn-secondary">📥 Nouvel import</a>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">{{ t.import_result.btn_stock }}</a>
+    <a href="{{ url_for('components.import_csv') }}" class="btn btn-secondary">{{ t.import_result.btn_import }}</a>
 </div>
 {% endblock %}

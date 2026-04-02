@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-header">
-    <a href="{{ url_for('projects.index') }}" class="btn-back">← Projets</a>
+    <a href="{{ url_for('projects.index') }}" class="btn-back">{{ t.project_form.back }}</a>
     <h1>{{ '✏️ Modifier' if project else '➕ Nouveau' }} projet</h1>
 </div>
 
@@ -13,20 +13,20 @@
             <div class="form-grid">
 
                 <div class="form-group form-group-full">
-                    <label>Nom du projet *</label>
+                    <label>{{ t.project_form.label_name }}</label>
                     <input type="text" name="name" class="form-input" required
                            value="{{ project.name if project else '' }}"
-                           placeholder="ex: Robot bras articulé"/>
+                           placeholder="{{ t.project_form.ph_name }}"/>
                 </div>
 
                 <div class="form-group form-group-full">
-                    <label>Description</label>
+                    <label>{{ t.project_form.label_desc }}</label>
                     <textarea name="description" class="form-input" rows="3"
-                              placeholder="Description du projet…">{{ project.description if project else '' }}</textarea>
+                              placeholder="{{ t.project_form.ph_desc }}">{{ project.description if project else '' }}</textarea>
                 </div>
 
                 <div class="form-group">
-                    <label>Statut</label>
+                    <label>{{ t.project_form.label_status }}</label>
                     <select name="status" class="form-input">
                         {% for s in status_options %}
                         <option value="{{ s }}" {% if project and project.status == s %}selected{% endif %}>{{ s }}</option>
@@ -36,7 +36,7 @@
 
                 <!-- Image du projet -->
                 <div class="form-group">
-                    <label>Image du projet</label>
+                    <label>{{ t.project_form.label_image }}</label>
                     <div class="project-img-upload" id="img-upload-zone">
                         {% if project and project.image_path %}
                             <!-- Image existante -->
@@ -44,20 +44,20 @@
                                 <img src="{{ url_for('projects.project_image', filename=project.image_path) }}"
                                      alt="{{ project.name }}" id="preview-img"/>
                                 <button type="button" class="project-img-remove"
-                                        onclick="removeImage()" title="Supprimer l'image">✕</button>
+                                        onclick="removeImage()" title="{{ t.project_form.title_delete_img }}">✕</button>
                             </div>
                             <input type="hidden" name="delete_image" id="delete-image" value="0"/>
                         {% else %}
                             <div class="project-img-placeholder" id="img-placeholder"
                                  onclick="document.getElementById('image-input').click()">
                                 <span>🖼️</span>
-                                <p>Cliquer pour ajouter une image</p>
-                                <p style="font-size:.75rem;color:var(--text-muted)">JPG, PNG, WEBP</p>
+                                <p>{{ t.project_form.hint_click }}</p>
+                                <p style="font-size:.75rem;color:var(--text-muted)">{{ t.project_form.hint_image }}</p>
                             </div>
                             <div class="project-img-preview" id="img-preview" style="display:none">
                                 <img src="" alt="" id="preview-img"/>
                                 <button type="button" class="project-img-remove"
-                                        onclick="removeImage()" title="Supprimer">✕</button>
+                                        onclick="removeImage()" title="{{ t.project_form.title_delete }}">✕</button>
                             </div>
                             <input type="hidden" name="delete_image" id="delete-image" value="0"/>
                         {% endif %}
@@ -74,8 +74,8 @@
         </div>
 
         <div class="form-actions">
-            <button type="submit" class="btn btn-primary">💾 Enregistrer</button>
-            <a href="{{ url_for('projects.index') }}" class="btn btn-secondary">Annuler</a>
+            <button type="submit" class="btn btn-primary">{{ t.project_form.btn_save }}</button>
+            <a href="{{ url_for('projects.index') }}" class="btn btn-secondary">{{ t.project_form.btn_cancel }}</a>
         </div>
     </form>
 </div>

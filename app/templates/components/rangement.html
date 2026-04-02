@@ -4,10 +4,10 @@
 {% block content %}
 
 <div class="page-header">
-    <h1>📦 Rangement</h1>
+    <h1>{{ t.storage.title }}</h1>
     <div style="display:flex;gap:.5rem;align-items:center">
-        <button class="btn btn-secondary btn-sm" onclick="toggleConfig()">⚙️ Gérer les plateaux</button>
-        <button class="btn btn-primary btn-sm" id="btn-save" onclick="saveAll()">💾 Sauvegarder</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleConfig()">{{ t.storage.btn_manage }}</button>
+        <button class="btn btn-primary btn-sm" id="btn-save" onclick="saveAll()">{{ t.storage.btn_save }}</button>
     </div>
 </div>
 
@@ -15,10 +15,10 @@
 <div id="config-panel" style="display:none;margin-bottom:1.25rem">
     <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-            <div class="card-title" style="margin:0">⚙️ Plateaux <span style="font-weight:400;font-size:.8rem;color:var(--text-muted)">({{ config.plateaux|length }} au total)</span></div>
+            <div class="card-title" style="margin:0">{{ t.storage.card_plateaux }} <span style="font-weight:400;font-size:.8rem;color:var(--text-muted)">({{ config.plateaux|length }} au total)</span></div>
             <div style="display:flex;gap:.5rem">
-                <button class="btn btn-secondary btn-sm" onclick="addPlateau()">➕ Ajouter</button>
-                <button class="btn btn-primary btn-sm" onclick="saveConfig()">💾 Appliquer</button>
+                <button class="btn btn-secondary btn-sm" onclick="addPlateau()">{{ t.storage.btn_add_plateau }}</button>
+                <button class="btn btn-primary btn-sm" onclick="saveConfig()">{{ t.storage.btn_apply }}</button>
             </div>
         </div>
         <div id="plateau-list"
@@ -26,9 +26,9 @@
             {% for p in config.plateaux %}
             <div class="plateau-cfg-row"
                  style="display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
-                <input type="text" placeholder="ID" value="{{ p.id }}"
+                <input type="text" placeholder="{{ t.storage.ph_id }}" value="{{ p.id }}"
                        class="form-input cfg-pid" style="width:44px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono);padding:.25rem;font-size:.8rem"/>
-                <input type="text" placeholder="Nom" value="{{ p.label }}"
+                <input type="text" placeholder="{{ t.storage.ph_name }}" value="{{ p.label }}"
                        class="form-input cfg-plabel" style="flex:1;padding:.25rem .4rem;font-size:.8rem"/>
                 <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
                     <button type="button" onclick="stepInput(this.nextElementSibling,-1)"
@@ -55,7 +55,7 @@
             </div>
             {% endfor %}
         </div>
-        <span style="font-size:.72rem;color:var(--text-muted)">💡 L'ID + n° de case devient l'emplacement (ex: A3, B12)</span>
+        <span style="font-size:.72rem;color:var(--text-muted)">{{ t.storage.hint_id }}</span>
     </div>
 </div>
 
@@ -85,12 +85,19 @@
         <div id="stat-bar" style="height:100%;background:var(--accent);border-radius:2px;transition:width .3s;width:0%"></div>
     </div>
     <!-- Slider zoom -->
-    <label style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--text-muted);margin-left:auto">
+    <label style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--text-muted)">
         🔍
         <input type="range" min="44" max="120" value="88" step="4" id="cell-zoom"
                style="width:72px;accent-color:var(--accent)"
                oninput="document.documentElement.style.setProperty('--gf-cell', this.value + 'px')"/>
     </label>
+    <!-- Bouton vider plateau actif -->
+    <button id="btn-clear-plateau" class="btn btn-danger btn-sm"
+            onclick="clearCurrentPlateau()"
+            style="margin-left:auto;font-size:.78rem;padding:.3rem .7rem"
+            title="{{ t.storage.title_clear }}">
+        {{ t.storage.btn_clear }}
+    </button>
 </div>
 
 <!-- ── Grille ─────────────────────────────────────────────────────── -->
@@ -100,7 +107,7 @@
          style="display:{% if loop.first %}flex{% else %}none{% endif %};justify-content:center">
         <div class="gf-grid" id="grid-{{ p.id }}"
              data-pid="{{ p.id }}" data-cols="{{ p.cols }}" data-rows="{{ p.rows }}"
-             style="display:grid;grid-template-columns:repeat({{ p.cols }},88px);grid-template-rows:repeat({{ p.rows }},88px);gap:6px">
+             style="display:grid;grid-template-columns:repeat({{ p.cols }},var(--gf-cell));grid-template-rows:repeat({{ p.rows }},var(--gf-cell));gap:var(--gf-gap)">
             {# On rend toutes les cases — les cases "absorbées" par un span seront masquées via JS #}
             {% for row in range(p.rows) %}
             {% for col in range(p.cols) %}
@@ -119,9 +126,12 @@
                  data-col="{{ col + 1 }}"
                  data-sw="{{ sw }}"
                  data-sh="{{ sh }}"
-                 onclick="openPopup('{{ cell_id }}')"
+                 
                  oncontextmenu="openContextMenu(event, '{{ cell_id }}')"
-                 title="{{ cell_id }}{% if comp %} — {{ comp.description or comp.lcsc_part_number }}{% endif %}"
+                 onmouseenter="showTooltip(event, '{{ cell_id }}')"
+                 onmousemove="showTooltip(event, '{{ cell_id }}')"
+                 onmouseleave="hideTooltip()"
+                 title=""
                  style="grid-column: {{ col+1 }} / span {{ sw }};grid-row: {{ row+1 }} / span {{ sh }};">
 
                 <span class="gf-cell-id">{{ cell_id }}{% if size != '1x1' %} <span style="opacity:.6;font-size:.5rem">{{ size }}</span>{% endif %}</span>
@@ -152,8 +162,8 @@
     <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;width:500px;max-width:95vw;height:600px;display:flex;flex-direction:column;gap:.75rem;box-shadow:var(--shadow)">
         <div style="display:flex;align-items:center;gap:.75rem">
             <div>
-                <div style="font-weight:800;font-size:1rem" id="popup-title">Case A1</div>
-                <div style="font-size:.75rem;color:var(--text-muted)" id="popup-current">Vide</div>
+                <div style="font-weight:800;font-size:1rem" id="popup-title">{{ t.storage.cell_label }} A1</div>
+                <div style="font-size:.75rem;color:var(--text-muted)" id="popup-current">{{ t.storage.cell_empty }}</div>
             </div>
             <span id="popup-remaining" style="margin-left:auto;font-size:.75rem;color:var(--text-muted)"></span>
             <button onclick="closePopup()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1">✕</button>
@@ -161,7 +171,7 @@
 
         <!-- Taille de la boîte -->
         <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--bg-surface);border-radius:var(--radius-sm);flex-wrap:wrap">
-            <span style="font-size:.78rem;color:var(--text-muted);font-weight:600">📐 Taille de la boîte :</span>
+            <span style="font-size:.78rem;color:var(--text-muted);font-weight:600">{{ t.storage.box_size }}</span>
             {% for size in ['1x1','2x1','1x2','2x2','3x1','1x3','3x2','2x3','3x3','4x1','1x4'] %}
             <button class="gf-size-btn" data-size="{{ size }}" onclick="selectSize('{{ size }}')"
                     style="padding:.25rem .55rem;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .12s;font-family:var(--mono)">
@@ -171,34 +181,54 @@
         </div>
 
         <input type="text" id="popup-search" class="form-input"
-               placeholder="🔍 Chercher un composant, une référence LCSC…"
+               placeholder="{{ t.storage.ph_search }}"
                oninput="filterPopup(this.value)"/>
         <div id="popup-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.2rem;padding-right:.25rem"></div>
         <div style="display:flex;gap:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">
-            <button class="btn btn-danger btn-sm" onclick="clearCell()">🗑️ Vider la case</button>
-            <button class="btn btn-secondary btn-sm" onclick="closePopup()" style="margin-left:auto">Fermer</button>
+            <button class="btn btn-danger btn-sm" onclick="clearCell()">{{ t.storage.btn_empty_cell }}</button>
+            <button class="btn btn-secondary btn-sm" onclick="closePopup()" style="margin-left:auto">{{ t.storage.btn_close }}</button>
         </div>
     </div>
 </div>
 
 <!-- ── Menu contextuel (clic droit) ──────────────────────────── -->
 <div id="ctx-menu"
-     style="display:none;position:fixed;z-index:500;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem;box-shadow:var(--shadow);min-width:180px">
+     style="display:none;position:fixed;z-index:500;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem;box-shadow:var(--shadow);min-width:200px">
     <div id="ctx-cell-label"
          style="font-size:.7rem;font-weight:700;color:var(--text-muted);padding:.3rem .6rem .4rem;font-family:var(--mono)"></div>
     <button class="ctx-item" onclick="ctxAssign()">
-        📦 Assigner un composant
+        📦 {{ t.storage.ctx_assign }}
     </button>
-    <div id="ctx-led-btn" style="display:none">
-        <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
-        <button class="ctx-item" onclick="ctxLed()">
-            💡 Allumer la LED
-        </button>
+    <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
+    <div class="ctx-item ctx-item-disabled" style="cursor:not-allowed;opacity:.45">
+        <span>💡 {{ t.storage.ctx_led }}</span>
+        <span style="font-size:.65rem;font-style:italic;color:var(--text-muted);margin-left:.4rem">{{ t.storage.ctx_soon }}</span>
     </div>
     <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
-    <button class="ctx-item ctx-item-danger" onclick="ctxClear()">
-        🗑️ Vider la case
+    <button class="ctx-item ctx-item-danger" id="ctx-clear-btn" onclick="ctxClear()">
+        🗑️ {{ t.storage.ctx_clear }}
     </button>
+</div>
+
+<!-- ── Infobulle composant (clic gauche sur case remplie) ──────── -->
+<div id="cell-tooltip"
+     style="display:none;position:fixed;z-index:450;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;box-shadow:var(--shadow);min-width:220px;max-width:300px;pointer-events:none">
+    <div id="tooltip-cell-id" style="font-size:.68rem;font-weight:700;color:var(--text-muted);font-family:var(--mono);margin-bottom:.4rem"></div>
+    <div style="display:flex;gap:.75rem;align-items:center">
+        <img id="tooltip-img" src="" style="width:48px;height:48px;object-fit:contain;border-radius:6px;display:none"/>
+        <span id="tooltip-icon" style="font-size:2rem;display:none">📦</span>
+        <div>
+            <div id="tooltip-name" style="font-weight:700;font-size:.85rem;color:var(--text);line-height:1.3"></div>
+            <div id="tooltip-lcsc" style="font-size:.72rem;color:var(--text-muted);font-family:var(--mono)"></div>
+            <div id="tooltip-mfg"  style="font-size:.72rem;color:var(--text-muted)"></div>
+        </div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem">
+        <span id="tooltip-qty"  style="font-size:.75rem;font-weight:700;padding:.15rem .45rem;border-radius:4px;background:var(--accent-dim);color:var(--accent)"></span>
+        <span id="tooltip-pkg"  style="font-size:.72rem;padding:.15rem .45rem;border-radius:4px;background:var(--bg-surface);color:var(--text-muted)"></span>
+        <span id="tooltip-loc"  style="font-size:.72rem;padding:.15rem .45rem;border-radius:4px;background:var(--bg-surface);color:var(--text-muted)"></span>
+    </div>
+    <div id="tooltip-hint" style="font-size:.68rem;color:var(--text-faint);margin-top:.5rem;font-style:italic"></div>
 </div>
 
 <style>
@@ -317,17 +347,24 @@ input[type=number] { -moz-appearance: textfield; }
 }
 
 .ctx-item {
-    display: block; width: 100%;
-    padding: .45rem .75rem;
+    display: flex; align-items: center; gap: .35rem;
+    width: 100%; padding: .45rem .75rem;
     background: transparent; border: none;
     color: var(--text); font-size: .83rem;
     text-align: left; cursor: pointer;
-    border-radius: 6px;
-    transition: background .1s;
+    border-radius: 6px; transition: background .1s;
+    box-sizing: border-box;
 }
 .ctx-item:hover { background: var(--bg-hover); }
 .ctx-item-danger { color: var(--danger); }
 .ctx-item-danger:hover { background: rgba(244,67,54,.1); }
+.ctx-item-danger:disabled { color: var(--text-muted) !important; cursor: not-allowed; background: none !important; }
+.ctx-item-disabled {
+    display: flex; align-items: center; gap: .35rem;
+    padding: .45rem .75rem; font-size: .83rem;
+    color: var(--text-muted); border-radius: 6px;
+    user-select: none;
+}
 
 .gf-size-btn {
     padding: .28rem .6rem;
@@ -429,8 +466,8 @@ function updateStats(pid) {
     const filled = Object.entries(assignments).filter(([k,v]) => k.startsWith(pid) && v).length;
     const pct    = total ? Math.round(filled / total * 100) : 0;
     document.getElementById('stat-nom').textContent  = p.label;
-    document.getElementById('stat-dims').textContent = `${p.cols}×${p.rows} cases`;
-    document.getElementById('stat-fill').textContent = `${filled}/${total} occupées · ${pct}%`;
+    document.getElementById('stat-dims').textContent = `${p.cols}×${p.rows} {{ t.storage.stat_cells }}`;
+    document.getElementById('stat-fill').textContent = `${filled}/${total} {{ t.storage.stat_occupied }} · ${pct}%`;
     document.getElementById('stat-bar').style.width  = pct + '%';
 }
 
@@ -450,10 +487,10 @@ function openPopup(cellId) {
     const compId = assignments[cellId];
     const comp   = compId ? COMPONENTS.find(c => c.id == compId) : null;
 
-    document.getElementById('popup-title').textContent   = `Case ${cellId}`;
+    document.getElementById('popup-title').textContent   = `{{ t.storage.cell_label }} ${cellId}`;
     document.getElementById('popup-current').textContent = comp
-        ? `Actuellement : ${comp.description || comp.lcsc_part_number}`
-        : 'Case vide';
+        ? (comp.description || comp.lcsc_part_number || comp.lcsc_part_number || '?')
+        : '{{ t.storage.cell_empty_popup }}';
 
     // Met à jour les boutons de taille
     document.querySelectorAll('.gf-size-btn').forEach(btn => {
@@ -462,7 +499,7 @@ function openPopup(cellId) {
     // Compteur
     const placed    = new Set(Object.values(assignments).map(v => String(v)));
     const remaining = COMPONENTS.filter(c => !placed.has(String(c.id))).length;
-    document.getElementById('popup-remaining').textContent = `${remaining} sans emplacement`;
+    document.getElementById('popup-remaining').textContent = `${remaining} {{ t.storage.tooltip_no_loc }}`;
 
     document.getElementById('popup-search').value = '';
     filterPopup('');
@@ -500,7 +537,7 @@ function filterPopup(q) {
     ).slice(0, 50);
 
     if (!filtered.length) {
-        list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem">Aucun résultat</div>';
+        list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem">{{ t.storage.empty_search }}</div>';
         return;
     }
 
@@ -647,6 +684,64 @@ function refreshCell(cellId) {
 
 // ── Auto-save ────────────────────────────────────────────────────
 let _saveTimer = null;
+function clearCurrentPlateau() {
+    const pid = activePid;
+    if (!pid) return;
+
+    // Trouver le nom du plateau
+    const tabBtn = document.querySelector(`.gf-tab[data-pid="${pid}"]`);
+    const label  = tabBtn ? tabBtn.querySelector('span:nth-child(2)').textContent : pid;
+    const count  = Object.keys(assignments).filter(k => k.startsWith(pid)).length;
+
+    if (count === 0) {
+        alert(`Le plateau "${label}" est déjà vide.`);
+        return;
+    }
+    if (!confirm(`Vider le plateau "${label}" ?
+${count} case(s) seront libérées.
+Les composants resteront dans le stock mais perdront leur emplacement.`)) {
+        return;
+    }
+
+    // Supprimer toutes les assignations de ce plateau
+    Object.keys(assignments)
+        .filter(k => k.startsWith(pid))
+        .forEach(k => delete assignments[k]);
+
+    // Rafraîchir l'affichage via initGrid (gère tout le rendu des cases)
+    initGrid(pid);
+    updateStats(pid);
+    updateTabCount(pid);
+
+    // Sauvegarder
+    const btn = document.getElementById('btn-clear-plateau');
+    btn.textContent = '⏳';
+    btn.disabled = true;
+    fetch('/rangement/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({assignments, sizes})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok !== false) {
+            btn.textContent = '✅ Vidé';
+            setTimeout(() => {
+                btn.textContent = '{{ t.storage.btn_clear }}';
+                btn.disabled = false;
+            }, 1500);
+            updateStats();
+        } else {
+            btn.textContent = '❌ Erreur';
+            btn.disabled = false;
+        }
+    })
+    .catch(() => {
+        btn.textContent = '❌ Erreur réseau';
+        btn.disabled = false;
+    });
+}
+
 function autoSave() {
     const btn = document.getElementById('btn-save');
     btn.textContent = '⏳ Sauvegarde…';
@@ -661,13 +756,13 @@ function autoSave() {
         .then(data => {
             if (data.ok !== false) {
                 btn.textContent = '✅ Sauvegardé';
-                setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 1800);
+                setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 1800);
             } else {
                 btn.textContent = '❌ Erreur';
-                setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 2000);
+                setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 2000);
             }
         })
-        .catch(() => { btn.textContent = '❌ Erreur réseau'; setTimeout(() => { btn.textContent = '💾 Sauvegarder'; }, 2000); });
+        .catch(() => { btn.textContent = '❌ Erreur réseau'; setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 2000); });
     }, 600);
 }
 
@@ -681,7 +776,7 @@ function saveAll() {
         body: JSON.stringify({assignments, sizes})
     }).then(r => r.json()).then(() => {
         btn.textContent = '✅ Sauvegardé !';
-        setTimeout(() => { btn.textContent = '💾 Sauvegarder'; btn.disabled = false; }, 2000);
+        setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; btn.disabled = false; }, 2000);
     }).catch(() => { btn.textContent = '❌ Erreur'; btn.disabled = false; });
 }
 
@@ -697,7 +792,7 @@ function addPlateau() {
     div.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)';
     div.innerHTML = `
         <input type="text" placeholder="ID" value="" class="form-input cfg-pid" style="width:44px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono);padding:.25rem;font-size:.8rem"/>
-        <input type="text" placeholder="Nom" value="Nouveau plateau" class="form-input cfg-plabel" style="flex:1;padding:.25rem .4rem;font-size:.8rem"/>
+        <input type="text" placeholder="{{ t.storage.ph_name }}" value="Nouveau plateau" class="form-input cfg-plabel" style="flex:1;padding:.25rem .4rem;font-size:.8rem"/>
         <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
             <button type="button" onclick="stepInput(this.nextElementSibling,-1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
             <input type="number" value="7" min="1" max="20" class="cfg-pcols" style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
@@ -715,7 +810,7 @@ function addPlateau() {
     list.scrollTop = list.scrollHeight;
 }
 function removePlateau(btn) {
-    if (!confirm('Supprimer ce plateau ?')) return;
+    if (!confirm('{{ t.storage.confirm_delete }}')) return;
     btn.closest('.plateau-cfg-row').remove();
 }
 function saveConfig() {
@@ -734,9 +829,9 @@ function saveConfig() {
     .then(r => r.json())
     .then(data => {
         if (data.ok !== false) window.location.reload();
-        else alert('Erreur lors de la sauvegarde : ' + (data.error || 'inconnue'));
+        else alert('{{ t.storage.err_save_colon }}' + (data.error || ''));
     })
-    .catch(() => alert('Erreur lors de la sauvegarde'));
+    .catch(() => alert('{{ t.storage.err_save }}'));
 }
 
 // ── Navigation tabs ──────────────────────────────────────────────
@@ -756,21 +851,77 @@ function updateTabsArrows() {
 
 document.getElementById('gf-tabs-bar')?.addEventListener('scroll', updateTabsArrows);
 
+// ── Infobulle (survol ou clic sur case remplie) ───────────────────
+let _tooltipTimer = null;
+
+function showTooltip(e, cellId) {
+    const compId = assignments[cellId];
+    if (!compId) return;
+    const comp = COMPONENTS.find(c => c.id == compId);
+    if (!comp) return;
+
+    clearTimeout(_tooltipTimer);
+    _tooltipTimer = setTimeout(() => {
+        const tt = document.getElementById('cell-tooltip');
+
+        document.getElementById('tooltip-cell-id').textContent = `{{ t.storage.cell_label }} ${cellId}`;
+        document.getElementById('tooltip-name').textContent    = comp.description || comp.lcsc_part_number || '?';
+        document.getElementById('tooltip-lcsc').textContent    = comp.lcsc_part_number || '';
+        document.getElementById('tooltip-mfg').textContent     = comp.manufacturer ? `🏭 ${comp.manufacturer}` : '';
+        document.getElementById('tooltip-qty').textContent     = `${comp.quantity} pcs`;
+        document.getElementById('tooltip-pkg').textContent     = comp.package || '';
+        document.getElementById('tooltip-loc').textContent     = comp.location || '{{ t.storage.tooltip_no_loc }}';
+        document.getElementById('tooltip-hint').textContent    = '{{ t.storage.tooltip_right_click }}';
+
+        // Image
+        const img  = document.getElementById('tooltip-img');
+        const icon = document.getElementById('tooltip-icon');
+        if (comp.image_path) {
+            img.src = '/images/' + comp.image_path.split('images/').pop();
+            img.style.display  = 'block';
+            icon.style.display = 'none';
+        } else {
+            img.style.display  = 'none';
+            icon.style.display = 'inline';
+        }
+
+        // Positionner
+        tt.style.display = 'block';
+        const x = Math.min(e.clientX + 12, window.innerWidth  - tt.offsetWidth  - 12);
+        const y = Math.min(e.clientY + 12, window.innerHeight - tt.offsetHeight - 12);
+        tt.style.left = x + 'px';
+        tt.style.top  = y + 'px';
+    }, 200);
+}
+
+function hideTooltip() {
+    clearTimeout(_tooltipTimer);
+    document.getElementById('cell-tooltip').style.display = 'none';
+}
+
 // ── Menu contextuel ──────────────────────────────────────────────
 let _ctxCell = null;
 
 function openContextMenu(e, cellId) {
     e.preventDefault();
     e.stopPropagation();
+    hideTooltip();
     _ctxCell = cellId;
 
-    const menu    = document.getElementById('ctx-menu');
-    const hasCom  = !!assignments[cellId];  // lit l'état réel actuel
+    const hasCom = !!assignments[cellId];
+    document.getElementById('ctx-cell-label').textContent = `{{ t.storage.cell_label }} ${cellId}`;
 
-    document.getElementById('ctx-cell-label').textContent = `Case ${cellId}`;
-    document.getElementById('ctx-led-btn').style.display = hasCom ? 'block' : 'none';
+    // Vider la case : désactivé si case vide
+    const clearBtn = document.getElementById('ctx-clear-btn');
+    if (hasCom) {
+        clearBtn.disabled = false;
+        clearBtn.style.opacity = '1';
+    } else {
+        clearBtn.disabled = true;
+        clearBtn.style.opacity = '.35';
+    }
 
-    // Positionne le menu sous le curseur
+    const menu = document.getElementById('ctx-menu');
     menu.style.display = 'block';
     const x = Math.min(e.clientX, window.innerWidth  - menu.offsetWidth  - 8);
     const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
@@ -780,33 +931,40 @@ function openContextMenu(e, cellId) {
 
 function closeContextMenu() {
     document.getElementById('ctx-menu').style.display = 'none';
-    _ctxCell = null;
+    // Ne pas effacer _ctxCell ici — les handlers ctxAssign/ctxClear en ont besoin
 }
 
 function ctxAssign() {
+    const cell = _ctxCell;
     closeContextMenu();
-    if (_ctxCell) openPopup(_ctxCell);
+    _ctxCell = null;
+    if (cell) openPopup(cell);
 }
 
 function ctxClear() {
+    const cell = _ctxCell;
     closeContextMenu();
-    if (!_ctxCell) return;
-    currentCell = _ctxCell;
+    _ctxCell = null;
+    if (!cell) return;
+    currentCell = cell;
     clearCell();
 }
 
 function ctxLed() {
-    closeContextMenu();
-    if (!_ctxCell) return;
-    // Future intégration Pi — appel API GPIO
-    // fetch(`/api/led/${_ctxCell}/on`, { method: 'POST' })
-    alert(`💡 LED ${_ctxCell} — intégration Pi à venir !`);
+    // Non implémenté — bouton désactivé visuellement dans le HTML
 }
 
-// Ferme le menu au clic ailleurs
-document.addEventListener('click', e => {
-    if (!document.getElementById('ctx-menu').contains(e.target)) {
+// Ferme le menu au clic en dehors (mousedown pour ne pas interférer avec les boutons)
+document.addEventListener('mousedown', e => {
+    const menu = document.getElementById('ctx-menu');
+    if (menu.style.display !== 'none' && !menu.contains(e.target)) {
         closeContextMenu();
+        _ctxCell = null;
+    }
+});
+document.addEventListener('click', e => {
+    if (!document.getElementById('cell-tooltip').contains(e.target)) {
+        hideTooltip();
     }
 });
 

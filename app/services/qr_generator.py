@@ -346,12 +346,6 @@ def generate_qr_svg(text):
     return qr.to_svg(px=10)
 
 
-# Test
-svg = generate_qr_svg("http://127.0.0.1:5000/component/1")
-print(f"SVG généré: {len(svg)} chars, version={_choose_version(len('http://127.0.0.1:5000/component/1'))}")
-print(svg[:200])
-
-
 import base64
 
 def qr_svg_data_url(text: str) -> str:

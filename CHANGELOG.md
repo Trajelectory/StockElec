@@ -1,4 +1,52 @@
-# Changelog — StockElectory
+# Changelog — StockEleK
+
+---
+
+## v2.2 — i18n, audit de code & rangement interactif 🌍
+
+> Internationalisation complète FR/EN, audit qualité de code, refonte du plan de rangement avec menu contextuel et infobulle.
+
+### 🌍 Internationalisation (i18n) — FR / EN
+- Infrastructure complète : fichiers `app/locales/fr.json` + `en.json` (558 clés, 19 sections)
+- Context processor Flask injecte `t` et `lang` dans tous les templates
+- Helper `_t("section.key", **kwargs)` dans les controllers pour les `flash()` et `jsonify` errors
+- Cache locale en mémoire, invalidé automatiquement au changement de langue
+- Sélecteur de langue dans **⚙️ Paramètres → Général** (🇫🇷 Français / 🇬🇧 English)
+- Tous les templates traduits (22 fichiers HTML), tous les messages Python traduits
+- Sections couvertes : nav, home, stock, settings, form, detail, bom, projects, project_form, import_bom, import_csv, import_result, reorder, history, alerts, categories, storage, labels, msg
+
+### 🗃️ Plan de rangement — refonte de l'interaction
+- **Clic gauche supprimé** — la grille est maintenant en lecture seule au clic
+- **Survol** → infobulle contextuelle (délai 200ms) : image du composant, nom, référence LCSC, fabricant, quantité, package, emplacement
+  - Se positionne intelligemment pour ne pas déborder de l'écran
+  - Disparaît immédiatement à la sortie de la case
+- **Clic droit** → menu contextuel redessiné :
+  - 📦 **Assigner un composant** — ouvre la popup de recherche/assignation
+  - 💡 **Allumer la LED** — désactivé visuellement (italique + "bientôt"), intégration ESP32 à venir
+  - 🗑️ **Vider la case** — fonctionnel, grisé automatiquement si la case est vide
+- Correction du bug de timing : `_ctxCell` sauvegardé dans une variable locale avant fermeture du menu, fermeture sur `mousedown` externe pour ne pas interférer avec les `click` des boutons
+
+### 🔧 Audit de code & corrections
+- **Imports** : tous les imports locaux remontés en tête de `component_controller.py`, suppression de 20+ imports redondants dans les fonctions
+- **Types de mouvements** : `project_use` et `project_return` ajoutés dans `MovementModel.TYPES`
+- **Pagination historique** : correction de l'effet de bord Jinja (`qs.update()`) — reconstruction propre de l'URL par macro
+- **Macro `sort_th`** : déplacée en tête du `block content` (était invalide dans le `thead`)
+- **`TOKEN_URL` DigiKey** : centralisé dans `digikey_scraper.py`, utilisé dans le test de clé
+- **Home per_page** : défaut aligné à 5 (correspond au premier bouton), mémorisé en `localStorage`
+- **Doublons CSS** supprimés : `col-hide-md` en double dans `responsive.css`, media queries `820px` dupliquées dans `detail.css` et `forms.css`
+- **`legacy.css`** nettoyé : 263 lignes supprimées (59 classes mortes)
+- **Toolbar sticky** : `border-bottom` en thème clair, ombre désactivée via `[data-theme="light"]`
+- **`product_url`** : testé avec filtre `|lower` dans tous les templates pour les badges distributeurs
+- **Fallback title** : `'StockElec'` → `'StockEleK'`
+- **Debug `qr_generator.py`** : bloc de test en bas du fichier supprimé (polluait le terminal au démarrage)
+- **Boutons raccourcis** page d'accueil supprimés (doublons de la navbar)
+- **`math.ceil`** remplacé par division entière `//`
+- **Backup** : leak de fichier temporaire corrigé (`os.unlink` dans `finally`)
+
+### 🎨 Interface & thème
+- **Logo adaptatif** : `Logo.png` en thème sombre, `Logo_c.png` en thème clair (navbar + page d'accueil)
+- **Bouton thème** ajouté dans le menu mobile, icône synchronisée (🌙/☀️)
+- **Bouton "Vider le plateau"** par plateau dans la barre de stats du rangement
 
 ---
 
@@ -7,181 +55,90 @@
 > Intégration complète Mouser et DigiKey, corrections de fond, nettoyage de code.
 
 ### 🛒 Multi-distributeurs (Mouser + DigiKey)
-- Support **Mouser** via API officielle v1 (`/search/partnumber`) — clé configurable dans les Paramètres
-- Support **DigiKey** via API officielle v4 — OAuth2 Client Credentials (2-legged), token mis en cache
-- Prévisualisation unifiée à l'ajout : saisie d'une ref LCSC, Mouser ou DigiKey → détection automatique de la source → pré-remplissage du formulaire
-- Import BOM KiCad avec colonnes multi-sources : `LCSC`, `Mouser`, `DigiKey` détectées automatiquement
-- Enrichissement async après import pour chaque source (threads avec `app_context`)
-- Badges colorés avec logo distributeur dans toutes les vues (stock, accueil, projets, détail)
-- Badges **cliquables** — lien direct vers la fiche produit du distributeur
-- Colonne `product_url` en base — URL exacte retournée par l'API, convertie en locale `.fr`
+- Support **Mouser** via API officielle v1 — clé configurable dans les Paramètres
+- Support **DigiKey** via API officielle v4 — OAuth2 Client Credentials, token mis en cache thread-safe
+- Prévisualisation unifiée à l'ajout : détection automatique de la source
+- Import BOM KiCad multi-sources : colonnes LCSC, Mouser et DigiKey détectées automatiquement
+- Enrichissement async après import pour chaque source
+- Badges colorés avec logo distributeur dans toutes les vues, **cliquables** vers la fiche produit
+- Colonne `product_url` en base — URL exacte retournée par l'API
 
 ### 🔁 Double enrichissement Mouser → LCSC
-- Si l'API Mouser retourne peu d'attributs techniques, recherche automatique sur LCSC par MPN
+- Si Mouser retourne peu d'attributs, recherche automatique sur LCSC par MPN
 - Complète `attributes`, `package`, `datasheet_url`, `description_long` et l'image depuis LCSC
-- Délai de 0.4s entre les appels pour respecter les serveurs LCSC
-
-### 🖼️ Gestion des images améliorée
-- Téléchargement immédiat de l'image au moment de la création (plus d'attente async pour la preview)
-- Encodage URL automatique pour les URLs avec espaces (ex: `PTA SERIES 45MM.JPG`)
-- Vérification du `Content-Type` de la réponse — rejette les pages HTML servies à la place des images
-- Détection des fichiers corrompus dans le cache — retéléchargement automatique
-- `Referer` adapté selon le domaine de l'image (mouser.com / digikey.com)
-- `Accept: image/*` ajouté aux headers pour signaler explicitement qu'on veut une image
-
-### 🔑 Enrichissement via route `/enrich/<id>`
-- Route multi-source : DigiKey → Mouser → LCSC selon la ref disponible
-- Nouveau paramètre `force_attributes=True` pour écraser les attributs existants (ré-enrichissement)
-- Bouton "Récupérer" visible pour toutes les sources (plus LCSC uniquement)
 
 ### 📊 Export CSV enrichi
-- 19 colonnes au lieu de 15 : ajout `mouser_part_number`, `digikey_part_number`, `description_long`, `product_url`
-- Encodage `utf-8-sig` pour compatibilité Excel (caractères spéciaux : Ω, µ, °...)
-- Export accessible depuis la page Stock (bouton "⬇️ Export CSV") et depuis les Paramètres
+- 19 colonnes : ajout `mouser_part_number`, `digikey_part_number`, `description_long`, `product_url`
+- Encodage `utf-8-sig` pour compatibilité Excel
 
 ### 🐛 Bugs corrigés
-| Composant | Bug | Correction |
-|---|---|---|
-| DigiKey API | Préfixe `118-` dans les refs rejeté par `/productdetails` | Essai avec et sans préfixe numérique |
-| DigiKey API | Fallback `/keyword` ne récupérait pas les `Parameters` | 2e appel `/productdetails` avec la ref exacte trouvée |
-| DigiKey API | Token expiré entre preview et enrich async → 401 silencieux | Refresh automatique du token sur 401 |
-| DigiKey URL | URLs construites manuellement → 404 | Utilisation de `ProductUrl` retourné par l'API |
-| Mouser prix | `"1,92 €"` → crash float (€ non retiré) | Nettoyage complet avant `float()` |
-| Mouser attrs | Attributs dupliqués (ex: `Conditionnement`) écrasés | Concaténation `"Reel / Cut Tape"` |
-| Mouser RoHS | Champ `ROHSStatus` non lu | Détection `"compliant"` dans la valeur |
-| Mouser requête | `IncludeExtendedAttributes` inexistant dans l'API v1 | Remplacé par `partSearchOptions: "Exact"` |
-| BOM projets | Threads enrich sans `app_context` → SQLite inaccessible | `with app.app_context()` sur tous les threads |
-| BOM description | Valeur KiCad (`0R 0402`) écrasait la description API | `description` et `description_long` toujours écrasés par l'enrich |
-| `apply_enrichment` | `_maybe` bloquait si description déjà remplie | `description`/`description_long` sortis de `_maybe` |
-| Page accueil | Colonnes `mouser_part_number`/`digikey_part_number` absentes du SELECT | Ajoutées avec `product_url` |
-| Page projet | `ProjectComponent` ne mappait pas les refs Mouser/DigiKey | Attributs ajoutés dans `__init__` |
-| Page projet | Bouton 🛒 LCSC-only dans les fiches projet | Redirige vers le bon distributeur |
-| Import CSV | `min_stock`, `category`, `location`, `notes` absents de l'INSERT | Détection colonnes + insertion |
+- DigiKey : préfixe numérique dans les refs, fallback `/keyword`, refresh token sur 401
+- Mouser : parsing prix `"1,92 €"`, attributs dupliqués, champ RoHS
+- BOM projets : threads sans `app_context`
+- Import CSV : colonnes `min_stock`, `category`, `location`, `notes` absentes de l'INSERT
 
-### 🧹 Nettoyage & qualité
-- Suppression de `lcsc_api.py` — 8 Ko de code mort jamais importé
-- Suppression des templates orphelins : `dashboard.html`, `gridfinity.html`, `label.html`
-- Suppression de la route `label` (redirect inutile) et `digikey_debug` (debug temporaire)
-- Suppression de `symbol_svg`/`footprint_svg` de la migration (colonnes jamais utilisées)
-- `SECRET_KEY` lue depuis variable d'environnement `SECRET_KEY` avec fallback
-- `Pillow` ajouté dans `requirements.txt`
-- Import inutilisé `secure_filename` retiré de `project_controller.py`
-- Reset BDD complet dans les Paramètres (phase de test) — confirmation par saisie de `RESET`
+### 🧹 Nettoyage
+- Suppression de `lcsc_api.py` (code mort), templates orphelins (`dashboard.html`, `gridfinity.html`)
+- Reset BDD complet dans les Paramètres avec confirmation par saisie de `RESET`
 
 ---
 
 ## v2.0 — Refonte majeure 🎉
 
-> Release publique. Réécriture complète du design, nouvelles fonctionnalités atelier, plan de rangement.
+> Release publique. Réécriture complète du design, plan de rangement, historique.
 
 ### 🎨 Design system v2
-- Nouveau design sombre violet/indigo (`#7c6cff`) — fini le bleu
-- Typographie **Inter** (Google Fonts) avec poids 800 pour les titres
-- Navbar avec backdrop blur, liens actifs avec bordure subtile
-- Boutons, badges et alertes redessinés de zéro
-- CSS modulaire : `style.css` de 40 lignes avec `@import` vers 15 modules dans `modules/`
+- Nouveau thème sombre violet/indigo (`#7c6cff`), typographie Inter
+- CSS modulaire : 15 fichiers dans `modules/`
+- Navbar avec backdrop blur, boutons et badges redessinés
 
-### 🏠 Page d'accueil repensée
-- Grande barre de recherche centrée (style Google) avec soumission automatique au bout de 400ms
-- Compteurs discrets : références, pièces totales, alertes
-- 5 raccourcis rapides (Stock, Ajouter, Projets, Alertes, Commander)
-- Tableau des 5 derniers composants ajoutés, pleine largeur
-- Route `/` → page d'accueil, `/stock` → tableau complet
+### 🏠 Page d'accueil
+- Barre de recherche centrée, compteurs discrets, tableau des derniers ajouts
 
-### 📋 Historique des mouvements
-- Table `stock_movements` en base — chaque +/− enregistré automatiquement
-- Page `/history` filtrable par type (entrée / sortie / ajustement) et par limite
-- Types : 📥 Entrée, 📤 Sortie, 🔧 Ajustement, 🌱 Initialisation
-
-### 🛒 Réapprovisionnement
-- Page `/reorder` : liste automatique des composants en rupture ou sous le seuil
-- Quantité suggérée (3× le seuil), prix estimé de la commande, liens directs LCSC
-
-### ⬇️ Export CSV
-- Un clic pour télécharger tout le stock en `.csv` (`/export/csv`)
+### 📋 Historique & Réapprovisionnement
+- Table `stock_movements`, page `/history` filtrable, page `/reorder`
 
 ### 📦 Plan de rangement ⭐
-- Page visuelle pour planifier l'organisation physique de son atelier
-- Grille de cases cliquables représentant les plateaux imprimés en 3D
-- Plusieurs plateaux configurables (ID, nom, colonnes × rangées)
-- Navigation par **tabs** — un onglet par plateau, affichage instantané sans rechargement
-- Barre de progression : taux d'occupation de chaque plateau
-- Popup de recherche et d'assignation
-- Sauvegarde automatique en BDD dès l'assignation
+- Grille interactive, plusieurs plateaux configurables, popup d'assignation, sauvegarde automatique
 
-### ⚙️ Paramètres
-- Bouton **🗑️ Vider l'historique** avec confirmation
-- Vider l'historique ne touche pas au stock
-
-### 🔧 Serveur de production
-- Remplacement du serveur de développement Flask par **Waitress**
-- Démarrage propre, sans warning, avec fallback automatique si Waitress absent
+### 🔧 Serveur
+- Remplacement du serveur Flask dev par **Waitress**
 
 ---
 
-## v1.x — Historique complet
+## v1.x — Historique
 
 <details>
 <summary>Voir l'historique des versions 1.x</summary>
 
-## v1.0 — Base de l'application
-- Architecture **Flask + SQLite + MVC**
-- Tableau paginé, recherche, tri multi-colonnes
-- Import CSV LCSC (format export commande)
-- Ajout / édition / suppression de composants
-- Fiche détail complète — thème sombre
+**v1.0** — Architecture Flask + SQLite + MVC, tableau paginé, import CSV LCSC, CRUD composants
 
-## v1.1 — Enrichissement LCSC
-- Service `lcsc_scraper.py` : scraping `wmsc.lcsc.com`
-- Récupération automatique catégorie, image, datasheet
-- Thread daemon avec pause ~0.6s entre requêtes
+**v1.1** — Enrichissement LCSC automatique (scraping `wmsc.lcsc.com`)
 
-## v1.2 — Déduplication et pagination
-- Déduplication à l'import par référence LCSC (UNIQUE en base)
-- Pagination (25 / 50 / 100 par page)
+**v1.2** — Déduplication à l'import, pagination 25/50/100
 
-## v1.3 — Ajout rapide depuis LCSC
-- Bloc "⚡ Import rapide LCSC" : saisie ref → prévisualisation → pré-remplissage
+**v1.3** — Import rapide LCSC avec prévisualisation
 
-## v1.4 — Projets et alertes stock
-- CRUD projets avec image bannière
-- Vérification disponibilité en temps réel, boutons Débiter / Restituer (AJAX)
-- Champ `min_stock`, page 🔔 Alertes + bandeau rouge
+**v1.4** — CRUD projets, alertes stock, champ `min_stock`
 
-## v1.5 — Catégories hiérarchiques
-- Filtre avec `<optgroup>` par sous-catégorie, macro Jinja réutilisable
+**v1.5** — Catégories hiérarchiques avec `<optgroup>`
 
-## v1.6 — Import BOM KiCad
-- Upload CSV KiCad → rapport ✅/⚠️/❌
-- Formats : KiCad 7/8, plugin JLCPCB, bom2csv
+**v1.6** — Import BOM KiCad, rapport ✅/⚠️/❌
 
-## v1.7 — Images de projets
-- Upload + prévisualisation, cartes projet avec bannière
+**v1.7** — Images de projets
 
-## v1.8 — Étiquettes imprimables + QR code
-- Route `/labels?ids=1,2,3` : impression multi-étiquettes
-- QR code généré en Python pur (`qr_generator.py`), zéro CDN externe
-- Multi-sélection dans le tableau + barre flottante
+**v1.8** — Étiquettes imprimables + QR code Python pur, multi-sélection
 
-## v1.9 — Symbole & Footprint EasyEDA
-- Téléchargement PNG symbole + footprint, cache dans `instance/easyeda_pngs/`
-- Galerie sur la fiche détail, lightbox unifiée
+**v1.9** — Symbole & Footprint EasyEDA, lightbox
 
-## v1.10 — Support export panier LCSC
-- Import CSV format `export_cart_*.csv` détecté automatiquement
+**v1.10** — Support export panier LCSC (`export_cart_*.csv`)
 
-## v1.11 — Refonte page projet
-- Tableau unique, barre de stats compacte, formulaire rétractable
+**v1.11** — Refonte page projet
 
-## v1.12 — Configuration des étiquettes
-- Page `/label-settings` avec aperçu en temps réel
-- Format, couleurs, tailles de police, 11 toggles on/off
+**v1.12** — Configuration des étiquettes avec aperçu temps réel
 
-## v1.13 — Paramètres enrichis
-- Nom de l'application, sauvegarde ZIP, stats base, enrichissement en masse
+**v1.13** — Paramètres enrichis : sauvegarde ZIP, stats, enrichissement en masse
 
-## v1.14 à v1.21 — Corrections et ajouts divers
-- Mode ajout en série, catégories personnalisées, upload d'image manuelle
-- Téléchargement EasyEDA en masse + réconciliation, nettoyages CSS
+**v1.14–v1.21** — Mode ajout en série, catégories personnalisées, upload image manuelle, EasyEDA en masse, nettoyages CSS
 
 </details>

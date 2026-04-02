@@ -1,21 +1,50 @@
 import io
 import csv
 import os
-import math
 import threading
 import logging
+import tempfile
+import zipfile
 
 logger = logging.getLogger(__name__)
 
-from flask import Blueprint, request, redirect, url_for, flash, jsonify, send_from_directory, render_template
+from flask import (Blueprint, request, redirect, url_for, flash, jsonify,
+                   send_from_directory, send_file, render_template,
+                   Response, current_app)
+
+import requests as _requests
 
 from ..models.component import ComponentModel, ITEMS_PER_PAGE_DEFAULT
 from ..models.category import CategoryModel
 from ..models.settings import SettingsModel
+from ..models.movement import MovementModel
+from ..models.database import get_db
+from ..models.project import ProjectModel
 from ..views.component_view import ComponentView
 from ..services import lcsc_scraper
+from ..services import mouser_scraper, digikey_scraper
+from ..services.qr_generator import qr_svg_data_url
+from ..services.easyeda import fetch_and_save
 
 component_bp = Blueprint("components", __name__)
+
+
+def _t(key: str, **kwargs) -> str:
+    """Retourne la string traduite selon la langue configurée."""
+    from app import load_locale
+    lang = SettingsModel.get("lang", "fr") or "fr"
+    locale = load_locale(lang)
+    # Navigue dans le dict avec "section.key"
+    parts = key.split(".")
+    val = locale
+    for p in parts:
+        val = val.get(p, key) if isinstance(val, dict) else key
+    if kwargs:
+        try:
+            val = val.format(**kwargs)
+        except (KeyError, ValueError):
+            pass
+    return val
 
 
 # ------------------------------------------------------------------ #
@@ -25,7 +54,6 @@ component_bp = Blueprint("components", __name__)
 @component_bp.route("/")
 def home():
     """Page d'accueil — barre de recherche + derniers composants."""
-    from ..models.database import get_db
     db = get_db()
 
     stats = db.execute("""
@@ -35,7 +63,13 @@ def home():
         FROM components
     """).fetchone()
 
-    home_limit = int(SettingsModel.get("home_recent_limit", "5"))
+    # per_page depuis l'URL ou settings (défaut 8)
+    try:
+        home_limit = int(request.args.get("per_page", SettingsModel.get("home_recent_limit", "5")))
+    except ValueError:
+        home_limit = 8
+    home_limit = max(5, min(home_limit, 100))
+
     recent = db.execute("""
         SELECT id, description, manufacture_part_number, lcsc_part_number,
                mouser_part_number, digikey_part_number, product_url,
@@ -71,10 +105,9 @@ def stock():
         per_page=per_page,
         low_only=low_only,
     )
-    total_pages  = max(math.ceil(total / per_page), 1)
+    total_pages  = max((total + per_page - 1) // per_page, 1)
     stats        = ComponentModel.get_stats()
     low_count    = ComponentModel.count_low_stock()
-    from ..models.category import CategoryModel
     category_groups = CategoryModel.get_grouped_for_stock()
 
     return ComponentView.render_index(
@@ -103,14 +136,13 @@ def adjust(component_id):
     delta = request.json.get("delta", 0) if request.is_json else request.form.get("delta", 0, type=int)
     delta = int(delta)
     if delta == 0:
-        return jsonify({"ok": False, "error": "Delta nul"}), 400
+        return jsonify({"ok": False, "error": _t("msg.err_delta_zero")}), 400
 
     result = ComponentModel.adjust_quantity(component_id, delta)
     if result["ok"]:
         # Enregistre le mouvement
         try:
-            from ..models.movement import MovementModel
-            MovementModel.record(component_id, "in" if delta > 0 else "out", abs(delta))
+                    MovementModel.record(component_id, "in" if delta > 0 else "out", abs(delta))
         except Exception:
             pass
         comp = ComponentModel.get_by_id(component_id)
@@ -130,7 +162,6 @@ def adjust(component_id):
 @component_bp.route("/export/csv")
 def export_csv():
     import csv, io
-    from ..models.database import get_db
     db = get_db()
     rows = db.execute("""
         SELECT lcsc_part_number, mouser_part_number, digikey_part_number,
@@ -155,7 +186,6 @@ def export_csv():
     for r in rows:
         writer.writerow(list(r))
 
-    from flask import Response
     return Response(
         output.getvalue(),
         mimetype="text/csv; charset=utf-8-sig",
@@ -169,8 +199,6 @@ def export_csv():
 
 @component_bp.route("/history")
 def history():
-    from ..models.movement import MovementModel
-    from ..models.database import get_db
     db = get_db()
 
     component_id = request.args.get("component_id", type=int)
@@ -219,7 +247,6 @@ def history():
 
 @component_bp.route("/reorder")
 def reorder():
-    from ..models.database import get_db
     db = get_db()
 
     show_all_zero = request.args.get("show_zero", "0") == "1"
@@ -253,8 +280,6 @@ def reorder():
 
 @component_bp.route("/categories", methods=["GET", "POST"])
 def categories():
-    from ..models.category import CategoryModel
-    from ..models.database import get_db
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -264,17 +289,17 @@ def categories():
             child  = request.form.get("child_name", "").strip() or None
             if parent:
                 CategoryModel.create_custom(parent, child)
-                flash(f"✅ Catégorie créée.", "success")
+                flash(_t("msg.cat_created"), "success")
             else:
-                flash("Le nom du groupe est obligatoire.", "danger")
+                flash(_t("msg.cat_name_required"), "danger")
 
         elif action == "delete":
             cat_id = int(request.form.get("category_id", 0))
             if cat_id < 0:
                 CategoryModel.delete_custom(cat_id)
-                flash("🗑️ Catégorie supprimée.", "success")
+                flash(_t("msg.cat_deleted"), "success")
             else:
-                flash("Impossible de supprimer une catégorie LCSC.", "danger")
+                flash(_t("msg.cat_lcsc_protected"), "danger")
 
         return redirect(url_for("components.categories"))
 
@@ -316,23 +341,22 @@ def add():
         digikey_num = data.get("digikey_part_number")
 
         if lcsc_num:
-            flash("Récupération des données LCSC en arrière-plan…", "info")
+            flash(_t("msg.enrich_lcsc"), "info")
             _enrich_async([(comp_id, lcsc_num)])
         elif mouser_num:
             # L'enrich async récupère les attributs techniques — l'image sera skippée
             # si déjà téléchargée via preview (apply_enrichment vérifie image_path non vide)
-            flash("Récupération des données Mouser en arrière-plan…", "info")
+            flash(_t("msg.enrich_mouser"), "info")
             _enrich_async_source(comp_id, mouser_num, "mouser")
         elif digikey_num:
             # Idem DigiKey — les Parameters ne sont disponibles que via enrich async
-            flash("Récupération des données DigiKey en arrière-plan…", "info")
+            flash(_t("msg.enrich_digikey"), "info")
             _enrich_async_source(comp_id, digikey_num, "digikey")
 
         # Mode série : reste sur la page d'ajout avec confirmation
         desc = data.get("description") or data.get("lcsc_part_number") or "Composant"
         return redirect(url_for("components.add", added=desc[:60]))
 
-    from ..models.category import CategoryModel
     return ComponentView.render_add(category_groups=CategoryModel.get_grouped_for_stock())
 
 
@@ -345,10 +369,10 @@ def import_csv():
     if request.method == "POST":
         file = request.files.get("csv_file")
         if not file or file.filename == "":
-            flash("Aucun fichier sélectionné.", "danger")
+            flash(_t("msg.no_file"), "danger")
             return redirect(url_for("components.import_csv"))
         if not file.filename.lower().endswith(".csv"):
-            flash("Veuillez fournir un fichier CSV.", "danger")
+            flash(_t("msg.not_csv"), "danger")
             return redirect(url_for("components.import_csv"))
 
         stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
@@ -393,32 +417,30 @@ def import_csv():
 def enrich(component_id):
     comp = ComponentModel.get_by_id(component_id)
     if not comp:
-        return jsonify({"ok": False, "error": "Composant introuvable"}), 404
+        return jsonify({"ok": False, "error": _t("msg.err_not_found")}), 404
 
     # DigiKey
     if comp.digikey_part_number:
-        from ..services import digikey_scraper
         client_id     = SettingsModel.get("digikey_client_id", "")
         client_secret = SettingsModel.get("digikey_client_secret", "")
         if not client_id or not client_secret:
-            return jsonify({"ok": False, "error": "Identifiants DigiKey non configurés"}), 400
+            return jsonify({"ok": False, "error": _t("msg.err_dk_not_configured")}), 400
         info = digikey_scraper.enrich_component(comp.digikey_part_number, client_id, client_secret)
         if info:
             ComponentModel.apply_enrichment(component_id, info, force_attributes=True)
             return jsonify({"ok": True, "source": "digikey", "fields": list(info.keys())})
-        return jsonify({"ok": False, "error": "Aucune donnée retournée par DigiKey"})
+        return jsonify({"ok": False, "error": _t("msg.err_dk_no_data")})
 
     # Mouser
     if comp.mouser_part_number:
-        from ..services import mouser_scraper
         api_key = SettingsModel.get("mouser_api_key", "")
         if not api_key:
-            return jsonify({"ok": False, "error": "Clé API Mouser non configurée"}), 400
+            return jsonify({"ok": False, "error": _t("msg.err_mouser_not_configured")}), 400
         info = mouser_scraper.enrich_component(comp.mouser_part_number, api_key)
         if info:
             ComponentModel.apply_enrichment(component_id, info, force_attributes=True)
             return jsonify({"ok": True, "source": "mouser", "fields": list(info.keys())})
-        return jsonify({"ok": False, "error": "Aucune donnée retournée par Mouser"})
+        return jsonify({"ok": False, "error": _t("msg.err_mouser_no_data")})
 
     # LCSC
     if comp.lcsc_part_number:
@@ -426,9 +448,9 @@ def enrich(component_id):
         if info:
             ComponentModel.apply_enrichment(component_id, info, force_attributes=True)
             return jsonify({"ok": True, "source": "lcsc", "fields": list(info.keys())})
-        return jsonify({"ok": False, "error": "Aucune donnée retournée par LCSC"})
+        return jsonify({"ok": False, "error": _t("msg.err_lcsc_no_data")})
 
-    return jsonify({"ok": False, "error": "Aucune référence distributeur (LCSC / Mouser / DigiKey)"}), 400
+    return jsonify({"ok": False, "error": _t("msg.err_no_ref")}), 400
 
 
 # ------------------------------------------------------------------ #
@@ -444,10 +466,9 @@ def lcsc_preview():
     """
     ref = request.args.get("ref", "").strip().upper()
     if not ref:
-        return jsonify({"ok": False, "error": "Référence manquante"}), 400
+        return jsonify({"ok": False, "error": _t("msg.err_ref_missing")}), 400
 
     # Vérifie si déjà en stock
-    from ..models.database import get_db
     existing = get_db().execute(
         "SELECT id, description FROM components WHERE lcsc_part_number = ?", (ref,)
     ).fetchone()
@@ -455,12 +476,12 @@ def lcsc_preview():
         return jsonify({
             "ok": False,
             "duplicate": True,
-            "error": f"Ce composant est déjà dans votre stock (#{existing['id']} — {existing['description']})"
+            "error": _t("msg.err_already_in_stock", id=existing['id'], desc=existing['description'])
         })
 
     raw = lcsc_scraper.fetch_product(ref)
     if raw is None:
-        return jsonify({"ok": False, "error": f"Référence « {ref} » introuvable sur LCSC"}), 404
+        return jsonify({"ok": False, "error": _t("msg.err_not_on_lcsc", ref=ref)}), 404
 
     info = lcsc_scraper.extract_info(raw)
 
@@ -510,19 +531,18 @@ def mouser_preview():
     GET /api/mouser-preview?ref=652-3852A-282101AL
     Retourne les infos Mouser pour pré-remplir le formulaire d'ajout.
     """
-    from ..services import mouser_scraper
 
     ref     = request.args.get("ref", "").strip()
     api_key = SettingsModel.get("mouser_api_key", "")
 
     if not ref:
-        return jsonify({"ok": False, "error": "Référence manquante"}), 400
+        return jsonify({"ok": False, "error": _t("msg.err_ref_missing")}), 400
     if not api_key:
-        return jsonify({"ok": False, "error": "Clé API Mouser non configurée — va dans ⚙️ Paramètres"}), 400
+        return jsonify({"ok": False, "error": _t("msg.err_mouser_no_key")}), 400
 
     part = mouser_scraper.fetch_product(ref, api_key)
     if not part:
-        return jsonify({"ok": False, "error": f"Référence « {ref} » introuvable sur Mouser"}), 404
+        return jsonify({"ok": False, "error": _t("msg.err_not_on_mouser", ref=ref)}), 404
 
     info = mouser_scraper.extract_info(part)
     return jsonify({
@@ -554,20 +574,19 @@ def digikey_preview():
     GET /api/digikey-preview?ref=296-6501-1-ND
     Retourne les infos DigiKey pour pré-remplir le formulaire d'ajout.
     """
-    from ..services import digikey_scraper
 
     ref           = request.args.get("ref", "").strip()
     client_id     = SettingsModel.get("digikey_client_id", "")
     client_secret = SettingsModel.get("digikey_client_secret", "")
 
     if not ref:
-        return jsonify({"ok": False, "error": "Référence manquante"}), 400
+        return jsonify({"ok": False, "error": _t("msg.err_ref_missing")}), 400
     if not client_id or not client_secret:
-        return jsonify({"ok": False, "error": "Identifiants DigiKey non configurés — va dans ⚙️ Paramètres"}), 400
+        return jsonify({"ok": False, "error": _t("msg.err_dk_no_creds")}), 400
 
     product = digikey_scraper.fetch_product(ref, client_id, client_secret)
     if not product:
-        return jsonify({"ok": False, "error": f"Référence « {ref} » introuvable sur DigiKey"}), 404
+        return jsonify({"ok": False, "error": _t("msg.err_not_on_digikey", ref=ref)}), 404
 
     info = digikey_scraper.extract_info(product)
 
@@ -602,7 +621,6 @@ def labels_print():
     Paramètres GET :
       ids=1,2,3        → liste d'IDs séparés par virgule
     """
-    from ..services.qr_generator import qr_svg_data_url
 
     raw_ids = request.args.get("ids", "")
     try:
@@ -611,11 +629,10 @@ def labels_print():
         ids = []
 
     if not ids:
-        flash("Aucun composant sélectionné.", "warning")
+        flash(_t("msg.no_component_sel"), "warning")
         return redirect(url_for("components.stock"))
 
-    from ..models.settings import SettingsModel as _SM
-    _configured = _SM.get("base_url", "").strip().rstrip("/")
+    _configured = _SettingsModel.get("base_url", "").strip().rstrip("/")
     base_url = _configured if _configured else request.host_url.rstrip("/")
 
     components_data = []
@@ -632,11 +649,10 @@ def labels_print():
         })
 
     if not components_data:
-        flash("Aucun composant trouvé.", "warning")
+        flash(_t("msg.component_not_found2"), "warning")
         return redirect(url_for("components.stock"))
 
     # Charge la config étiquette
-    from ..models.settings import SettingsModel
     lbl_config = {k: SettingsModel.get(k, v) for k, v in LABEL_DEFAULTS.items()}
 
     return render_template(
@@ -654,9 +670,8 @@ def labels_print():
 def detail(component_id):
     comp = ComponentModel.get_by_id(component_id)
     if comp is None:
-        flash("Composant introuvable.", "danger")
+        flash(_t("msg.component_not_found"), "danger")
         return redirect(url_for("components.stock"))
-    from ..models.project import ProjectModel
     projects_using = ProjectModel.get_projects_for_component(component_id)
     return ComponentView.render_detail(comp, projects_using=projects_using)
 
@@ -751,7 +766,7 @@ def _save_component_image(file_storage) -> str | None:
 def edit(component_id):
     comp = ComponentModel.get_by_id(component_id)
     if comp is None:
-        flash("Composant introuvable.", "danger")
+        flash(_t("msg.component_not_found3"), "danger")
         return redirect(url_for("components.stock"))
 
     if request.method == "POST":
@@ -769,15 +784,14 @@ def edit(component_id):
             data["product_url"] = comp.product_url
         try:
             ComponentModel.update(component_id, data)
-            flash("Composant mis à jour.", "success")
+            flash(_t("msg.component_updated"), "success")
             return redirect(url_for("components.detail", component_id=component_id))
         except Exception as e:
             if "UNIQUE" in str(e):
-                flash("❌ Cette référence existe déjà dans le stock — modification annulée.", "danger")
+                flash(_t("msg.component_dup"), "danger")
             else:
-                flash(f"❌ Erreur lors de la mise à jour : {e}", "danger")
+                flash(f"❌ {e}", "danger")
 
-    from ..models.category import CategoryModel
     return ComponentView.render_edit(comp, category_groups=CategoryModel.get_grouped_for_stock())
 
 
@@ -785,14 +799,14 @@ def edit(component_id):
 def delete(component_id):
     confirm = request.form.get("confirm_delete", "")
     if confirm != "yes":
-        flash("⚠️ Suppression annulée — confirmation manquante.", "warning")
+        flash(_t("msg.delete_cancelled"), "warning")
         return redirect(url_for("components.detail", component_id=component_id))
     comp = ComponentModel.get_by_id(component_id)
     if not comp:
-        flash("Composant introuvable.", "danger")
+        flash(_t("msg.component_not_found3"), "danger")
         return redirect(url_for("components.stock"))
     ComponentModel.delete(component_id)
-    flash(f"🗑️ « {comp.description or comp.lcsc_part_number or 'Composant'} » supprimé.", "success")
+    flash(_t("msg.component_deleted", name=comp.description or comp.lcsc_part_number or '?'), "success")
     return redirect(url_for("components.stock"))
 
 
@@ -807,13 +821,11 @@ def easyeda_pngs(lcsc_ref):
     Met en cache dans la base et dans instance/easyeda_pngs/.
     Paramètre GET ?force=1 pour forcer le rechargement.
     """
-    from ..services.easyeda import fetch_and_save
-    from ..models.database import get_db
     import os
 
     lcsc_ref = lcsc_ref.strip().upper()
     if not lcsc_ref:
-        return jsonify({"ok": False, "error": "Référence manquante"}), 400
+        return jsonify({"ok": False, "error": _t("msg.err_ref_missing")}), 400
 
     force = request.args.get("force") == "1"
     db    = get_db()
@@ -851,7 +863,7 @@ def easyeda_pngs(lcsc_ref):
     fp  = result.get("footprint_png")
 
     if not sym and not fp:
-        return jsonify({"ok": False, "error": f"Aucune image disponible pour {lcsc_ref}"}), 404
+        return jsonify({"ok": False, "error": _t("msg.err_no_image", ref=lcsc_ref)}), 404
 
     # Sauvegarde les chemins en base
     if row:
@@ -911,7 +923,6 @@ LABEL_DEFAULTS = {
 @component_bp.route("/label-settings", methods=["GET", "POST"])
 def label_settings():
     """Page de configuration visuelle des étiquettes."""
-    from ..models.settings import SettingsModel
 
     if request.method == "POST":
         for key in LABEL_DEFAULTS:
@@ -921,11 +932,10 @@ def label_settings():
             else:
                 val = request.form.get(key, LABEL_DEFAULTS[key]).strip()
             SettingsModel.set(key, val)
-        flash("Configuration des étiquettes sauvegardée.", "success")
+        flash(_t("msg.labels_saved"), "success")
         return redirect(url_for("components.label_settings"))
 
     # Charge la config courante (avec fallback sur les défauts)
-    from ..models.settings import SettingsModel
     config = {k: SettingsModel.get(k, v) for k, v in LABEL_DEFAULTS.items()}
 
     # Prend un composant du stock pour l'aperçu (préfère un avec image)
@@ -955,8 +965,6 @@ def alerts():
 
 @component_bp.route("/settings", methods=["GET", "POST"])
 def settings():
-    from ..models.settings import SettingsModel
-    from ..models.database import get_db
     import os, shutil
 
     if request.method == "POST":
@@ -964,11 +972,14 @@ def settings():
 
         # ── Paramètres généraux ──────────────────────────────────────
         if action == "save_general":
-            for key in ("app_name", "base_url", "default_min_stock",
+            for key in ("app_name", "base_url", "default_min_stock", "lang",
                         "mouser_api_key", "digikey_client_id", "digikey_client_secret"):
                 val = request.form.get(key, "").strip()
                 SettingsModel.set(key, val)
-            flash("Paramètres généraux sauvegardés.", "success")
+            # Invalider le cache locale si la langue a changé
+            import app as _app_module
+            _app_module._locale_cache.clear()
+            flash(_t("msg.settings_saved"), "success")
 
         # ── Enrichissement en masse ──────────────────────────────────
         elif action == "enrich_all":
@@ -982,9 +993,9 @@ def settings():
             ids = [(r["id"], r["lcsc_part_number"]) for r in rows]
             if ids:
                 _enrich_async(ids)
-                flash(f"🔍 Enrichissement lancé pour {len(ids)} composant(s).", "info")
+                flash(_t("msg.enrich_launched", n=len(ids)), "info")
             else:
-                flash("✅ Tous les composants sont déjà enrichis.", "success")
+                flash(_t("msg.all_enriched"), "success")
 
         # ── Vider l'historique des mouvements ───────────────────────
         elif action == "clear_history":
@@ -992,7 +1003,7 @@ def settings():
             count = db.execute("SELECT COUNT(*) FROM stock_movements").fetchone()[0]
             db.execute("DELETE FROM stock_movements")
             db.commit()
-            flash(f"🗑️ Historique vidé — {count} mouvement(s) supprimé(s).", "success")
+            flash(_t("msg.history_cleared", n=count), "success")
 
         # ── Nettoyage images orphelines ──────────────────────────────
         elif action == "clean_images":
@@ -1011,7 +1022,7 @@ def settings():
                     if fpath not in used:
                         os.remove(os.path.join(img_dir, fname))
                         deleted += 1
-            flash(f"🧹 {deleted} image(s) orpheline(s) supprimée(s).", "success")
+            flash(_t("msg.images_cleaned", n=deleted), "success")
 
         # ── Réconciliation EasyEDA (fichiers présents mais pas en base) ─
         elif action == "reconcile_easyeda":
@@ -1053,9 +1064,9 @@ def settings():
                         updated += 1
 
             if updated:
-                flash(f"🔗 {updated} composant(s) mis à jour — chemins EasyEDA réconciliés.", "success")
+                flash(_t("msg.easyeda_reconciled", n=updated), "success")
             else:
-                flash("✅ Aucun écart trouvé entre les fichiers et la base.", "info")
+                flash(_t("msg.easyeda_ok"), "info")
 
         # ── Téléchargement EasyEDA en masse ─────────────────────────
         elif action == "easyeda_all":
@@ -1070,7 +1081,7 @@ def settings():
                           OR footprint_png IS NULL OR footprint_png = '')"""
             ).fetchall()
             if not rows:
-                flash("✅ Tous les symboles et footprints sont déjà téléchargés.", "success")
+                flash(_t("msg.easyeda_all_done"), "success")
             else:
                 instance_path = os.path.abspath(
                     os.path.join(component_bp.root_path, "..", "..", "instance")
@@ -1096,12 +1107,10 @@ def settings():
                     daemon=True
                 )
                 t.start()
-                flash(f"🖼️ Téléchargement lancé pour {len(items)} composant(s). Reviens dans quelques minutes.", "info")
+                flash(_t("msg.easyeda_launched", n=len(items)), "info")
 
         # ── Sauvegarde ────────────────────────────────────────────────
         elif action == "backup":
-            import zipfile, tempfile
-            from flask import send_file
             instance_path = os.path.abspath(
                 os.path.join(component_bp.root_path, "..", "..", "instance")
             )
@@ -1128,7 +1137,7 @@ def settings():
         elif action == "reset_db":
             confirm = request.form.get("confirm_reset", "").strip()
             if confirm != "RESET":
-                flash("❌ Confirmation incorrecte — tape RESET pour valider.", "danger")
+                flash(_t("msg.reset_wrong"), "danger")
             else:
                 db = get_db()
                 # Supprime toutes les données sauf settings
@@ -1150,12 +1159,11 @@ def settings():
                     if os.path.isdir(folder_path):
                         shutil.rmtree(folder_path)
                         os.makedirs(folder_path, exist_ok=True)
-                flash("💥 Base de données vidée — paramètres conservés.", "success")
+                flash(_t("msg.reset_done"), "success")
 
         return redirect(url_for("components.settings"))
 
     # ── GET : collecte les stats ─────────────────────────────────────
-    from ..models.database import get_db
     db = get_db()
 
     n_components = db.execute("SELECT COUNT(*) FROM components").fetchone()[0]
@@ -1214,6 +1222,7 @@ def settings():
         "base_url":               SettingsModel.get("base_url", ""),
         "default_min_stock":      SettingsModel.get("default_min_stock", "0"),
         "home_recent_limit":      SettingsModel.get("home_recent_limit", "5"),
+        "lang":                   SettingsModel.get("lang", "fr"),
         "mouser_api_key":         SettingsModel.get("mouser_api_key", ""),
         "digikey_client_id":      SettingsModel.get("digikey_client_id", ""),
         "digikey_client_secret":  SettingsModel.get("digikey_client_secret", ""),
@@ -1252,6 +1261,63 @@ def component_image(filename):
 #  API JSON
 # ------------------------------------------------------------------ #
 
+@component_bp.route("/api/test-key", methods=["POST"])
+def api_test_key():
+    """Teste une clé API Mouser ou DigiKey et retourne le statut."""
+    source = request.json.get("source", "")
+
+    if source == "mouser":
+        api_key = request.json.get("api_key", "").strip()
+        if not api_key:
+            return jsonify({"ok": False, "error": _t("msg.err_key_missing")})
+        try:
+            resp = _requests.post(
+                "https://api.mouser.com/api/v1/search/partnumber",
+                params={"apiKey": api_key},
+                json={"SearchByPartRequest": {"mouserPartNumber": "TESTPING", "partSearchOptions": "Exact"}},
+                timeout=8,
+            )
+            if resp.status_code == 200:
+                errors = resp.json().get("Errors") or []
+                auth_errors = [e for e in errors if "401" in str(e) or "auth" in str(e).lower()]
+                if auth_errors:
+                    return jsonify({"ok": False, "error": _t("msg.err_key_invalid")})
+                return jsonify({"ok": True, "message": "API Mouser accessible ✓"})
+            elif resp.status_code == 401:
+                return jsonify({"ok": False, "error": _t("msg.err_key_401")})
+            else:
+                return jsonify({"ok": False, "error": _t("msg.err_http", code=resp.status_code)})
+        except Exception as e:
+            return jsonify({"ok": False, "error": _t("msg.err_connection", err=str(e))})
+
+    elif source == "digikey":
+        client_id     = request.json.get("client_id", "").strip()
+        client_secret = request.json.get("client_secret", "").strip()
+        if not client_id or not client_secret:
+            return jsonify({"ok": False, "error": _t("msg.err_creds_missing")})
+        try:
+            resp = _requests.post(
+                digikey_scraper.TOKEN_URL,
+                data={
+                    "client_id":     client_id,
+                    "client_secret": client_secret,
+                    "grant_type":    "client_credentials",
+                },
+                timeout=8,
+            )
+            if resp.status_code == 200 and resp.json().get("access_token"):
+                return jsonify({"ok": True, "message": "API DigiKey accessible ✓"})
+            else:
+                msg = (resp.json().get("error_description")
+                       or resp.json().get("error")
+                       or f"HTTP {resp.status_code}")
+                return jsonify({"ok": False, "error": msg})
+        except Exception as e:
+            return jsonify({"ok": False, "error": _t("msg.err_connection", err=str(e))})
+
+    return jsonify({"ok": False, "error": _t("msg.err_source_unknown")}), 400
+
+
 @component_bp.route("/api/components")
 def api_list():
     # Filtre par IDs pour le polling d'enrichissement
@@ -1262,7 +1328,6 @@ def api_list():
         except ValueError:
             ids = []
         if ids:
-            from ..models.database import get_db
             db = get_db()
             placeholders = ",".join("?" * len(ids))
             rows = db.execute(
@@ -1324,7 +1389,6 @@ def _form_to_dict(form):
 
 def _enrich_async(component_ids):
     """Enrichissement LCSC en arrière-plan pour une liste de (comp_id, lcsc_ref)."""
-    from flask import current_app
     app = current_app._get_current_object()
 
     def worker():
@@ -1338,27 +1402,20 @@ def _enrich_async(component_ids):
 
 
 def _enrich_async_source(comp_id: int, ref: str, source: str):
-    """
-    Enrichissement Mouser ou DigiKey en arrière-plan.
-    source : 'mouser' | 'digikey'
-    """
-    from flask import current_app
+    """Enrichissement Mouser ou DigiKey en arrière-plan."""
     app = current_app._get_current_object()
 
     def worker():
         with app.app_context():
             try:
-                from ..models.settings import SettingsModel as SM
                 if source == "mouser":
-                    from ..services import mouser_scraper
-                    api_key = SM.get("mouser_api_key", "")
+                    api_key = SettingsModel.get("mouser_api_key", "")
                     if not api_key:
                         return
                     info = mouser_scraper.enrich_component(ref, api_key)
                 elif source == "digikey":
-                    from ..services import digikey_scraper
-                    client_id     = SM.get("digikey_client_id", "")
-                    client_secret = SM.get("digikey_client_secret", "")
+                    client_id     = SettingsModel.get("digikey_client_id", "")
+                    client_secret = SettingsModel.get("digikey_client_secret", "")
                     if not client_id or not client_secret:
                         return
                     info = digikey_scraper.enrich_component(ref, client_id, client_secret)
@@ -1367,8 +1424,7 @@ def _enrich_async_source(comp_id: int, ref: str, source: str):
                 if info:
                     ComponentModel.apply_enrichment(comp_id, info)
             except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning("[%s] enrichissement échoué : %s", source, e)
+                logger.warning("[%s] enrichissement échoué : %s", source, e)
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -1379,7 +1435,6 @@ def _enrich_async_source(comp_id: int, ref: str, source: str):
 
 @component_bp.route("/rangement")
 def rangement():
-    from ..models.database import get_db
     import json as _json
     db = get_db()
 
@@ -1432,7 +1487,6 @@ def rangement_save():
     if "assignments" in data:
         new_assignments = data["assignments"]
 
-        from ..models.database import get_db
         db = get_db()
 
         # Lit les ANCIENNES assignations avant d'écraser

@@ -3,8 +3,8 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>🔔 Composants sous seuil d'alerte</h1>
-    <a href="{{ url_for('components.stock') }}" class="btn-back">← Retour</a>
+    <h1>{{ t.alerts.title }}</h1>
+    <a href="{{ url_for('components.stock') }}" class="btn-back">{{ t.alerts.back }}</a>
 </div>
 
 {% if components %}
@@ -16,14 +16,14 @@
         <thead>
             <tr>
                 <th class="th-img"></th>
-                <th>Description</th>
-                <th>Réf. LCSC</th>
-                <th>Catégorie</th>
-                <th>En stock</th>
-                <th>Seuil</th>
-                <th>Manquant</th>
-                <th>Emplacement</th>
-                <th>Actions</th>
+                <th>{{ t.alerts.col_description }}</th>
+                <th>{{ t.alerts.col_lcsc }}</th>
+                <th>{{ t.alerts.col_category }}</th>
+                <th>{{ t.alerts.col_stock }}</th>
+                <th>{{ t.alerts.col_threshold }}</th>
+                <th>{{ t.alerts.col_missing }}</th>
+                <th>{{ t.alerts.col_location }}</th>
+                <th>{{ t.alerts.col_actions }}</th>
             </tr>
         </thead>
         <tbody>
@@ -61,8 +61,8 @@
 {% else %}
 <div class="empty-state">
     <p class="empty-icon">✅</p>
-    <p>Tous les composants sont au-dessus de leur seuil d'alerte.</p>
-    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">Retour au stock</a>
+    <p>{{ t.alerts.all_good }}</p>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">{{ t.alerts.btn_stock }}</a>
 </div>
 {% endif %}
 

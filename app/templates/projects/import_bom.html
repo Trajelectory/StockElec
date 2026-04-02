@@ -6,7 +6,7 @@
     <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn-back">
         ← {{ project.name }}
     </a>
-    <h1>📋 Importer une BOM KiCad</h1>
+    <h1>{{ t.import_bom.title }}</h1>
 </div>
 
 <div class="import-layout">
@@ -16,8 +16,8 @@
 
             <div class="drop-zone" id="drop-zone">
                 <div class="drop-icon">📂</div>
-                <p class="drop-title">Glissez votre BOM KiCad ici</p>
-                <p class="drop-subtitle">ou</p>
+                <p class="drop-title">{{ t.import_bom.drop_hint }}</p>
+                <p class="drop-subtitle">{{ t.import_bom.or }}</p>
                 <label class="btn btn-primary btn-file">
                     Parcourir…
                     <input type="file" name="bom_file" id="bom_file" accept=".csv" hidden required/>
@@ -26,15 +26,15 @@
             </div>
 
             <div class="form-actions" style="margin-top:1.5rem">
-                <button type="submit" class="btn btn-primary btn-lg">🔍 Analyser la BOM</button>
+                <button type="submit" class="btn btn-primary btn-lg">{{ t.import_bom.btn_analyze }}</button>
                 <a href="{{ url_for('projects.detail', project_id=project.id) }}"
-                   class="btn btn-secondary">Annuler</a>
+                   class="btn btn-secondary">{{ t.import_bom.btn_cancel }}</a>
             </div>
         </form>
     </div>
 
     <div class="info-card">
-        <h2>📋 Formats supportés</h2>
+        <h2>{{ t.import_bom.formats_title }}</h2>
 
         <p style="font-size:.82rem;font-weight:700;color:var(--accent);margin:.5rem 0 .25rem">
             🛒 Export panier LCSC
@@ -52,7 +52,7 @@
         <ul class="column-list" style="margin-bottom:.75rem">
             <li><strong>KiCad 7/8</strong> — <em>Tools → Edit Symbol Fields → Export</em></li>
             <li><strong>Plugin JLCPCB</strong> — <code>Comment, Designator, LCSC Part Number</code></li>
-            <li><strong>bom2csv</strong> — séparateur <code>;</code> supporté</li>
+            <li><strong>bom2csv</strong> — {{ t.import_bom.separator }} <code>;</code> {{ t.import_bom.supported }}</li>
         </ul>
 
         <p>Colonne LCSC reconnue sous ces noms :</p>

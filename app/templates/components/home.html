@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ app_name or 'StockElec' }}{% endblock %}
+{% block title %}{{ app_name or 'StockEleK' }}{% endblock %}
 
 {% block content %}
 
@@ -7,14 +7,14 @@
 <div style="max-width:860px;margin:0.75rem auto 0;padding:0 1rem">
 
     <div style="text-align:center;margin-bottom:2.5rem">
-        <div style=""><img src="{{ url_for('static', filename='img/Logo.png') }}" alt="StockElec" width="128px"></div>
+        <div class="home-logo"></div>
         <h1 style="font-size:1.8rem;font-weight:900;letter-spacing:-.03em;color:var(--text)">
-            {{ app_name or 'StockElec' }}
+            {{ app_name or 'StockEleK' }}
         </h1>
         <p style="color:var(--text-muted);font-size:.9rem;margin-top:.35rem">
-            {{ stats.n_components or 0 }} références · {{ stats.n_total_qty or 0 }} pièces
+            {{ stats.n_components or 0 }} {{ t.home.stats_refs }} · {{ stats.n_total_qty or 0 }} {{ t.home.stats_parts }}
             {% if (stats.n_alerts or 0) > 0 %}
-            · <a href="{{ url_for('components.alerts') }}" style="color:var(--danger)">⚠️ {{ stats.n_alerts }} alerte{{ 's' if stats.n_alerts > 1 }}</a>
+            · <a href="{{ url_for('components.alerts') }}" style="color:var(--danger)">⚠️ {{ stats.n_alerts }} {{ t.home.stats_alerts if stats.n_alerts == 1 else t.home.stats_alerts_plural }}</a>
             {% endif %}
         </p>
     </div>
@@ -24,7 +24,7 @@
             <span style="position:absolute;left:1.1rem;top:50%;transform:translateY(-50%);font-size:1.2rem;pointer-events:none">🔍</span>
             <input type="text" name="search" id="home-search"
                    class="form-input"
-                   placeholder="Rechercher un composant, une référence LCSC, un fabricant…"
+                   placeholder="{{ t.home.search_placeholder }}"
                    autocomplete="off" autofocus
                    style="padding:.9rem 1rem .9rem 3rem;font-size:1.05rem;border-radius:var(--radius-lg);border:2px solid var(--border);transition:border-color .2s,box-shadow .2s"
                    onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 4px rgba(124,108,255,.15)'"
@@ -32,33 +32,34 @@
         </div>
     </form>
 
-    <div style="display:flex;justify-content:center;gap:.5rem;flex-wrap:wrap;margin-bottom:2.5rem">
-        <a href="{{ url_for('components.stock') }}" class="btn btn-secondary btn-sm">📦 Tout le stock</a>
-        <a href="{{ url_for('components.add') }}"   class="btn btn-secondary btn-sm">➕ Ajouter</a>
-        <a href="{{ url_for('projects.index') }}"   class="btn btn-secondary btn-sm">🗂️ Projets</a>
-        <a href="{{ url_for('components.alerts') }}" class="btn btn-secondary btn-sm {% if (stats.n_alerts or 0) > 0 %}btn-danger{% endif %}">
-            🔔 Alertes {% if (stats.n_alerts or 0) > 0 %}<span style="font-weight:700">{{ stats.n_alerts }}</span>{% endif %}
-        </a>
-        <a href="{{ url_for('components.reorder') }}" class="btn btn-secondary btn-sm">🛒 Commander</a>
-    </div>
+
 
 </div>
 
 <!-- ── Tableau pleine largeur ─────────────────────────────────────── -->
 
- {% if recent %}
+{% if recent %}
 <div>
-    <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted);margin-bottom:.6rem">
-        Derniers ajoutés
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap">
+        <span style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--text-muted)">
+            {{ t.home.recent_title }}
+        </span>
+        <div class="per-page-wrap" style="margin-left:auto">
+            <span>{{ t.home.show }}&nbsp;</span>
+            {% for n in [5, 25, 50, 100] %}
+            <a href="{{ url_for('components.home', per_page=n) }}"
+               class="per-page-btn {% if home_limit == n %}active{% endif %}">{{ n }}</a>
+            {% endfor %}
+        </div>
     </div>
     <div class="table-wrapper">
         <table class="data-table">
             <thead><tr>
                 <th class="th-img"></th>
-                <th>Composant</th>
-                <th>Référence</th>
-                <th class="th-center">Stock</th>
-                <th class="th-right" style="white-space:nowrap">Prix unit.</th>
+                <th>{{ t.home.col_component }}</th>
+                <th>{{ t.home.col_reference }}</th>
+                <th class="th-center">{{ t.home.col_stock }}</th>
+                <th class="th-right" style="white-space:nowrap">{{ t.home.col_price }}</th>
             </tr></thead>
             <tbody>
             {% for c in recent %}
@@ -85,11 +86,11 @@
                             <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ c.lcsc_part_number }}</span>
                         </a>
                     {%- elif c.mouser_part_number %}
-                        <a href="{{ c.product_url if c.product_url and 'mouser' in c.product_url else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ c.mouser_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+                        <a href="{{ c.product_url if c.product_url and 'mouser' in (('' ~ (c.product_url or ''))|lower) else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ c.mouser_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
                             <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ c.mouser_part_number }}</span>
                         </a>
                     {%- elif c.digikey_part_number %}
-                        <a href="{{ c.product_url if c.product_url and 'digikey' in c.product_url else 'https://www.digikey.fr/fr/products/result?keywords=' ~ c.digikey_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+                        <a href="{{ c.product_url if c.product_url and 'digikey' in (('' ~ (c.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ c.digikey_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
                             <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ c.digikey_part_number }}</span>
                         </a>
                     {%- else %}—{%- endif %}
@@ -116,5 +117,28 @@ document.getElementById('home-search').addEventListener('input', function() {
         _t = setTimeout(() => document.getElementById('home-search-form').submit(), 400);
     }
 });
+
+// Mémorise le per_page choisi
+document.querySelectorAll('.per-page-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        try {
+            const url = new URL(this.href);
+            const pp = url.searchParams.get('per_page');
+            if (pp) localStorage.setItem('home_per_page', pp);
+        } catch(err) {}
+    });
+});
+
+// Redirige vers le per_page mémorisé si l'URL n'en a pas
+(function() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('per_page')) {
+        const saved = localStorage.getItem('home_per_page');
+        if (saved && saved !== '5') {
+            url.searchParams.set('per_page', saved);
+            window.location.replace(url.toString());
+        }
+    }
+})();
 </script>
 {% endblock %}

@@ -18,6 +18,16 @@
 .nav-brand .nav-icon {
     font-size: 1.1rem;
 }
+/* Logo image dans la navbar */
+.nav-logo {
+    display: inline-block;
+    width: 28px; height: 28px;
+    background: url('../img/Logo.png') center/contain no-repeat;
+    flex-shrink: 0;
+}
+[data-theme="light"] .nav-logo {
+    background-image: url('../img/Logo_c.png');
+}
 .nav-links {
     display: flex; align-items: center; gap: .15rem; flex: 1;
 }

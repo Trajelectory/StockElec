@@ -1,9 +1,30 @@
 import logging
 import os
+import json
 from flask import Flask
 from .models.database import init_db
 
 logger = logging.getLogger(__name__)
+
+# Cache des locales chargées en mémoire
+_locale_cache: dict = {}
+
+def load_locale(lang: str) -> dict:
+    """Charge et met en cache le fichier de locale JSON."""
+    if lang not in _locale_cache:
+        locale_path = os.path.join(os.path.dirname(__file__), "locales", f"{lang}.json")
+        fallback_path = os.path.join(os.path.dirname(__file__), "locales", "fr.json")
+        try:
+            with open(locale_path, encoding="utf-8") as f:
+                _locale_cache[lang] = json.load(f)
+        except FileNotFoundError:
+            # Fallback silencieux vers FR si la langue demandée n'existe pas
+            try:
+                with open(fallback_path, encoding="utf-8") as f:
+                    _locale_cache[lang] = json.load(f)
+            except Exception:
+                _locale_cache[lang] = {}
+    return _locale_cache[lang]
 
 
 def create_app():
@@ -23,9 +44,12 @@ def create_app():
     def inject_globals():
         from .models.settings import SettingsModel
         try:
-            app_name = SettingsModel.get("app_name", "StockElec") or "StockElec"
+            app_name = SettingsModel.get("app_name", "StockEleK") or "StockEleK"
+            lang     = SettingsModel.get("lang", "fr") or "fr"
         except Exception:
-            app_name = "StockElec"
-        return {"app_name": app_name}
+            app_name = "StockEleK"
+            lang     = "fr"
+        t = load_locale(lang)
+        return {"app_name": app_name, "t": t, "lang": lang}
 
     return app

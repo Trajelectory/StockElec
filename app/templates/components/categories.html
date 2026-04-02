@@ -3,8 +3,8 @@
 
 {% block content %}
 <div class="page-header">
-    <a href="{{ url_for('components.settings') }}" class="btn-back">← Paramètres</a>
-    <h1>🗂️ Catégories personnalisées</h1>
+    <a href="{{ url_for('components.settings') }}" class="btn-back">{{ t.categories.back }}</a>
+    <h1>{{ t.categories.title }}</h1>
 </div>
 
 <div class="add-layout">
@@ -34,7 +34,7 @@
                         <input type="hidden" name="action" value="delete"/>
                         <input type="hidden" name="category_id" value="{{ c.id }}"/>
                         <button type="submit" class="catmgr-del-btn catmgr-del-group"
-                                title="Supprimer le groupe entier">🗑️ Supprimer le groupe</button>
+                                title="{{ t.categories.title_del_group }}">{{ t.categories.btn_delete_group }}</button>
                     </form>
                     {% endif %}{% endfor %}
                 </div>
@@ -51,7 +51,7 @@
                               onsubmit="return confirm('Supprimer « {{ c.name }} » ?')">
                             <input type="hidden" name="action" value="delete"/>
                             <input type="hidden" name="category_id" value="{{ c.id }}"/>
-                            <button type="submit" class="catmgr-del-btn" title="Supprimer">✕</button>
+                            <button type="submit" class="catmgr-del-btn" title="{{ t.categories.title_delete }}">✕</button>
                         </form>
                     </div>
                     {% endfor %}
@@ -67,8 +67,8 @@
         <div class="add-section">
             <div style="text-align:center;padding:2rem;color:var(--text-muted)">
                 <div style="font-size:2.5rem;margin-bottom:.5rem">🗂️</div>
-                <div style="font-weight:600;margin-bottom:.35rem">Aucune catégorie personnalisée</div>
-                <div style="font-size:.82rem">Crée ta première catégorie avec le formulaire →</div>
+                <div style="font-weight:600;margin-bottom:.35rem">{{ t.categories.empty }}</div>
+                <div style="font-size:.82rem">{{ t.categories.empty_hint }}</div>
             </div>
         </div>
         {% endif %}
@@ -79,40 +79,40 @@
     <div class="add-col-side">
         <div class="add-section add-section-sticky">
             <div class="add-section-title">
-                <span class="add-section-icon">➕</span> Nouvelle catégorie
+                <span class="add-section-icon">➕</span> {{ t.categories.form_title }}
             </div>
 
             <form method="post">
                 <input type="hidden" name="action" value="create"/>
 
                 <div class="add-field">
-                    <label class="add-label">Groupe <span class="add-required">*</span></label>
+                    <label class="add-label">{{ t.categories.label_group_required }} <span class="add-required">*</span></label>
                     <input type="text" name="parent_name" class="form-input"
-                           placeholder="ex: Hardware, Outils…"
+                           placeholder="{{ t.categories.ph_group }}"
                            list="existing-parents" autocomplete="off" id="input-group"/>
                     <datalist id="existing-parents">
                         {% for parent in groups.keys() %}
                         <option value="{{ parent }}"/>
                         {% endfor %}
                     </datalist>
-                    <span class="add-hint">Groupe existant ou nouveau</span>
+                    <span class="add-hint">{{ t.categories.label_group_hint }}</span>
                 </div>
 
                 <div class="add-field">
-                    <label class="add-label">Sous-catégorie</label>
+                    <label class="add-label">{{ t.categories.label_subcat }}</label>
                     <input type="text" name="child_name" class="form-input"
-                           placeholder="ex: Vis M3, Nappe FFC…" id="input-child"/>
-                    <span class="add-hint">Laisse vide pour créer juste le groupe</span>
+                           placeholder="{{ t.categories.ph_subcat }}" id="input-child"/>
+                    <span class="add-hint">{{ t.categories.hint_leave_empty }}</span>
                 </div>
 
                 <div class="add-separator"></div>
-                <button type="submit" class="btn btn-primary btn-full">➕ Créer</button>
+                <button type="submit" class="btn btn-primary btn-full">{{ t.categories.btn_create }}</button>
             </form>
 
             <div class="add-separator"></div>
 
             <div class="catmgr-tip">
-                💡 Les catégories <strong>LCSC</strong> sont créées automatiquement et ne peuvent pas être supprimées.
+                {{ t.categories.lcsc_note.replace("{lcsc}", t.categories.source_lcsc) }}
             </div>
         </div>
     </div>

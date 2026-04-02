@@ -3,8 +3,8 @@
 
 {% block content %}
 <div class="page-header">
-    <a href="{{ url_for('components.stock') }}" class="btn-back">← Retour au stock</a>
-    <h1>📥 Importer un fichier CSV</h1>
+    <a href="{{ url_for('components.stock') }}" class="btn-back">{{ t.import_csv.back }}</a>
+    <h1>{{ t.import_csv.title }}</h1>
 </div>
 
 <div class="imp-layout">
@@ -24,8 +24,8 @@
                             <path d="M10 36h28" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" opacity=".2"/>
                         </svg>
                     </div>
-                    <p class="drop-title">Glissez votre fichier CSV ici</p>
-                    <p class="drop-sub">ou cliquez pour parcourir</p>
+                    <p class="drop-title">{{ t.import_csv.drop_hint }}</p>
+                    <p class="drop-sub">{{ t.import_csv.or_browse }}</p>
                     <label class="btn btn-primary btn-file">
                         Choisir un fichier
                         <input type="file" name="csv_file" id="csv_file" accept=".csv" hidden required/>
@@ -39,8 +39,8 @@
                         </svg>
                         <span id="file-name"></span>
                     </div>
-                    <p class="drop-ready">Prêt à importer</p>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearFile()">✕ Changer</button>
+                    <p class="drop-ready">{{ t.import_csv.ready }}</p>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearFile()">{{ t.import_csv.btn_change }}</button>
                 </div>
             </div>
 
@@ -50,10 +50,10 @@
                         <path d="M8 2v8M8 10l-3-3M8 10l3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                         <path d="M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".5"/>
                     </svg>
-                    Importer
+                    {{ t.import_csv.import_btn }}
                 </button>
-                <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">Annuler</a>
-                <span class="imp-hint" id="import-hint">Sélectionne un fichier CSV pour commencer</span>
+                <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">{{ t.import_csv.btn_cancel }}</a>
+                <span class="imp-hint" id="import-hint">{{ t.import_csv.select_hint }}</span>
             </div>
         </form>
     </div>
@@ -61,7 +61,7 @@
     <!-- ══ Panneau sources ════════════════════════════════════════ -->
     <div class="imp-side">
 
-        <div class="imp-side-label">FORMATS SUPPORTÉS</div>
+        <div class="imp-side-label">{{ t.import_csv.formats_title }}</div>
 
         <!-- BOM KiCad -->
         <div class="src-card src-card-bom">
@@ -73,8 +73,8 @@
                     </svg>
                 </div>
                 <div>
-                    <div class="src-card-title">BOM KiCad / Projet</div>
-                    <div class="src-card-sub">Colonnes reconnues automatiquement</div>
+                    <div class="src-card-title">{{ t.import_csv.bom_card }}</div>
+                    <div class="src-card-sub">{{ t.import_csv.auto_cols }}</div>
                 </div>
             </div>
             <div class="src-tags">
@@ -98,7 +98,7 @@
             <div class="src-card-header">
                 <img src="{{ url_for('static', filename='img/lcsc.png') }}" width="22" height="22" style="object-fit:contain;border-radius:4px">
                 <div>
-                    <div class="src-card-title">Export commande LCSC</div>
+                    <div class="src-card-title">{{ t.import_csv.card_lcsc_order }}</div>
                     <div class="src-card-sub">lcsc.com → Mes commandes → Exporter</div>
                 </div>
             </div>
@@ -115,8 +115,8 @@
             <div class="src-card-header">
                 <img src="{{ url_for('static', filename='img/lcsc.png') }}" width="22" height="22" style="object-fit:contain;border-radius:4px">
                 <div>
-                    <div class="src-card-title">Export panier LCSC</div>
-                    <div class="src-card-sub"><code>export_cart_*.csv</code> depuis le panier</div>
+                    <div class="src-card-title">{{ t.import_csv.card_lcsc_cart }}</div>
+                    <div class="src-card-sub"><code>export_cart_*.csv</code> {{ t.import_csv.from_cart }}</div>
                 </div>
             </div>
             <div class="src-tags">
@@ -131,20 +131,20 @@
         <div class="imp-notes">
             <div class="imp-note">
                 <span class="imp-note-dot"></span>
-                Colonnes <strong>LCSC</strong>, <strong>Mouser</strong> et <strong>DigiKey</strong> reconnues — plusieurs sources possibles dans le même fichier.
+                {{ t.import_csv.multi_source_note }}
             </div>
             <div class="imp-note">
                 <span class="imp-note-dot"></span>
-                Composants absents du stock créés et enrichis automatiquement en arrière-plan.
+                {{ t.import_csv.auto_created }}
             </div>
             <div class="imp-note">
                 <span class="imp-note-dot"></span>
-                Pas de doublons — les composants déjà en stock sont ignorés.
+                {{ t.import_csv.no_duplicates }}
             </div>
         </div>
 
         <a href="{{ url_for('components.add') }}" class="btn btn-secondary imp-manual">
-            ➕ Ajouter manuellement
+            {{ t.import_csv.add_manual }}
         </a>
 
     </div>
@@ -358,7 +358,7 @@ function showFile(name) {
     document.getElementById('file-name').textContent       = name;
     dropZone.classList.add('has-file');
     submitBtn.disabled = false;
-    hint.textContent   = `Prêt à importer "${name}"`;
+    hint.textContent   = `{{ t.import_csv.ready_file }} "${name}"`;
 }
 
 function clearFile() {
@@ -367,7 +367,7 @@ function clearFile() {
     document.getElementById('drop-selected').style.display = 'none';
     dropZone.classList.remove('has-file');
     submitBtn.disabled = true;
-    hint.textContent   = 'Sélectionne un fichier CSV pour commencer';
+    hint.textContent   = '{{ t.import_csv.select_hint }}';
 }
 
 fileInput.addEventListener('change', () => {

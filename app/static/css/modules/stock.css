@@ -30,11 +30,15 @@
     position: sticky; top: 54px; z-index: 100;
     background: var(--bg); padding: .5rem 0 .4rem;
     margin-top: -.25rem;
-    /* Petite ombre en bas pour signaler le sticky */
+    border-bottom: 1px solid var(--border);
     box-shadow: 0 4px 8px -2px rgba(0,0,0,.25);
 }
+/* Thème clair : ombre invisible, on garde seulement la bordure */
+[data-theme="light"] .table-toolbar {
+    box-shadow: none;
+}
 /* Retire le sticky en impression */
-@media print { .table-toolbar { position: static; box-shadow: none; } }
+@media print { .table-toolbar { position: static; box-shadow: none; border-bottom: none; } }
 .search-input-wrap { position: relative; flex: 1; min-width: 180px; }
 .search-input-wrap .form-input { padding-left: 2rem; }
 .search-icon {

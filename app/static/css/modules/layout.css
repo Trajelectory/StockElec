@@ -3,3 +3,13 @@
     max-width: 1380px; margin: 0 auto;
     padding: 1.75rem 1.25rem 4rem;
 }
+
+/* Logo page d'accueil */
+.home-logo {
+    width: 128px; height: 128px;
+    background: url('../img/Logo.png') center/contain no-repeat;
+    margin: 0 auto .5rem;
+}
+[data-theme="light"] .home-logo {
+    background-image: url('../img/Logo_c.png');
+}

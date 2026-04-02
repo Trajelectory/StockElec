@@ -56,8 +56,7 @@
 @media (max-width: 1024px) {
     .main-content { padding: 1.25rem .9rem 3rem; }
 
-    /* Stock : cacher colonnes secondaires */
-    .col-hide-md { display: none !important; }
+    /* Stock : col-hide-md géré dans le bloc mobile ci-dessous */
 
     /* Filtres : wrap */
     .table-toolbar { gap: .4rem; }

@@ -4,10 +4,10 @@
 {% block content %}
 <div class="page-header">
     {% if component %}
-    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← Retour</a>
+    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">{{ t.history.back }}</a>
     <h1>📋 Historique — {{ component.description }}</h1>
     {% else %}
-    <h1>📋 Historique des mouvements</h1>
+    <h1>{{ t.history.title }}</h1>
     {% endif %}
 </div>
 
@@ -18,7 +18,7 @@
         <input type="hidden" name="component_id" value="{{ component.id }}"/>
         {% endif %}
         <select name="type" class="form-input" style="width:auto" onchange="this.form.submit()">
-            <option value="">Tous les types</option>
+            <option value="">{{ t.history.filter_all }}</option>
             {% for key, val in movement_types.items() %}
             <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>
                 {{ val[0] }} {{ val[1] }}
@@ -27,11 +27,11 @@
         </select>
         <select name="limit" class="form-input" style="width:auto" onchange="this.form.submit()">
             {% for l in [50, 100, 200, 500] %}
-            <option value="{{ l }}" {% if limit == l %}selected{% endif %}>{{ l }} derniers</option>
+            <option value="{{ l }}" {% if limit == l %}selected{% endif %}>{{ l }} {{ t.history.last_n }}</option>
             {% endfor %}
         </select>
         {% if type_filter or component %}
-        <a href="{{ url_for('components.history') }}" class="btn btn-secondary btn-sm">✕ Réinitialiser</a>
+        <a href="{{ url_for('components.history') }}" class="btn btn-secondary btn-sm">{{ t.history.btn_reset }}</a>
         {% endif %}
     </form>
     <span class="text-muted" style="font-size:.8rem;margin-left:auto">{{ movements|length }} mouvement(s)</span>
@@ -41,13 +41,13 @@
     {% if movements %}
     <table class="data-table">
         <thead><tr>
-            <th>Type</th>
+            <th>{{ t.history.col_type }}</th>
             <th class="th-img"></th>
-            <th>Composant</th>
-            <th class="th-center">Quantité</th>
-            <th>Note</th>
-            <th>Projet</th>
-            <th>Date</th>
+            <th>{{ t.history.col_component }}</th>
+            <th class="th-center">{{ t.history.col_qty }}</th>
+            <th>{{ t.history.col_note }}</th>
+            <th>{{ t.history.col_project }}</th>
+            <th>{{ t.history.col_date }}</th>
         </tr></thead>
         <tbody>
         {% for m in movements %}
@@ -93,32 +93,30 @@
     {% else %}
     <div class="empty-state">
         <div class="empty-state-icon">📋</div>
-        <div class="empty-state-title">Aucun mouvement</div>
-        <div class="empty-state-hint">Les entrées/sorties apparaîtront ici automatiquement</div>
+        <div class="empty-state-title">{{ t.history.empty }}</div>
+        <div class="empty-state-hint">{{ t.history.empty_hint }}</div>
     </div>
     {% endif %}
 </div>
 
 {% if total_pages > 1 %}
 <nav class="pagination" style="margin-top:1rem">
-    {% set qs = request.args.to_dict() %}
+    {# Construction propre de l'URL — chaque lien crée son propre dict pour éviter les effets de bord #}
+    {% macro page_url(p) %}?{% for k, v in request.args.items() %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ p }}{% endmacro %}
     {% if page > 1 %}
-    {% set _ = qs.update({'page': page-1}) %}
-    <a href="?{{ qs | urlencode }}" class="page-btn">←</a>
+    <a href="{{ page_url(page-1) }}" class="page-btn">←</a>
     {% endif %}
     {% for p in range(1, total_pages+1) %}
         {% if p == page %}
         <span class="page-btn active">{{ p }}</span>
         {% elif p == 1 or p == total_pages or (p >= page-2 and p <= page+2) %}
-        {% set _ = qs.update({'page': p}) %}
-        <a href="?{{ qs | urlencode }}" class="page-btn">{{ p }}</a>
+        <a href="{{ page_url(p) }}" class="page-btn">{{ p }}</a>
         {% elif p == page-3 or p == page+3 %}
         <span class="page-btn" style="border:none;cursor:default">…</span>
         {% endif %}
     {% endfor %}
     {% if page < total_pages %}
-    {% set _ = qs.update({'page': page+1}) %}
-    <a href="?{{ qs | urlencode }}" class="page-btn">→</a>
+    <a href="{{ page_url(page+1) }}" class="page-btn">→</a>
     {% endif %}
     <span class="page-info">Page {{ page }}/{{ total_pages }} — {{ total }} mouvements</span>
 </nav>

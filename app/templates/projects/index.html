@@ -3,12 +3,12 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>🗂️ Projets
+    <h1>{{ t.projects.title }}
         {% if projects %}
         <span class="page-count">{{ projects|length }}</span>
         {% endif %}
     </h1>
-    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">➕ Nouveau projet</a>
+    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">{{ t.projects.btn_new }}</a>
 </div>
 
 {% if projects %}
@@ -44,7 +44,7 @@
                 {% if p.component_count > 0 %}
                 <span class="pcf-stat">
                     <span class="pcf-icon">🔩</span>
-                    {{ p.component_count }} composant{{ 's' if p.component_count != 1 }}
+                    {{ p.component_count }} {{ t.projects.component_count_plural if p.component_count != 1 else t.projects.component_count }}
                 </span>
                 {% if p.total_value %}
                 <span class="pcf-stat">
@@ -53,7 +53,7 @@
                 </span>
                 {% endif %}
                 {% else %}
-                <span class="pcf-empty">Aucun composant</span>
+                <span class="pcf-empty">{{ t.projects.no_components_card }}</span>
                 {% endif %}
                 <span class="pcf-date">{{ p.updated_at[:10] }}</span>
             </div>
@@ -65,8 +65,8 @@
 {% else %}
 <div class="empty-state">
     <p class="empty-icon">🗂️</p>
-    <p>Aucun projet pour l'instant.</p>
-    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">➕ Créer mon premier projet</a>
+    <p>{{ t.projects.empty }}</p>
+    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">{{ t.projects.btn_first }}</a>
 </div>
 {% endif %}
 

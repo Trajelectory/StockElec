@@ -5,9 +5,7 @@
     gap: 1.25rem;
     align-items: start;
 }
-@media (max-width: 820px) {
-    .add-layout { grid-template-columns: 1fr; }
-}
+/* add-layout responsive géré dans responsive.css */
 .add-col-main { display: flex; flex-direction: column; gap: .85rem; }
 .add-col-side  { display: flex; flex-direction: column; gap: .85rem; }
 

@@ -8,6 +8,24 @@ from ..models.component import ComponentModel
 project_bp = Blueprint("projects", __name__, url_prefix="/projects")
 
 
+def _t(key: str, **kwargs) -> str:
+    """Retourne la string traduite selon la langue configurée."""
+    from app import load_locale
+    from ..models.settings import SettingsModel
+    lang = SettingsModel.get("lang", "fr") or "fr"
+    locale = load_locale(lang)
+    parts = key.split(".")
+    val = locale
+    for p in parts:
+        val = val.get(p, key) if isinstance(val, dict) else key
+    if kwargs:
+        try:
+            val = val.format(**kwargs)
+        except (KeyError, ValueError):
+            pass
+    return val
+
+
 # ------------------------------------------------------------------ #
 #  Liste des projets
 # ------------------------------------------------------------------ #
@@ -27,7 +45,7 @@ def new():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         if not name:
-            flash("Le nom du projet est obligatoire.", "danger")
+            flash(_t("msg.project_name_required"), "danger")
             return render_template("projects/form.html", project=None, status_options=STATUS_OPTIONS)
         image_path = _save_project_image(request.files.get("image"))
         project_id = ProjectModel.create({
@@ -36,7 +54,7 @@ def new():
             "status":      request.form.get("status", "en cours"),
             "image_path":  image_path,
         })
-        flash(f"Projet « {name} » créé.", "success")
+        flash(_t("msg.project_created", name=name), "success")
         return redirect(url_for("projects.detail", project_id=project_id))
     return render_template("projects/form.html", project=None, status_options=STATUS_OPTIONS)
 
@@ -49,7 +67,7 @@ def new():
 def detail(project_id):
     project    = ProjectModel.get_by_id(project_id)
     if not project:
-        flash("Projet introuvable.", "danger")
+        flash(_t("msg.project_not_found"), "danger")
         return redirect(url_for("projects.index"))
     components = ProjectModel.get_components(project_id)
     # Tous les composants du stock pour le sélecteur d'ajout
@@ -70,12 +88,12 @@ def detail(project_id):
 def edit(project_id):
     project = ProjectModel.get_by_id(project_id)
     if not project:
-        flash("Projet introuvable.", "danger")
+        flash(_t("msg.project_not_found"), "danger")
         return redirect(url_for("projects.index"))
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         if not name:
-            flash("Le nom est obligatoire.", "danger")
+            flash(_t("msg.project_name_missing"), "danger")
             return render_template("projects/form.html", project=project, status_options=STATUS_OPTIONS)
         # Image : nouvelle upload ou conservation de l'existante
         new_image = _save_project_image(request.files.get("image"))
@@ -90,7 +108,7 @@ def edit(project_id):
             "status":      request.form.get("status", "en cours"),
             "image_path":  image_path,
         })
-        flash("Projet mis à jour.", "success")
+        flash(_t("msg.project_updated"), "success")
         return redirect(url_for("projects.detail", project_id=project_id))
     return render_template("projects/form.html", project=project, status_options=STATUS_OPTIONS)
 
@@ -105,7 +123,7 @@ def delete(project_id):
     if project and project.image_path:
         _delete_project_image(project.image_path)
     ProjectModel.delete(project_id)
-    flash("Projet supprimé.", "success")
+    flash(_t("msg.project_deleted"), "success")
     return redirect(url_for("projects.index"))
 
 
@@ -126,25 +144,25 @@ def project_image(filename):
 def add_component(project_id):
     project = ProjectModel.get_by_id(project_id)
     if not project:
-        return jsonify({"ok": False, "error": "Projet introuvable"}), 404
+        return jsonify({"ok": False, "error": _t("msg.err_project_not_found")}), 404
 
     component_id = request.form.get("component_id", type=int)
     quantity     = request.form.get("quantity", 1, type=int)
     notes        = request.form.get("notes", "").strip() or None
 
     if not component_id or quantity < 1:
-        flash("Composant ou quantité invalide.", "danger")
+        flash(_t("msg.comp_qty_invalid"), "danger")
         return redirect(url_for("projects.detail", project_id=project_id))
 
     ProjectModel.add_component(project_id, component_id, quantity, notes)
-    flash("Composant ajouté au projet.", "success")
+    flash(_t("msg.comp_added_project"), "success")
     return redirect(url_for("projects.detail", project_id=project_id))
 
 
 @project_bp.route("/<int:project_id>/components/<int:component_id>/remove", methods=["POST"])
 def remove_component(project_id, component_id):
     ProjectModel.remove_component(project_id, component_id)
-    flash("Composant retiré du projet.", "success")
+    flash(_t("msg.comp_removed_project"), "success")
     return redirect(url_for("projects.detail", project_id=project_id))
 
 
@@ -156,7 +174,7 @@ def use_component(project_id, component_id):
     if result["ok"]:
         try:
             from ..models.movement import MovementModel
-            MovementModel.record(component_id, "out", quantity, note=f"Projet #{project_id}")
+            MovementModel.record(component_id, "project_use", quantity, note=f"Projet #{project_id}", project_id=project_id)
         except Exception:
             pass
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
@@ -171,7 +189,7 @@ def return_component(project_id, component_id):
     if result["ok"]:
         try:
             from ..models.movement import MovementModel
-            MovementModel.record(component_id, "in", quantity, note=f"Retour projet #{project_id}")
+            MovementModel.record(component_id, "project_return", quantity, note=f"Retour projet #{project_id}", project_id=project_id)
         except Exception:
             pass
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
@@ -186,17 +204,17 @@ def return_component(project_id, component_id):
 def import_bom(project_id):
     project = ProjectModel.get_by_id(project_id)
     if not project:
-        flash("Projet introuvable.", "danger")
+        flash(_t("msg.project_not_found"), "danger")
         return redirect(url_for("projects.index"))
 
     if request.method == "POST":
         file = request.files.get("bom_file")
         if not file or file.filename == "":
-            flash("Aucun fichier sélectionné.", "danger")
+            flash(_t("msg.bom_no_file"), "danger")
             return redirect(url_for("projects.import_bom", project_id=project_id))
 
         if not file.filename.lower().endswith(".csv"):
-            flash("Veuillez fournir un fichier CSV.", "danger")
+            flash(_t("msg.bom_not_csv"), "danger")
             return redirect(url_for("projects.import_bom", project_id=project_id))
 
         import io, csv as csvmod
@@ -208,7 +226,7 @@ def import_bom(project_id):
         rows = list(reader)
 
         if not rows:
-            flash("Le fichier est vide ou illisible.", "danger")
+            flash(_t("msg.bom_empty"), "danger")
             return redirect(url_for("projects.import_bom", project_id=project_id))
 
         report = _analyse_bom(rows, project_id)
@@ -244,7 +262,7 @@ def create_missing(project_id):
     qty     = request.form.get("quantity", 0, type=int)
 
     if not lcsc:
-        flash("Référence LCSC manquante.", "danger")
+        flash(_t("msg.bom_lcsc_missing"), "danger")
         return redirect(url_for("projects.detail", project_id=project_id))
 
     db = get_db()
@@ -255,7 +273,7 @@ def create_missing(project_id):
 
     if existing:
         comp_id = existing["id"]
-        flash(f"⚠️ {lcsc} existe déjà dans le stock.", "info")
+        flash(_t("msg.bom_already_exists", ref=lcsc), "info")
     else:
         comp_id = CM.create({
             "lcsc_part_number": lcsc,
@@ -264,7 +282,7 @@ def create_missing(project_id):
             "quantity":         qty,
             "min_stock":        0,
         })
-        flash(f"✅ {lcsc} créé dans le stock — enrichissement en cours…", "success")
+        flash(_t("msg.bom_created", ref=lcsc), "success")
         # Enrichissement en arrière-plan
         def _enrich():
             try:
@@ -293,7 +311,7 @@ def apply_bom(project_id):
 
     project = ProjectModel.get_by_id(project_id)
     if not project:
-        flash("Projet introuvable.", "danger")
+        flash(_t("msg.project_not_found"), "danger")
         return redirect(url_for("projects.index"))
 
     db = get_db()
@@ -394,7 +412,7 @@ def apply_bom(project_id):
                     except Exception:
                         pass
         threading.Thread(target=_enrich_missing, daemon=True).start()
-        flash(f"🔍 Enrichissement LCSC en cours pour {len(to_enrich)} nouveau(x) composant(s)…", "info")
+        flash(_t("msg.bom_enrich_started", n=len(to_enrich)), "info")
 
     # Enrichissement en arrière-plan — Mouser
     if to_enrich_mouser:
@@ -418,7 +436,7 @@ def apply_bom(project_id):
                     _enrich_async_source(cid, dref, "digikey")
         threading.Thread(target=_enrich_digikey, daemon=True).start()
 
-    flash(f"✅ {added} composant(s) ajouté(s) au projet.", "success")
+    flash(_t("msg.bom_added", n=added), "success")
     return redirect(url_for("projects.detail", project_id=project_id))
 
 

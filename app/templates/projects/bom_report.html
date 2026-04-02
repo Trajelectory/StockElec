@@ -15,30 +15,30 @@
 <div class="stock-stats-bar" style="margin-bottom:1.25rem">
     <div class="stock-stat">
         <span class="stock-stat-val" style="color:#4caf50">{{ report.ok|length }}</span>
-        <span class="stock-stat-lbl">✅ en stock</span>
+        <span class="stock-stat-lbl">{{ t.bom.ok_badge }}</span>
     </div>
     <div class="stock-stat-sep"></div>
     <div class="stock-stat">
         <span class="stock-stat-val" style="color:#ff9800">{{ report.low|length }}</span>
-        <span class="stock-stat-lbl">⚠️ insuffisant</span>
+        <span class="stock-stat-lbl">{{ t.bom.low_badge }}</span>
     </div>
     <div class="stock-stat-sep"></div>
     <div class="stock-stat">
         <span class="stock-stat-val" style="color:#f44336">{{ report.missing|length }}</span>
-        <span class="stock-stat-lbl">❌ absent</span>
+        <span class="stock-stat-lbl">{{ t.bom.absent }}</span>
     </div>
     {% if report.no_lcsc %}
     <div class="stock-stat-sep"></div>
     <div class="stock-stat">
         <span class="stock-stat-val" style="color:var(--text-muted)">{{ report.no_lcsc|length }}</span>
-        <span class="stock-stat-lbl">— sans ref</span>
+        <span class="stock-stat-lbl">{{ t.bom.no_ref_badge }}</span>
     </div>
     {% endif %}
     {% set total = report.ok|length + report.low|length + report.missing|length + report.no_lcsc|length %}
     <div class="stock-stat-sep"></div>
     <div class="stock-stat">
         <span class="stock-stat-val">{{ total }}</span>
-        <span class="stock-stat-lbl">références total</span>
+        <span class="stock-stat-lbl">{{ t.bom.total_refs }}</span>
     </div>
 </div>
 
@@ -48,7 +48,7 @@
 {% if report.ok %}
 <div class="bom-section">
     <div class="bom-section-header bom-header-ok">
-        <span>✅ En stock — quantité suffisante</span>
+        <span>{{ t.bom.ok_stock }}</span>
         <span class="bom-section-count">{{ report.ok|length }}</span>
     </div>
     <div class="table-wrapper">
@@ -56,11 +56,11 @@
         <thead><tr>
             <th class="th-check"><input type="checkbox" id="check-all-ok" onchange="toggleAll('ok', this.checked)"/></th>
             <th class="th-img"></th>
-            <th>Composant</th>
-            <th>Réf. schéma</th>
-            <th class="th-center">Qté BOM</th>
-            <th class="th-center">En stock</th>
-            <th class="th-right">Prix</th>
+            <th>{{ t.bom.col_component }}</th>
+            <th>{{ t.bom.col_ref }}</th>
+            <th class="th-center">{{ t.bom.col_qty_bom }}</th>
+            <th class="th-center">{{ t.bom.col_stock }}</th>
+            <th class="th-right">{{ t.bom.col_price }}</th>
         </tr></thead>
         <tbody>
         {% for c in report.ok %}
@@ -72,7 +72,7 @@
                        onchange="syncQty(this, 'qty-ok-{{ loop.index }}')"/>
                 <input type="hidden" name="quantity" id="qty-ok-{{ loop.index }}" value="{{ c.bom_qty }}"/>
                 {% else %}
-                <span class="badge badge-gray" title="Déjà dans ce projet">✓</span>
+                <span class="badge badge-gray" title="{{ t.bom.already_in }}">✓</span>
                 {% endif %}
             </td>
             <td class="td-thumb">
@@ -103,11 +103,11 @@
 </div>
 {% endif %}
 
-{# ── ⚠️ Stock insuffisant ────────────────────────────────────────── #}
+{# ── {{ t.bom.low_stock }} ────────────────────────────────────────── #}
 {% if report.low %}
 <div class="bom-section">
     <div class="bom-section-header bom-header-low">
-        <span>⚠️ Stock insuffisant</span>
+        <span>{{ t.bom.low_stock2 }}</span>
         <span class="bom-section-count">{{ report.low|length }}</span>
     </div>
     <div class="table-wrapper">
@@ -115,11 +115,11 @@
         <thead><tr>
             <th class="th-check"><input type="checkbox" id="check-all-low" onchange="toggleAll('low', this.checked)"/></th>
             <th class="th-img"></th>
-            <th>Composant</th>
-            <th>Réf. schéma</th>
-            <th class="th-center">Qté BOM</th>
-            <th class="th-center">En stock</th>
-            <th class="th-center">Manquant</th>
+            <th>{{ t.bom.col_component2 }}</th>
+            <th>{{ t.bom.col_schema_ref }}</th>
+            <th class="th-center">{{ t.bom.col_qty_bom2 }}</th>
+            <th class="th-center">{{ t.bom.col_stock2 }}</th>
+            <th class="th-center">{{ t.bom.col_missing }}</th>
         </tr></thead>
         <tbody>
         {% for c in report.low %}
@@ -131,7 +131,7 @@
                        onchange="syncQty(this, 'qty-low-{{ loop.index }}')"/>
                 <input type="hidden" name="quantity" id="qty-low-{{ loop.index }}" value="{{ c.bom_qty }}"/>
                 {% else %}
-                <span class="badge badge-gray" title="Déjà dans ce projet">✓</span>
+                <span class="badge badge-gray" title="{{ t.bom.already_in_title }}">✓</span>
                 {% endif %}
             </td>
             <td class="td-thumb">
@@ -164,7 +164,7 @@
 {% if report.missing %}
 <div class="bom-section">
     <div class="bom-section-header bom-header-missing">
-        <span>⚠️ Absent du stock — créés automatiquement (qté : 0, enrichissement en cours)</span>
+        <span>{{ t.bom.created_auto }}</span>
         <span class="bom-section-count">{{ report.missing|length }}</span>
     </div>
     {% if report.new_count %}
@@ -176,10 +176,10 @@
     <table class="data-table">
         <thead><tr>
             <th class="th-check"><input type="checkbox" id="check-all-missing" onchange="toggleAll('missing', this.checked)" checked/></th>
-            <th>Référence LCSC</th>
-            <th>Désignateur</th>
-            <th>Valeur / Description</th>
-            <th class="th-center">Qté nécessaire</th>
+            <th>{{ t.bom.col_lcsc }}</th>
+            <th>{{ t.bom.col_designator }}</th>
+            <th>{{ t.bom.col_value }}</th>
+            <th class="th-center">{{ t.bom.col_qty_needed }}</th>
         </tr></thead>
         <tbody>
         {% for c in report.missing %}
@@ -213,15 +213,15 @@
 {% if report.no_lcsc %}
 <div class="bom-section">
     <div class="bom-section-header" style="border-left-color:var(--border)">
-        <span style="color:var(--text-muted)">— Sans référence LCSC</span>
+        <span style="color:var(--text-muted)">{{ t.bom.no_ref }}</span>
         <span class="bom-section-count">{{ report.no_lcsc|length }}</span>
     </div>
     <div class="table-wrapper">
     <table class="data-table">
         <thead><tr>
-            <th>Désignateur</th>
-            <th>Valeur</th>
-            <th class="th-center">Qté</th>
+            <th>{{ t.bom.col_designator2 }}</th>
+            <th>{{ t.bom.col_value2 }}</th>
+            <th class="th-center">{{ t.bom.col_qty }}</th>
         </tr></thead>
         <tbody>
         {% for c in report.no_lcsc %}
@@ -241,13 +241,13 @@
 <div class="bom-actions">
     {% if report.ok or report.low %}
     <p class="bom-actions-hint">
-        Coche les composants à ajouter au projet, puis clique sur <strong>Ajouter au projet</strong>.
+        Coche les composants à ajouter au projet, puis clique sur <strong>{{ t.bom.btn_add_project }}</strong>.
         Les composants ❌ doivent d'abord être commandés sur LCSC.
     </p>
-    <button type="submit" class="btn btn-primary">✅ Ajouter les composants cochés</button>
+    <button type="submit" class="btn btn-primary">{{ t.bom.btn_add }}</button>
     {% endif %}
     <a href="{{ url_for('projects.detail', project_id=project.id) }}"
-       class="btn btn-secondary">← Retour au projet</a>
+       class="btn btn-secondary">{{ t.bom.back }}</a>
 </div>
 
 </form>

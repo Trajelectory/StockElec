@@ -3,19 +3,19 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>🛒 Réapprovisionnement</h1>
+    <h1>{{ t.reorder.title }}</h1>
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
         {% if show_all_zero %}
         <a href="{{ url_for('components.reorder') }}" class="btn btn-secondary btn-sm">
-            ✕ Masquer ruptures sans seuil
+            {{ t.reorder.btn_hide_zero }}
         </a>
         {% else %}
         <a href="{{ url_for('components.reorder', show_zero=1) }}" class="btn btn-secondary btn-sm">
-            📉 Voir toutes les ruptures
+            {{ t.reorder.btn_all_zero }}
         </a>
         {% endif %}
         <a href="https://www.lcsc.com/cart" target="_blank" rel="noopener" class="btn btn-primary btn-sm">
-            🛒 Ouvrir LCSC →
+            {{ t.reorder.btn_open_lcsc }}
         </a>
     </div>
 </div>
@@ -28,17 +28,17 @@
     {% set bas      = items|selectattr('stock_status','eq','bas')|list %}
     <div class="stock-stat">
         <span class="stock-stat-val" style="color:var(--danger)">{{ ruptures|length }}</span>
-        <span class="stock-stat-lbl">En rupture</span>
+        <span class="stock-stat-lbl">{{ t.reorder.status_rupture }}</span>
     </div>
     <div class="stock-stat-sep"></div>
     <div class="stock-stat">
         <span class="stock-stat-val" style="color:var(--warning)">{{ bas|length }}</span>
-        <span class="stock-stat-lbl">Stock bas</span>
+        <span class="stock-stat-lbl">{{ t.reorder.status_low }}</span>
     </div>
     <div class="stock-stat-sep"></div>
     <div class="stock-stat">
         <span class="stock-stat-val">{{ items|length }}</span>
-        <span class="stock-stat-lbl">Total à commander</span>
+        <span class="stock-stat-lbl">{{ t.reorder.total_label }}</span>
     </div>
     {% set total_val = namespace(v=0) %}
     {% for i in items %}
@@ -50,7 +50,7 @@
     <div class="stock-stat-sep"></div>
     <div class="stock-stat">
         <span class="stock-stat-val" style="color:var(--warning)">{{ "%.2f"|format(total_val.v) }} €</span>
-        <span class="stock-stat-lbl">Estimation commande</span>
+        <span class="stock-stat-lbl">{{ t.reorder.estimation }}</span>
     </div>
     {% endif %}
 </div>
@@ -60,22 +60,22 @@
         <thead><tr>
             <th></th>
             <th class="th-img"></th>
-            <th>Composant</th>
-            <th>Réf. LCSC</th>
-            <th class="th-center">En stock</th>
-            <th class="th-center">Seuil</th>
-            <th class="th-center">Suggéré</th>
-            <th class="th-right">Prix unit.</th>
-            <th>Commander</th>
+            <th>{{ t.reorder.col_component }}</th>
+            <th>{{ t.reorder.col_ref }}</th>
+            <th class="th-center">{{ t.reorder.col_stock }}</th>
+            <th class="th-center">{{ t.reorder.col_threshold }}</th>
+            <th class="th-center">{{ t.reorder.col_suggested }}</th>
+            <th class="th-right">{{ t.reorder.col_price }}</th>
+            <th>{{ t.reorder.col_order }}</th>
         </tr></thead>
         <tbody>
         {% for item in items %}
         <tr class="{{ 'order-row-urgent' if item.stock_status == 'rupture' }}">
             <td>
                 {% if item.stock_status == 'rupture' %}
-                <span class="badge badge-red">⚠ Rupture</span>
+                <span class="badge badge-red">{{ t.reorder.badge_rupture }}</span>
                 {% else %}
-                <span class="badge badge-orange">↓ Bas</span>
+                <span class="badge badge-orange">{{ t.reorder.badge_low }}</span>
                 {% endif %}
             </td>
             <td class="td-thumb">
@@ -101,12 +101,12 @@
                     <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ item.lcsc_part_number }}</span>
                 </a>
                 {% elif item.mouser_part_number %}
-                <a href="{{ item.product_url if item.product_url and 'mouser' in item.product_url else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ item.mouser_part_number }}"
+                <a href="{{ item.product_url if item.product_url and 'mouser' in (('' ~ (item.product_url or ''))|lower) else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ item.mouser_part_number }}"
                    target="_blank" class="td-mono" style="font-size:.78rem">
                     <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ item.mouser_part_number }}</span>
                 </a>
                 {% elif item.digikey_part_number %}
-                <a href="{{ item.product_url if item.product_url and 'digikey' in item.product_url else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}"
+                <a href="{{ item.product_url if item.product_url and 'digikey' in (('' ~ (item.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}"
                    target="_blank" class="td-mono" style="font-size:.78rem">
                     <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ item.digikey_part_number }}</span>
                 </a>
@@ -127,13 +127,13 @@
             <td>
                 {% if item.lcsc_part_number %}
                 <a href="https://www.lcsc.com/search?q={{ item.lcsc_part_number }}"
-                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🛒 LCSC</a>
+                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">{{ t.reorder.btn_lcsc }}</a>
                 {% elif item.mouser_part_number %}
-                <a href="{{ item.product_url if item.product_url and 'mouser' in item.product_url else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ item.mouser_part_number }}"
-                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🛒 Mouser</a>
+                <a href="{{ item.product_url if item.product_url and 'mouser' in (('' ~ (item.product_url or ''))|lower) else 'https://www.mouser.fr/Search/Refine?Keyword=' ~ item.mouser_part_number }}"
+                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">{{ t.reorder.btn_mouser }}</a>
                 {% elif item.digikey_part_number %}
-                <a href="{{ item.product_url if item.product_url and 'digikey' in item.product_url else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}"
-                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">🛒 DigiKey</a>
+                <a href="{{ item.product_url if item.product_url and 'digikey' in (('' ~ (item.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}"
+                   target="_blank" rel="noopener" class="btn btn-secondary btn-sm">{{ t.reorder.btn_digikey }}</a>
                 {% endif %}
             </td>
         </tr>
@@ -145,8 +145,8 @@
 {% else %}
 <div class="empty-state" style="padding:4rem">
     <div class="empty-state-icon">🎉</div>
-    <div class="empty-state-title">Stock au beau fixe !</div>
-    <div class="empty-state-hint">Aucun composant n'est en rupture ou sous le seuil d'alerte</div>
+    <div class="empty-state-title">{{ t.reorder.all_good }}</div>
+    <div class="empty-state-hint">{{ t.reorder.empty }}</div>
 </div>
 {% endif %}
 {% endblock %}

@@ -3,9 +3,9 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>🏷️ Configuration des étiquettes</h1>
+    <h1>{{ t.labels.title }}</h1>
     <div class="page-header-actions">
-        <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">← Stock</a>
+        <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">{{ t.labels.back }}</a>
     </div>
 </div>
 
@@ -16,15 +16,15 @@
 
         <!-- Format -->
         <div class="lbl-cfg-section">
-            <div class="lbl-cfg-section-title">📐 Format</div>
+            <div class="lbl-cfg-section-title">{{ t.labels.section_format }}</div>
             <div class="lbl-cfg-row">
-                <label>Largeur (mm)</label>
+                <label>{{ t.labels.label_width }}</label>
                 <input type="number" name="lbl_width_mm" id="lbl_width_mm"
                        value="{{ config.lbl_width_mm }}" min="20" max="150" step="1"
                        class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
             </div>
             <div class="lbl-cfg-row">
-                <label>Hauteur (mm)</label>
+                <label>{{ t.labels.label_height }}</label>
                 <input type="number" name="lbl_height_mm" id="lbl_height_mm"
                        value="{{ config.lbl_height_mm }}" min="10" max="100" step="1"
                        class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
@@ -33,9 +33,9 @@
 
         <!-- Couleurs générales -->
         <div class="lbl-cfg-section">
-            <div class="lbl-cfg-section-title">🎨 Couleurs générales</div>
+            <div class="lbl-cfg-section-title">{{ t.labels.section_colors }}</div>
             <div class="lbl-cfg-row">
-                <label>Fond de l'étiquette</label>
+                <label>{{ t.labels.label_bg }}</label>
                 <div class="cfg-color-wrap">
                     <input type="color" name="lbl_bg_color" id="lbl_bg_color"
                            value="{{ config.lbl_bg_color }}" oninput="updatePreview()"/>
@@ -43,7 +43,7 @@
                 </div>
             </div>
             <div class="lbl-cfg-row">
-                <label>Texte principal</label>
+                <label>{{ t.labels.label_text }}</label>
                 <div class="cfg-color-wrap">
                     <input type="color" name="lbl_text_color" id="lbl_text_color"
                            value="{{ config.lbl_text_color }}" oninput="updatePreview()"/>
@@ -54,21 +54,21 @@
 
         <!-- Tailles de police -->
         <div class="lbl-cfg-section">
-            <div class="lbl-cfg-section-title">🔠 Tailles de police (mm)</div>
+            <div class="lbl-cfg-section-title">{{ t.labels.section_fonts }}</div>
             <div class="lbl-cfg-row">
-                <label>Description</label>
+                <label>{{ t.labels.toggle_desc2 }}</label>
                 <input type="number" name="lbl_desc_size_mm" id="lbl_desc_size_mm"
                        value="{{ config.lbl_desc_size_mm }}" min="1" max="5" step="0.1"
                        class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
             </div>
             <div class="lbl-cfg-row">
-                <label>Références (LCSC, MPN…)</label>
+                <label>{{ t.labels.toggle_refs2 }}</label>
                 <input type="number" name="lbl_ref_size_mm" id="lbl_ref_size_mm"
                        value="{{ config.lbl_ref_size_mm }}" min="0.8" max="4" step="0.1"
                        class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
             </div>
             <div class="lbl-cfg-row">
-                <label>Badges (package, qty…)</label>
+                <label>{{ t.labels.toggle_badges2 }}</label>
                 <input type="number" name="lbl_badge_size_mm" id="lbl_badge_size_mm"
                        value="{{ config.lbl_badge_size_mm }}" min="0.8" max="4" step="0.1"
                        class="cfg-input cfg-input-sm" oninput="updatePreview()"/>
@@ -77,22 +77,22 @@
 
         <!-- Éléments affichés -->
         <div class="lbl-cfg-section">
-            <div class="lbl-cfg-section-title">👁️ Éléments affichés</div>
-            {% set toggles = [
-                ('lbl_show_image',    '🖼️ Image du composant'),
-                ('lbl_show_qr',       '⬛ QR code'),
-                ('lbl_show_lcsc',     '🔑 Référence LCSC'),
-                ('lbl_show_mfr_part', '🏷️ Référence fabricant'),
-                ('lbl_show_mfg',      '🏭 Fabricant'),
-                ('lbl_show_package',  '📦 Package'),
-                ('lbl_show_rohs',     '♻️ RoHS'),
-                ('lbl_show_qty',      '🔢 Quantité en stock'),
-                ('lbl_show_location', '📍 Emplacement'),
-                ('lbl_show_category', '🗂️ Catégorie'),
-                ('lbl_show_price',    '💶 Prix unitaire'),
+            <div class="lbl-cfg-section-title">{{ t.labels.section_elements }}</div>
+            {% set toggle_keys = [
+                ('lbl_show_image',    'toggle_image'),
+                ('lbl_show_qr',       'toggle_qr'),
+                ('lbl_show_lcsc',     'toggle_lcsc'),
+                ('lbl_show_mfr_part', 'toggle_mfr_part'),
+                ('lbl_show_mfg',      'toggle_mfg'),
+                ('lbl_show_package',  'toggle_package'),
+                ('lbl_show_rohs',     'toggle_rohs2'),
+                ('lbl_show_qty',      'toggle_qty'),
+                ('lbl_show_location', 'toggle_location'),
+                ('lbl_show_category', 'toggle_category'),
+                ('lbl_show_price',    'toggle_price'),
             ] %}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:.2rem">
-            {% for key, label in toggles %}
+            {% for key, tkey in toggle_keys %}
             <label style="display:flex;align-items:center;gap:.6rem;padding:.4rem .5rem;border-radius:6px;cursor:pointer;font-size:.85rem;transition:background .1s" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
                 <span style="position:relative;display:inline-block;width:34px;height:18px;flex-shrink:0">
                     <input type="checkbox" name="{{ key }}" id="{{ key }}"
@@ -101,7 +101,7 @@
                            style="opacity:0;width:0;height:0;position:absolute"/>
                     <span class="tgl-track" id="tgl-{{ key }}"></span>
                 </span>
-                {{ label }}
+                {{ t.labels[tkey] }}
             </label>
             {% endfor %}
             </div>
@@ -109,17 +109,17 @@
 
         <!-- Couleurs des badges -->
         <div class="lbl-cfg-section">
-            <div class="lbl-cfg-section-title">🎨 Couleurs des badges</div>
-            {% set badge_colors = [
-                ('lbl_color_pkg',  'Package'),
-                ('lbl_color_rohs', 'RoHS'),
-                ('lbl_color_qty',  'Quantité'),
-                ('lbl_color_loc',  'Emplacement'),
-                ('lbl_color_cat',  'Catégorie'),
+            <div class="lbl-cfg-section-title">{{ t.labels.section_badge_colors }}</div>
+            {% set badge_keys = [
+                ('lbl_color_pkg',  'badge_package'),
+                ('lbl_color_rohs', 'badge_rohs'),
+                ('lbl_color_qty',  'badge_qty'),
+                ('lbl_color_loc',  'badge_location'),
+                ('lbl_color_cat',  'badge_category'),
             ] %}
-            {% for key, label in badge_colors %}
+            {% for key, tkey in badge_keys %}
             <div class="lbl-cfg-row">
-                <label>{{ label }}</label>
+                <label>{{ t.labels[tkey] }}</label>
                 <div class="cfg-color-wrap">
                     <input type="color" name="{{ key }}" id="{{ key }}"
                            value="{{ config[key] }}" oninput="updatePreview()"/>
@@ -130,15 +130,15 @@
         </div>
 
         <div class="lbl-cfg-actions">
-            <button type="submit" class="btn btn-primary">💾 Sauvegarder</button>
-            <button type="button" class="btn btn-secondary" onclick="resetDefaults()">↺ Réinitialiser</button>
+            <button type="submit" class="btn btn-primary">{{ t.labels.btn_save }}</button>
+            <button type="button" class="btn btn-secondary" onclick="resetDefaults()">{{ t.labels.btn_reset }}</button>
         </div>
     </form>
 
     <!-- ══ APERÇU (droite) ═════════════════════════════════════════ -->
     <div class="lbl-preview-panel">
         <div class="lbl-preview-header">
-            <span>Aperçu en temps réel</span>
+            <span>{{ t.labels.preview_title }}</span>
             <span class="lbl-preview-dims" id="preview-dims">
                 {{ config.lbl_width_mm }} × {{ config.lbl_height_mm }} mm
             </span>
@@ -165,19 +165,19 @@
                     </div>
                     <div id="prev-refs" style="display:flex;flex-direction:column;gap:0">
                         <div id="prev-lcsc" style="font-family:monospace">
-                            <span style="font-size:.55rem;color:#888;text-transform:uppercase">LCSC </span>{{ preview_comp.lcsc_part_number or '—' if preview_comp else 'C149504' }}
+                            <span style="font-size:.55rem;color:#888;text-transform:uppercase">{{ t.labels.preview_lcsc }} </span>{{ preview_comp.lcsc_part_number or '—' if preview_comp else 'C149504' }}
                         </div>
                         <div id="prev-mfr" style="font-family:monospace">
-                            <span style="font-size:.55rem;color:#888;text-transform:uppercase">MFR  </span>{{ preview_comp.manufacture_part_number or '—' if preview_comp else '0805W8F1003T5E' }}
+                            <span style="font-size:.55rem;color:#888;text-transform:uppercase">{{ t.labels.preview_mfr }}  </span>{{ preview_comp.manufacture_part_number or '—' if preview_comp else '0805W8F1003T5E' }}
                         </div>
                         <div id="prev-mfg" style="font-family:monospace">
-                            <span style="font-size:.55rem;color:#888;text-transform:uppercase">MFG  </span>{{ preview_comp.manufacturer or '—' if preview_comp else 'UNI-ROYAL' }}
+                            <span style="font-size:.55rem;color:#888;text-transform:uppercase">{{ t.labels.preview_mfg }}  </span>{{ preview_comp.manufacturer or '—' if preview_comp else 'UNI-ROYAL' }}
                         </div>
                     </div>
                     <div id="prev-badges" style="display:flex;flex-wrap:wrap;gap:1px;margin-top:1px">
                         <span id="prev-pkg"  style="border-radius:2px;font-weight:700;background:{{ config.lbl_color_pkg }};color:#333">{{ preview_comp.package or '0805' if preview_comp else '0805' }}</span>
-                        <span id="prev-rohs" style="border-radius:2px;font-weight:700;background:{{ config.lbl_color_rohs }};color:#333">RoHS</span>
-                        <span id="prev-qty"  style="border-radius:2px;font-weight:700;background:{{ config.lbl_color_qty }};color:#333">Qté: {{ preview_comp.quantity if preview_comp else '10' }}</span>
+                        <span id="prev-rohs" style="border-radius:2px;font-weight:700;background:{{ config.lbl_color_rohs }};color:#333">{{ t.labels.preview_rohs }}</span>
+                        <span id="prev-qty"  style="border-radius:2px;font-weight:700;background:{{ config.lbl_color_qty }};color:#333">{{ t.labels.preview_qty }}: {{ preview_comp.quantity if preview_comp else '10' }}</span>
                         <span id="prev-loc"  style="border-radius:2px;font-weight:700;background:{{ config.lbl_color_loc }};color:#333">📍 {{ preview_comp.location or 'A3' if preview_comp else 'A3' }}</span>
                         <span id="prev-cat"  style="border-radius:2px;font-weight:700;background:{{ config.lbl_color_cat }};color:#333">
                             {% if preview_comp and preview_comp.category %}{{ preview_comp.category.split(' / ')|last }}{% else %}Resistors{% endif %}
@@ -202,14 +202,13 @@
         </div>
 
         <p class="lbl-preview-note">
-            💡 L'aperçu est proportionnel mais les tailles de police sont indicatives.
-            Lance une impression pour voir le rendu exact.
+            {{ t.labels.hint_preview }}
         </p>
 
         {% if preview_comp %}
         <a href="{{ url_for('components.labels_print', ids=preview_comp.id|string) }}"
            target="_blank" class="btn btn-secondary" style="margin-top:.75rem">
-            🖨️ Tester l'impression sur ce composant
+            {{ t.labels.btn_test_print }}
         </a>
         {% endif %}
     </div>
@@ -327,7 +326,7 @@ function setBadgeBg(id, color) {
 }
 
 function resetDefaults() {
-    if (!confirm('Réinitialiser toutes les options aux valeurs par défaut ?')) return;
+    if (!confirm('{{ t.labels.confirm_reset_all }}')) return;
     Object.entries(DEFAULTS).forEach(([key, val]) => {
         const el = document.getElementById(key);
         if (!el) return;

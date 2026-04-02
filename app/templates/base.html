@@ -10,7 +10,7 @@
         if (t) document.documentElement.setAttribute('data-theme', t);
     })();
     </script>
-    <title>{% block title %}{{ app_name or 'StockElec' }}{% endblock %}</title>
+    <title>{% block title %}{{ app_name or 'StockEleK' }}{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
@@ -19,29 +19,29 @@
 
 <nav class="navbar">
     <a class="nav-brand" href="{{ url_for('components.home') }}">
-        <span class="nav-icon"><img src="{{ url_for('static', filename='img/Logo.png') }}" alt="StockElec" width="32px"></span>
-        {{ app_name or 'StockElec' }}
+        <span class="nav-logo"></span>
+        {{ app_name or 'StockEleK' }}
     </a>
     <div class="nav-links">
         <a href="{{ url_for('components.stock') }}"
            class="nav-link {% if request.endpoint == 'components.stock' %}active{% endif %}">
-            <span class="nav-emoji">📦</span> Stock
+            <span class="nav-emoji">📦</span> {{ t.nav.stock }}
         </a>
         <a href="{{ url_for('projects.index') }}"
            class="nav-link {% if request.endpoint and request.endpoint.startswith('projects.') %}active{% endif %}">
-            <span class="nav-emoji">🗂️</span> Projets
+            <span class="nav-emoji">🗂️</span> {{ t.nav.projects }}
         </a>
         <a href="{{ url_for('components.history') }}"
            class="nav-link {% if request.endpoint == 'components.history' %}active{% endif %}">
-            <span class="nav-emoji">📋</span> Historique
+            <span class="nav-emoji">📋</span> {{ t.nav.history }}
         </a>
         <a href="{{ url_for('components.reorder') }}"
            class="nav-link {% if request.endpoint == 'components.reorder' %}active{% endif %}">
-            <span class="nav-emoji">🛒</span> Commandes
+            <span class="nav-emoji">🛒</span> {{ t.nav.orders }}
         </a>
         <a href="{{ url_for('components.rangement') }}"
            class="nav-link {% if request.endpoint == 'components.rangement' %}active{% endif %}">
-            <span class="nav-emoji">🗃️</span> Rangement
+            <span class="nav-emoji">🗃️</span> {{ t.nav.storage }}
         </a>
     </div>
     <div class="nav-right">
@@ -52,7 +52,7 @@
         </a>
         <a href="{{ url_for('components.add') }}"
            class="btn btn-primary btn-sm {% if request.endpoint == 'components.add' %}active{% endif %}">
-            ➕ Ajouter
+            {{ t.nav.add }}
         </a>
         <a href="{{ url_for('components.import_csv') }}"
            class="nav-link {% if request.endpoint == 'components.import_csv' %}active{% endif %}">
@@ -62,7 +62,7 @@
            class="nav-link {% if request.endpoint == 'components.settings' %}active{% endif %}">
             <span class="nav-emoji">⚙️</span>
         </a>
-        <button class="nav-link" id="theme-toggle" onclick="toggleTheme()" title="Changer le thème" style="border:none;cursor:pointer;background:none">
+        <button class="nav-link" id="theme-toggle" onclick="toggleTheme()" title="{{ t.nav.theme_title }}" style="border:none;cursor:pointer;background:none">
             <span id="theme-icon">🌙</span>
         </button>
     </div>
@@ -96,10 +96,13 @@
     </a>
     <div class="nav-divider"></div>
     <div class="nav-actions">
-        <a href="{{ url_for('components.add') }}" class="btn btn-primary btn-sm">➕ Ajouter</a>
-        <a href="{{ url_for('components.alerts') }}" class="btn btn-secondary btn-sm">🔔 Alertes</a>
-        <a href="{{ url_for('components.import_csv') }}" class="btn btn-secondary btn-sm">📥 Import</a>
-        <a href="{{ url_for('components.settings') }}" class="btn btn-secondary btn-sm">⚙️ Paramètres</a>
+        <a href="{{ url_for('components.add') }}" class="btn btn-primary btn-sm">{{ t.nav.add }}</a>
+        <a href="{{ url_for('components.alerts') }}" class="btn btn-secondary btn-sm">{{ t.nav.alerts }}</a>
+        <a href="{{ url_for('components.import_csv') }}" class="btn btn-secondary btn-sm">{{ t.nav.import }}</a>
+        <a href="{{ url_for('components.settings') }}" class="btn btn-secondary btn-sm">{{ t.nav.settings }}</a>
+        <button class="btn btn-secondary btn-sm" onclick="toggleTheme()" style="border:none;cursor:pointer">
+            <span id="theme-icon-mobile">🌙</span> {{ t.nav.theme }}
+        </button>
     </div>
 </div>
 
@@ -128,8 +131,12 @@ function toggleTheme() {
     updateThemeIcon();
 }
 function updateThemeIcon() {
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const emoji = isDark ? '🌙' : '☀️';
     const icon = document.getElementById('theme-icon');
-    if (icon) icon.textContent = document.documentElement.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    const iconMobile = document.getElementById('theme-icon-mobile');
+    if (icon) icon.textContent = emoji;
+    if (iconMobile) iconMobile.textContent = emoji;
 }
 updateThemeIcon();
 

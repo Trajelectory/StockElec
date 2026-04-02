@@ -5,14 +5,14 @@
 
 <!-- ── En-tête ─────────────────────────────────────────────────────── -->
 <div class="page-header">
-    <a href="{{ url_for('projects.index') }}" class="btn-back">← Projets</a>
+    <a href="{{ url_for('projects.index') }}" class="btn-back">{{ t.projects.back }}</a>
     <h1>🗂️ {{ project.name }}
         <span class="badge badge-status-{{ project.status|replace(' ','-') }}">{{ project.status }}</span>
     </h1>
     <div class="page-header-actions">
-        <a href="{{ url_for('projects.edit', project_id=project.id) }}" class="btn btn-primary">✏️ Modifier</a>
+        <a href="{{ url_for('projects.edit', project_id=project.id) }}" class="btn btn-primary">{{ t.projects.btn_edit }}</a>
         <form method="post" action="{{ url_for('projects.delete', project_id=project.id) }}"
-              style="display:inline" onsubmit="return confirm('Supprimer ce projet ?')">
+              style="display:inline" onsubmit="return confirm('{{ t.projects.confirm_delete }}')">
             <button type="submit" class="btn btn-danger">🗑️</button>
         </form>
     </div>
@@ -34,18 +34,18 @@
 <div class="proj-stats-bar">
     <div class="proj-stat">
         <span class="proj-stat-value">{{ project.component_count }}</span>
-        <span class="proj-stat-label">références</span>
+        <span class="proj-stat-label">{{ t.projects.stats_refs }}</span>
     </div>
     <div class="proj-stat">
         <span class="proj-stat-value">{{ "%.2f"|format(project.total_value or 0) }} €</span>
-        <span class="proj-stat-label">valeur BOM</span>
+        <span class="proj-stat-label">{{ t.projects.stats_value }}</span>
     </div>
     {% if components %}
     <div class="proj-stat">
         <span class="proj-stat-value {% if n_ok == n_total %}color-ok{% elif n_ok == 0 %}color-err{% else %}color-warn{% endif %}">
             {{ n_ok }}/{{ n_total }}
         </span>
-        <span class="proj-stat-label">disponibles</span>
+        <span class="proj-stat-label">{{ t.projects.stats_available }}</span>
     </div>
     <div class="proj-stat proj-stat-wide">
         <div class="proj-dispo-bar">
@@ -57,9 +57,9 @@
     {% endif %}
     <div class="proj-stat proj-stat-actions">
         <a href="{{ url_for('projects.import_bom', project_id=project.id) }}"
-           class="btn btn-primary btn-sm">📋 Importer BOM KiCad</a>
+           class="btn btn-primary btn-sm">{{ t.projects.btn_import_bom }}</a>
         <button class="btn btn-secondary btn-sm" onclick="toggleAddForm()" id="btn-add-toggle">
-            ➕ Ajouter un composant
+            {{ t.projects.btn_add_component }}
         </button>
     </div>
 </div>
@@ -69,26 +69,26 @@
     <form method="post" action="{{ url_for('projects.add_component', project_id=project.id) }}">
         <div class="form-grid">
             <div class="form-group" style="flex:2">
-                <label>Composant</label>
+                <label>{{ t.projects.label_component }}</label>
                 <select name="component_id" class="form-input" required>
-                    <option value="">— Choisir —</option>
+                    <option value="">{{ t.projects.select_none }}</option>
                     {% for c in all_components %}
                     <option value="{{ c.id }}">{{ c.description or c.manufacture_part_number }} ({{ c.lcsc_part_number or '—' }}) — stock: {{ c.quantity }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="form-group">
-                <label>Quantité</label>
+                <label>{{ t.projects.col_qty }}</label>
                 <input type="number" name="quantity" class="form-input" value="1" min="1"/>
             </div>
             <div class="form-group">
-                <label>Note</label>
-                <input type="text" name="notes" class="form-input" placeholder="Optionnel"/>
+                <label>{{ t.projects.col_note }}</label>
+                <input type="text" name="notes" class="form-input" placeholder="{{ t.projects.ph_optional }}"/>
             </div>
         </div>
         <div style="display:flex;gap:.5rem;margin-top:.75rem">
-            <button type="submit" class="btn btn-primary">Ajouter</button>
-            <button type="button" class="btn btn-secondary" onclick="toggleAddForm()">Annuler</button>
+            <button type="submit" class="btn btn-primary">{{ t.projects.btn_add }}</button>
+            <button type="button" class="btn btn-secondary" onclick="toggleAddForm()">{{ t.projects.btn_cancel }}</button>
         </div>
     </form>
 </div>
@@ -111,14 +111,14 @@
     <thead>
         <tr>
             <th class="th-img"></th>
-            <th>Composant</th>
-            <th>Référence</th>
-            <th>Package</th>
-            <th class="th-center">Nécessaire</th>
-            <th class="th-center">En stock</th>
-            <th class="th-center">Dispo</th>
-            <th class="th-right">Prix</th>
-            <th class="th-center">Actions</th>
+            <th>{{ t.projects.col_component }}</th>
+            <th>{{ t.projects.col_reference }}</th>
+            <th>{{ t.projects.col_package }}</th>
+            <th class="th-center">{{ t.projects.col_qty_needed }}</th>
+            <th class="th-center">{{ t.projects.col_available }}</th>
+            <th class="th-center">{{ t.projects.col_qty_stock }}</th>
+            <th class="th-right">{{ t.projects.col_price }}</th>
+            <th class="th-center">{{ t.projects.col_actions }}</th>
         </tr>
     </thead>
     <tbody>
@@ -149,7 +149,7 @@
                     <img src="{{ url_for('components.component_image', filename=pc.image_path.split('images/')|last) }}"
                          class="thumb thumb-clickable" loading="lazy" alt=""
                          onclick="openLightbox(this.src)"
-                         title="Cliquer pour agrandir"/>
+                         title="{{ t.projects.title_enlarge }}"/>
                 {% else %}
                     <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
                 {% endif %}
@@ -185,15 +185,15 @@
                 {% if pc.lcsc_part_number %}
                 <a href="https://www.lcsc.com/product-detail/{{ pc.lcsc_part_number }}.html"
                    target="_blank" rel="noopener"
-                   class="action-btn action-lcsc" title="Voir sur LCSC">🛒</a>
+                   class="action-btn action-lcsc" title="{{ t.projects.title_see_lcsc }}">🛒</a>
                 {% elif pc.mouser_part_number %}
                 <a href="https://www.mouser.fr/ProductDetail/{{ pc.mouser_part_number }}"
                    target="_blank" rel="noopener"
-                   class="action-btn action-lcsc" title="Voir sur Mouser">🛒</a>
+                   class="action-btn action-lcsc" title="{{ t.projects.title_see_mouser }}">🛒</a>
                 {% elif pc.digikey_part_number %}
                 <a href="https://www.digikey.fr/products/detail/{{ pc.digikey_part_number }}"
                    target="_blank" rel="noopener"
-                   class="action-btn action-lcsc" title="Voir sur DigiKey">🛒</a>
+                   class="action-btn action-lcsc" title="{{ t.projects.title_see_digikey }}">🛒</a>
                 {% endif %}
                 <button class="action-btn action-use"
                         onclick="useComponent({{ project.id }}, {{ pc.component_id }}, {{ pc.quantity }}, this)"
@@ -204,8 +204,8 @@
                 <form method="post"
                       action="{{ url_for('projects.remove_component', project_id=project.id, component_id=pc.component_id) }}"
                       style="display:inline"
-                      onsubmit="return confirm('Retirer ce composant du projet ?')">
-                    <button type="submit" class="action-btn action-del" title="Retirer du projet">🗑</button>
+                      onsubmit="return confirm('{{ t.projects.confirm_remove }}')">
+                    <button type="submit" class="action-btn action-del" title="{{ t.projects.title_remove }}">🗑</button>
                 </form>
             </td>
         </tr>
@@ -217,10 +217,10 @@
 
 {% else %}
 <div class="empty-state" style="padding:2rem">
-    <p>Aucun composant dans ce projet.</p>
+    <p>{{ t.projects.empty_components }}</p>
     <div style="display:flex;gap:.75rem;justify-content:center;margin-top:1rem">
-        <a href="{{ url_for('projects.import_bom', project_id=project.id) }}" class="btn btn-primary">📋 Importer une BOM KiCad</a>
-        <button class="btn btn-secondary" onclick="toggleAddForm()">➕ Ajouter manuellement</button>
+        <a href="{{ url_for('projects.import_bom', project_id=project.id) }}" class="btn btn-primary">{{ t.projects.btn_import_bom2 }}</a>
+        <button class="btn btn-secondary" onclick="toggleAddForm()">{{ t.projects.btn_add_manual }}</button>
     </div>
 </div>
 {% endif %}
@@ -239,7 +239,7 @@ function toggleAddForm() {
     const btn  = document.getElementById('btn-add-toggle');
     const open = form.style.display === 'none';
     form.style.display = open ? 'block' : 'none';
-    btn.textContent    = open ? '✕ Fermer' : '➕ Ajouter un composant';
+    btn.textContent    = open ? '{{ t.projects.btn_close_form }}' : '{{ t.projects.btn_add_component }}';
     if (open) form.querySelector('select').focus();
 }
 
@@ -263,7 +263,7 @@ function useComponent(projectId, componentId, qty, btn) {
             else alert(data.error || 'Erreur');
             btn.disabled = false;
         })
-        .catch(() => { btn.disabled = false; alert('Erreur réseau'); });
+        .catch(() => { btn.disabled = false; alert('{{ t.projects.err_network }}'); });
 }
 function returnComponent(projectId, componentId, qty, btn) {
     if (!confirm(`Restituer ${qty} pièce(s) au stock ?`)) return;
@@ -276,7 +276,7 @@ function returnComponent(projectId, componentId, qty, btn) {
             else alert(data.error || 'Erreur');
             btn.disabled = false;
         })
-        .catch(() => { btn.disabled = false; alert('Erreur réseau'); });
+        .catch(() => { btn.disabled = false; alert('{{ t.projects.err_network }}'); });
 }
 </script>
 {% endblock %}
