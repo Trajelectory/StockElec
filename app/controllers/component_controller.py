@@ -632,7 +632,7 @@ def labels_print():
         flash(_t("msg.no_component_sel"), "warning")
         return redirect(url_for("components.stock"))
 
-    _configured = _SettingsModel.get("base_url", "").strip().rstrip("/")
+    _configured = SettingsModel.get("base_url", "").strip().rstrip("/")
     base_url = _configured if _configured else request.host_url.rstrip("/")
 
     components_data = []
