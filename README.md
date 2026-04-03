@@ -1,4 +1,5 @@
 # ⚡ StockEleK
+<img width="1714" height="878" alt="image" src="https://github.com/user-attachments/assets/ed2095a2-8591-4ea8-9c24-c005a7c92617" />
 
 **Gestionnaire de stock de composants électroniques pour hobbyistes et makers.**
 
