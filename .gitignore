@@ -15,6 +15,10 @@ venv/
 env/
 .env
 
+
+StockElek_P4/
+StockElek_S3/
+
 # ── StockElec — données locales (NE PAS versionner) ──────────────────
 instance/
 # ^ Contient : stock.db (base SQLite), images composants,

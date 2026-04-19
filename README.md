@@ -5,11 +5,11 @@
 Conçu pour l'atelier : catalogue tes composants, suis tes projets, localise physiquement chaque pièce avec des LEDs WS2812B pilotées par un ESP32, génère tes bibliothèques KiCad. Tourne entièrement en local, sans cloud, sans abonnement.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
-![Flask](https://img.shields.io/badge/Flask-3.0+-lightgrey?style=flat-square&logo=flask)
-![SQLite](https://img.shields.io/badge/SQLite-local-green?style=flat-square&logo=sqlite)
+![Flask](https://img.shields.io/badge/Flask-3.1.3-lightgrey?style=flat-square&logo=flask)
+![SQLite](https://img.shields.io/badge/SQLite-WAL-green?style=flat-square&logo=sqlite)
 ![ESP32](https://img.shields.io/badge/ESP32-firmware_v6.1-orange?style=flat-square&logo=espressif)
 ![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)
-![Version](https://img.shields.io/badge/version-3.0-violet?style=flat-square)
+![Version](https://img.shields.io/badge/version-3.1-violet?style=flat-square)
 
 ---
 
@@ -22,20 +22,20 @@ Conçu pour l'atelier : catalogue tes composants, suis tes projets, localise phy
 - Page `/reorder` : composants en rupture avec liens directs LCSC/Mouser/DigiKey
 - Export CSV complet (19 colonnes, encodage UTF-8 Excel)
 - Import CSV : LCSC (commande + panier), BOM KiCad, Mouser, DigiKey
-- **6 index SQLite** pour des performances fluides sur gros catalogues
+- **11 index SQLite** pour des performances fluides sur gros catalogues
+- Mode WAL SQLite : lectures concurrentes sans blocage sous Waitress multi-thread
 
 ### 🌐 Enrichissement multi-distributeurs
 - **LCSC** — automatique sans clé : image, catégorie, datasheet, symbole/footprint EasyEDA, attributs techniques
 - **Mouser** — via API officielle v1 (clé API dans les Paramètres)
 - **DigiKey** — via API officielle v4, OAuth2 Client Credentials automatique
-- Enrichissement en masse depuis les Paramètres (tous les composants sans image/catégorie en un clic)
+- Enrichissement en masse depuis les Paramètres
 - Double enrichissement Mouser → LCSC si les attributs sont incomplets
 - Badges distributeurs cliquables dans toutes les vues
 
 ### 📁 Projets maker
 - Vue **Kanban** avec 8 statuts : Idée → Conception → Commandé → En production → Assemblage → Debug → Terminé → Archivé
 - Drag & drop entre colonnes, sauvegarde AJAX instantanée
-- **Sélecteur de statut rapide** depuis la fiche projet (dropdown dans le hero)
 - **BOM complète** : import KiCad CSV, vérification de disponibilité en temps réel, préparation de kit en un clic
 - **Notes Markdown** avec parser JS maison : H1-H4, gras/italique/barré/souligné/surligné, listes, checkboxes, tableaux, blocs de code, citations, couleurs custom `{red}texte{/red}`, images (upload / drag & drop / coller)
 - **Checklist** avec templates par discipline (PCB, Code, Impression 3D)
@@ -47,40 +47,39 @@ Conçu pour l'atelier : catalogue tes composants, suis tes projets, localise phy
 - **Ruban 1** : emplacement exact du composant (LED de position)
 - **Ruban 2** : tiroir (A-Z) avec **breathing doux** pendant l'allumage
 - **Afficheur HT16K33** 14-segments : affiche la case (ex: `A 16`), veille après 33s
-- **Couleurs automatiques par catégorie** : résistances orange, condensateurs bleu, ICs violet, diodes rouge… (18 familles, 100% personnalisables dans les Paramètres)
+- **Couleurs automatiques par catégorie** : résistances orange, condensateurs bleu, ICs violet, diodes rouge… (18 familles, 100% personnalisables)
 - File d'attente de 4 commandes
-- **Page web embarquée** sur `http://[IP_ESP32]/` : statut live, contrôle manuel, paramètres runtime (luminosité, durée, couleurs) sauvegardés en flash
-- Reconnexion WiFi automatique, OTA (mise à jour sans câble)
-- **`POST /reboot`** : redémarrer l'ESP32 depuis la page web
+- **Page web embarquée** sur `http://[IP_ESP32]/` : statut live, contrôle manuel, paramètres
+- Reconnexion WiFi automatique, OTA
+
+### ⬡ Intégration KiCad
+- Génération de bibliothèques `.kicad_sym` / `.kicad_mod` / `.step` depuis les données LCSC (via JLC2KiCadLib)
+- **Bouton "⚙ Générer KiCad"** directement sur la fiche composant — génère 1 seul composant sans relancer le job entier
+- **Fusion intelligente** par catégorie avec option `skip_existing` (cochée par défaut) : ajoute uniquement les nouveaux symboles sans écraser les modifications manuelles KiCad
+- Enregistrement automatique dans `sym-lib-table` et `fp-lib-table` de KiCad
+- Téléchargement ZIP complet de toutes les librairies
 
 ### 🗃️ Rangement GridFinity
 - Carte visuelle interactive par plateaux (colonnes × rangées configurables)
 - Survol → infobulle avec image, référence, quantité, package
 - Clic droit → menu contextuel : assigner, allumer LED, vider la case
-- Drag & drop pour déplacer les composants entre cases
 
 ### 🏷️ Étiquettes imprimables
 - QR code généré en Python pur (zéro dépendance externe)
 - Format, couleurs, taille de police, 11 éléments configurables
 - Multi-sélection → impression en lot
 - Aperçu temps réel dans les Paramètres
-- URL encodée dans le QR = accès direct à la fiche depuis un smartphone
-
-### ⬡ Intégration KiCad
-- Génération de bibliothèques `.kicad_sym` depuis les données LCSC (via easyeda2kicad)
-- Une bibliothèque par catégorie, téléchargeable en ZIP
-- Symbole, empreinte et modèle 3D par composant
 
 ### 🌍 Interface bilingue FR / EN
-- 751 clés de traduction dans `locales/fr.json` et `locales/en.json`
+- 765 clés de traduction dans `locales/fr.json` et `locales/en.json`
 - Sélecteur de langue dans les Paramètres
 - Tous les templates et messages Flask traduits
 
 ### 🎨 Design & UX
-- Thème sombre **et clair** avec toggle (logo adaptatif)
+- Thème sombre **et clair** avec toggle
 - Violet/indigo `#7c6cff`, typographie Inter
 - CSS modulaire (20 fichiers dans `modules/`)
-- Documentation CSS interactive sur `/docs` (extraite dynamiquement des fichiers CSS)
+- Documentation CSS interactive sur `/docs`
 - Manuel d'utilisation complet sur `/docs/manuel`
 - Responsive mobile — navbar hamburger
 
@@ -96,8 +95,8 @@ Conçu pour l'atelier : catalogue tes composants, suis tes projets, localise phy
 
 ```bash
 # Clone le repo
-git clone https://github.com/ton-user/stockelek.git
-cd stockelek
+git clone https://github.com/Trajelectory/StockElec.git
+cd StockElec
 
 # Installe les dépendances
 pip install -r requirements.txt
@@ -113,17 +112,17 @@ La base de données SQLite et le dossier `images/` sont créés automatiquement 
 ### Dépendances Python
 
 ```
-flask>=3.0.0
-requests>=2.31.0
-waitress>=3.0.0
-Pillow>=10.0.0
-qrcode>=7.4.0
+flask==3.1.3
+waitress==3.0.1
+requests==2.33.0
+Pillow==12.1.1
 ```
 
 ### Variable d'environnement (optionnel)
 
 ```bash
-# Clé secrète Flask (recommandé si exposé sur un réseau)
+# Clé secrète Flask (générée et persistée automatiquement dans instance/secret_key)
+# Peut être surchargée via variable d'environnement :
 set SECRET_KEY=une-cle-secrete-solide   # Windows
 export SECRET_KEY=une-cle-secrete-solide  # Linux/Mac
 ```
@@ -133,16 +132,15 @@ export SECRET_KEY=une-cle-secrete-solide  # Linux/Mac
 ## 📁 Structure du projet
 
 ```
-stockelek/
+StockElec/
 ├── run.py                          # Point d'entrée (Waitress)
-├── requirements.txt
-├── gridfinity_leds_Arduino/
-│   └── gridfinity_leds_Arduino.ino # Firmware ESP32 v6.1
+├── requirements.txt                # Versions fixées avec ==
+├── .gitignore
 ├── app/
-│   ├── __init__.py                 # Factory Flask + i18n
+│   ├── __init__.py                 # Factory Flask + i18n + cache TTL
 │   ├── locales/
-│   │   ├── fr.json                 # 751 clés — Français
-│   │   └── en.json                 # 751 clés — English
+│   │   ├── fr.json                 # 765 clés — Français
+│   │   └── en.json                 # 765 clés — English
 │   ├── controllers/
 │   │   ├── routes_stock.py
 │   │   ├── routes_settings.py
@@ -151,44 +149,49 @@ stockelek/
 │   │   ├── routes_import_export.py
 │   │   ├── routes_labels.py
 │   │   ├── routes_rangement.py
-│   │   ├── routes_kicad.py
-│   │   └── routes_misc.py          # API REST, /docs
+│   │   ├── routes_kicad.py         # /generate, /generate-one, /merge (skip_existing)
+│   │   ├── routes_misc.py
+│   │   └── utils.py                # require_esp32_token (navigateur + ESP32)
 │   ├── models/
-│   │   ├── database.py             # SQLite, migrations + index auto
-│   │   ├── component.py
+│   │   ├── database.py             # SQLite WAL, 11 index, migrations _col_exists()
+│   │   ├── component.py            # Rollbacks complets, delete() nettoie les images
 │   │   ├── project.py
 │   │   ├── settings.py
-│   │   └── ...
+│   │   ├── movement.py
+│   │   └── category.py
 │   ├── services/
 │   │   ├── lcsc_scraper.py
 │   │   ├── mouser_scraper.py
 │   │   ├── digikey_scraper.py
-│   │   ├── kicad_export.py
+│   │   ├── kicad_jlc.py            # Fusion intelligente skip_existing
 │   │   ├── easyeda.py
 │   │   └── qr_generator.py
 │   ├── views/
 │   │   └── component_view.py
 │   ├── templates/
 │   │   ├── base.html
-│   │   ├── components/
+│   │   ├── components/             # detail.html avec bouton Générer KiCad
 │   │   ├── projects/
-│   │   └── docs/                   # /docs et /docs/manuel
+│   │   ├── errors/                 # 404.html, 500.html
+│   │   └── docs/
 │   └── static/
 │       ├── css/modules/            # 20 fichiers CSS modulaires
 │       ├── js/                     # JS par page
 │       └── img/
-└── instance/                       # Créé automatiquement
+└── instance/                       # Créé automatiquement — non versionné
     ├── stock.db                    # ← Sauvegarde ce fichier !
-    ├── images/                     # ← Et ce dossier !
+    ├── secret_key                  # ← Clé Flask persistée
+    ├── images/
     ├── project_images/
-    └── easyeda_pngs/
+    ├── easyeda_pngs/
+    └── kicad/                      # Fichiers KiCad générés
 ```
 
 ---
 
 ## 💾 Sauvegarde
 
-Toutes tes données se trouvent dans **deux emplacements** :
+Toutes tes données se trouvent dans `instance/` (ignoré par Git) :
 
 ```
 instance/stock.db        ← base de données complète
@@ -196,13 +199,13 @@ instance/images/         ← images des composants
 instance/project_images/ ← images des projets
 ```
 
-Un bouton **Télécharger la sauvegarde** dans **Paramètres → Backup** génère un ZIP horodaté contenant les trois. Copie-le régulièrement sur un disque externe ou un cloud.
+Un bouton **Télécharger la sauvegarde** dans **Paramètres → Backup** génère un ZIP horodaté. Copie-le régulièrement sur un disque externe ou un cloud.
 
 ---
 
 ## 🗄️ Base de données
 
-SQLite locale dans `instance/stock.db`. Migrations et index créés automatiquement au démarrage.
+SQLite locale dans `instance/stock.db`. Mode WAL activé, migrations et index créés automatiquement au démarrage.
 
 | Table | Description |
 |---|---|
@@ -211,6 +214,7 @@ SQLite locale dans `instance/stock.db`. Migrations et index créés automatiquem
 | `project_components` | Liaison projet ↔ composant avec quantité |
 | `stock_movements` | Historique complet de tous les mouvements |
 | `settings` | Paramètres clé/valeur (config, étiquettes, clés API, couleurs LED…) |
+| `categories` | Arborescence des catégories LCSC et personnalisées |
 
 ---
 
@@ -231,39 +235,21 @@ Le token OAuth2 DigiKey est obtenu et renouvelé automatiquement.
 
 ## 💡 Firmware ESP32
 
-Le firmware se trouve dans `gridfinity_leds_Arduino/`.
-
-### Bibliothèques Arduino requises
-- FastLED
-- ArduinoJson
-- WebSockets (Markus Sattler)
-- Adafruit LED Backpack Library
-- Adafruit GFX Library
-- Preferences (incluse dans ESP32 Arduino core)
-
-### Câblage HT16K33 (ESP32-S3 Wroom-1)
-| HT16K33 | ESP32-S3 |
-|---|---|
-| SDA | GPIO 8 |
-| SCL | GPIO 9 |
-| VCC | 3.3V |
-| GND | GND |
+Le firmware se trouve dans `StockEleK_P4/` (ESP32-P4 GUITION) ou `StockEleK_S3/` (ESP32-S3).
 
 ### API REST ESP32
 
 | Méthode | Route | Description |
 |---|---|---|
 | `POST` | `/leds` | Allumer des LEDs (indices, couleur, durée, tiroir, case) |
+| `POST` | `/led` | Variante P4 avec affichage écran |
 | `POST` | `/off` | Tout éteindre |
 | `GET` | `/status` | État complet (LEDs, afficheur, RSSI, heap, uptime) |
-| `GET` | `/ping` | Ping sans token |
+| `GET` | `/ping` | Ping sans token — retourne `{"display": true/false}` pour détecter P4 vs S3 |
 | `POST` | `/test` | Chenillard de test |
-| `GET/POST` | `/config` | Lire/modifier la config runtime (luminosité, durée, couleurs) |
 | `POST` | `/reboot` | Redémarrer l'ESP32 |
 
 Toutes les routes (sauf `/ping`) nécessitent le header `X-Token: [AUTH_TOKEN]`.
-
-La page web embarquée est accessible directement sur `http://[IP_ESP32]/`.
 
 ---
 
