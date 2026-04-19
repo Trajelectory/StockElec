@@ -84,7 +84,6 @@
     .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .col-hide-md { display: none !important; }
     .col-hide-sm { display: none !important; }
-    .col-hide-xs { display: none !important; }
 
     /* ── Stock layout ── */
     .sk-layout { grid-template-columns: 1fr; }
@@ -122,7 +121,6 @@
     /* ── Formulaire ajout/edit ── */
     .add-layout { grid-template-columns: 1fr !important; }
     .add-col-side { position: static !important; width: 100% !important; }
-    .add-ref-row { grid-template-columns: 1fr 1fr !important; }
 
     /* ── Settings ── */
     .stg-layout { grid-template-columns: 1fr; }
@@ -130,16 +128,12 @@
     .stg-nav-group { display: contents; }
     .stg-nav-group-label { display: none; }
     .stg-nav-item { width: auto; font-size: .75rem; padding: .35rem .6rem; }
-    .stg-panel-row, .stg-panel-row.trio { grid-template-columns: 1fr; }
     .stg-fields-grid { grid-template-columns: 1fr; }
     .stg-stats-row { grid-template-columns: 1fr 1fr; }
 
     /* ── Rangement ── */
-    .rng-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: .3rem; }
 
     /* ── Historique ── */
-    .history-filters { flex-wrap: wrap; gap: .4rem; }
-    .history-filters .form-select { flex: 1; min-width: 120px; }
 
     /* ── Stats bar (pages sans refonte) ── */
     .stock-stats-bar { gap: .5rem; padding: .6rem .9rem; }
@@ -161,7 +155,6 @@
 
 /* ── Très petit mobile (< 400px) ────────────────────────────────── */
 @media (max-width: 400px) {
-    .add-ref-row { grid-template-columns: 1fr !important; }
     .data-table th, .data-table td { padding: .45rem .4rem; }
     .cd-gallery-col { grid-template-columns: 1fr; }
     .cd-img-main { width: 100%; }

@@ -1,5 +1,5 @@
 import os
-import json as _j
+import json
 import threading
 import logging
 import re as _re
@@ -30,7 +30,7 @@ from . import component_bp
 @component_bp.route("/images/<path:filename>")
 def component_image(filename):
     images_dir = os.path.abspath(
-        os.path.join(component_bp.root_path, "..", "..", "instance", "images")
+        os.path.join(current_app.instance_path, "images")
     )
     return send_from_directory(images_dir, filename)
 
@@ -161,6 +161,7 @@ def _form_to_dict(form):
         "notes":                   form.get("notes"),
         "datasheet_url":           _f("datasheet_url"),
         "product_url":             _f("product_url"),
+        "source_url":              _f("source_url"),
         "image_url":               _f("image_url"),
     }
 
@@ -413,3 +414,60 @@ def price_check(lcsc_ref):
         "trend":       trend,
         "ladders":     ladders,
     })
+
+
+# ------------------------------------------------------------------ #
+#  GET /api/health — monitoring minimal
+# ------------------------------------------------------------------ #
+
+# Cache pour /api/health — évite 2 requêtes DB à chaque polling
+_health_cache: dict = {"data": None, "ts": 0.0}
+_health_cache_lock = __import__("threading").Lock()
+_HEALTH_TTL = 5.0  # secondes
+
+
+@component_bp.route("/api/health")
+def api_health():
+    """
+    Endpoint de monitoring léger avec cache TTL 5s.
+    Retourne l'état de l'application et de la base de données.
+    Utilisable par des scripts, Tailscale, ou une future app Android.
+    """
+    import time
+    from ..models.component import ComponentModel
+    from ..models.database import get_db
+
+    now = time.time()
+    with _health_cache_lock:
+        if _health_cache["data"] and now - _health_cache["ts"] < _HEALTH_TTL:
+            cached = _health_cache["data"]
+            return jsonify(cached), 200 if cached["ok"] else 503
+
+    db_ok = False
+    try:
+        get_db().execute("SELECT 1").fetchone()
+        db_ok = True
+    except Exception as e:
+        logger.warning("[health] DB non accessible : %s", e)
+
+    stats = {}
+    try:
+        s = ComponentModel.get_stats()
+        stats = {
+            "components": s.get("total_references", 0),
+            "total_qty":  s.get("total_quantity", 0),
+        }
+    except Exception as e:
+        logger.debug("Ignored: %s", e)
+
+    payload = {
+        "ok":      db_ok,
+        "version": "3.2",
+        "db":      "ok" if db_ok else "error",
+        "stock":   stats,
+    }
+    with _health_cache_lock:
+        _health_cache["data"] = payload
+        _health_cache["ts"]   = now
+
+    return jsonify(payload), 200 if db_ok else 503

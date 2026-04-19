@@ -46,14 +46,14 @@
 
     <!-- Colonnes statut -->
     {% set columns = [
-        ('idée',          '💡', '#06b6d4',    'rgba(6,182,212,.12)'),
-        ('conception',    '✏️',  '#7c6cff',    'var(--accent-dim)'),
-        ('commandé',      '🛒', '#f97316',    'rgba(249,115,22,.12)'),
-        ('en production', '🏭', '#8b5cf6',    'rgba(139,92,246,.12)'),
-        ('assemblage',    '🔧', '#f59e0b',    'var(--warning-dim)'),
+        ('idea',          '💡', '#06b6d4',    'rgba(6,182,212,.12)'),
+        ('design',    '✏️',  '#7c6cff',    'var(--accent-dim)'),
+        ('ordered',      '🛒', '#f97316',    'rgba(249,115,22,.12)'),
+        ('production', '🏭', '#8b5cf6',    'rgba(139,92,246,.12)'),
+        ('assembly',    '🔧', '#f59e0b',    'var(--warning-dim)'),
         ('debug',         '🔬', '#ef4444',    'var(--danger-dim)'),
-        ('terminé',       '✅', 'var(--success)', 'var(--success-dim)'),
-        ('archivé',       '📦', 'var(--text-muted)', 'var(--bg-surface)'),
+        ('done',       '✅', 'var(--success)', 'var(--success-dim)'),
+        ('archived',       '📦', 'var(--text-muted)', 'var(--bg-surface)'),
     ] %}
 
     <div class="kb-board">
@@ -173,14 +173,14 @@
     <div class="proj-toolbar">
         <div class="proj-filters" id="proj-filters">
             <button class="proj-filter-btn active" data-status="">{{ t.projects.filter_all }}</button>
-            <button class="proj-filter-btn" data-status="idée">💡 Idée</button>
-            <button class="proj-filter-btn" data-status="conception">✏️ Conception</button>
-            <button class="proj-filter-btn" data-status="commandé">🛒 Commandé</button>
-            <button class="proj-filter-btn" data-status="en production">🏭 Production</button>
-            <button class="proj-filter-btn" data-status="assemblage">🔧 Assemblage</button>
+            <button class="proj-filter-btn" data-status="idea">💡 Idée</button>
+            <button class="proj-filter-btn" data-status="design">✏️ Conception</button>
+            <button class="proj-filter-btn" data-status="ordered">🛒 Commandé</button>
+            <button class="proj-filter-btn" data-status="production">🏭 Production</button>
+            <button class="proj-filter-btn" data-status="assembly">🔧 Assemblage</button>
             <button class="proj-filter-btn" data-status="debug">🔬 Debug</button>
-            <button class="proj-filter-btn" data-status="terminé">✅ Terminé</button>
-            <button class="proj-filter-btn" data-status="archivé">📦 Archivé</button>
+            <button class="proj-filter-btn" data-status="done">✅ Terminé</button>
+            <button class="proj-filter-btn" data-status="archived">📦 Archivé</button>
         </div>
     </div>
     <div class="project-grid" id="project-grid">

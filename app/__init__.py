@@ -40,11 +40,11 @@ def _get_or_create_secret_key(instance_path: str) -> str:
         return env_key
     key_file = os.path.join(instance_path, "secret_key")
     if os.path.exists(key_file):
-        return open(key_file).read().strip()
+        return open(key_file, encoding='ascii').read().strip()
     import secrets
     os.makedirs(instance_path, exist_ok=True)
     new_key = secrets.token_hex(32)
-    open(key_file, "w").write(new_key)
+    open(key_file, "w", encoding='ascii').write(new_key)
     logger.info("SECRET_KEY générée et sauvegardée dans %s", key_file)
     return new_key
 
@@ -60,7 +60,7 @@ def create_app():
     init_db(app)
 
     from .controllers import component_bp
-    from .controllers.project_controller import project_bp
+    from .controllers.routes_projects import project_bp
     from .controllers.routes_kicad import kicad_bp
     app.register_blueprint(component_bp)
     app.register_blueprint(project_bp)
@@ -88,8 +88,8 @@ def create_app():
                     _settings_cache.clear()
                     _settings_cache.update(fresh)
                     _settings_cache_ts[0] = now
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Ignored: %s", e)
 
         app_name = _settings_cache.get("app_name", "") or "StockEleK"
         lang     = _settings_cache.get("lang", "")     or "fr"

@@ -122,6 +122,14 @@
                 <textarea name="notes" class="form-input" rows="3"
                           placeholder="{{ t.form.ph_notes_short }}">{{ component.notes or '' }}</textarea>
             </div>
+
+            <div class="form-field">
+                <label class="form-label">{{ t.form.label_source_url }} <span class="form-hint">{{ t.form.hint_optional }}</span></label>
+                <input type="url" name="source_url" class="form-input"
+                       value="{{ component.source_url or '' }}"
+                       placeholder="https://aliexpress.com/item/... ou https://amazon.fr/dp/..."/>
+                <span class="form-hint">{{ t.form.hint_source_url }}</span>
+            </div>
         </div>
 
     </div>

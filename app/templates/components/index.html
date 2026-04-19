@@ -219,6 +219,17 @@
                         <a href="{{ c.product_url if c.product_url and 'digikey' in (('' ~ (c.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ c.digikey_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
                             <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ c.digikey_part_number }}</span>
                         </a>
+                        {% elif c.source_url %}
+                        <a href="{{ c.source_url }}" target="_blank" rel="noopener" style="text-decoration:none">
+                            <span class="src-badge src-badge-other">
+                                <img class="src-icon src-favicon"
+                                     data-src-url="{{ c.source_url }}"
+                                     data-fallback="{{ url_for('static', filename='img/other.png') }}"
+                                     src="{{ url_for('static', filename='img/other.png') }}"
+                                     alt="Autre"/>
+                                {{ c.source_url|replace('https://','',1)|replace('http://','',1)|truncate(25, True, '…') }}
+                            </span>
+                        </a>
                         {% else %}—{% endif %}
                     </td>
                     <td class="col-hide-sm td-center"><span class="badge badge-gray">{{ c.package or '—' }}</span></td>

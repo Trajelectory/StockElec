@@ -33,16 +33,14 @@ Structure de réponse :
 
 import os
 import logging
-import urllib.request
 
 import requests
+
+from .image_utils import download_image as _download_image
 
 logger = logging.getLogger(__name__)
 
 MOUSER_API_URL = "https://api.mouser.com/api/v1/search/partnumber"
-IMAGES_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "instance", "images")
-)
 
 _SESSION = requests.Session()
 _SESSION.headers.update({
@@ -155,8 +153,8 @@ def extract_info(part: dict) -> dict:
             price = float(clean_price)
             if price > 0:
                 info["unit_price"] = round(price, 6)
-        except (ValueError, IndexError, TypeError):
-            pass
+        except (ValueError, IndexError, TypeError) as e:
+            logger.debug("Ignored: %s", e)
 
     # Attributs — concatène les valeurs si même clé (ex: "Conditionnement": "Reel / Cut Tape")
     attrs_raw = part.get("ProductAttributes") or []
@@ -177,69 +175,15 @@ def extract_info(part: dict) -> dict:
 
 def download_image(image_url: str, ref: str) -> str | None:
     """
-    Télécharge l'image dans instance/images/<ref>.jpg
-    Retourne le chemin relatif "images/<filename>" ou None.
+    Télécharge l'image Mouser dans instance/images/.
+    Délégué à image_utils.download_image() — logique centralisée.
     """
-    if not image_url:
-        return None
-
-    import urllib.parse
-    os.makedirs(IMAGES_DIR, exist_ok=True)
-
-    # Encoder l'URL pour gérer les espaces et caractères de contrôle
-    parsed = urllib.parse.urlsplit(image_url)
-    safe_url = urllib.parse.urlunsplit(
-        parsed._replace(path=urllib.parse.quote(parsed.path, safe="/%"))
+    return _download_image(
+        image_url,
+        f"mouser_{ref}",
+        referer="https://www.mouser.com/",
+        extra_headers={"Accept": "image/webp,image/apng,image/*,*/*;q=0.8"},
     )
-
-    clean_url = safe_url.split("?")[0]
-    ext = os.path.splitext(clean_url)[-1].lower()
-    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
-        ext = ".jpg"
-
-    # Préfixe "mouser_" pour éviter les conflits avec les images LCSC
-    filename = f"mouser_{ref.replace('/', '_')}{ext}"
-    filepath = os.path.join(IMAGES_DIR, filename)
-
-    if os.path.exists(filepath) and os.path.getsize(filepath) > 500:
-        # Vérifie que le fichier n'est pas du HTML (image corrompue)
-        with open(filepath, "rb") as f:
-            header = f.read(15)
-        if not header.lstrip().startswith(b"<"):
-            return f"images/{filename}"
-        # Fichier corrompu — on le supprime et on retélécharge
-        os.remove(filepath)
-
-    try:
-        req = urllib.request.Request(
-            safe_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Referer":    "https://www.mouser.com/",
-                "Accept":     "image/webp,image/apng,image/*,*/*;q=0.8",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            content_type = r.headers.get("Content-Type", "")
-            content = r.read()
-
-        # Rejette si pas une image réelle
-        if len(content) < 500:
-            logger.warning("[Mouser] %s — image trop petite (%d bytes)", ref, len(content))
-            return None
-        if "text/html" in content_type or content[:15].lstrip().startswith(b"<"):
-            logger.warning("[Mouser] %s — réponse HTML reçue à la place de l'image", ref)
-            return None
-
-        with open(filepath, "wb") as f:
-            f.write(content)
-
-        logger.info("[Mouser] %s — image téléchargée (%d bytes)", ref, len(content))
-        return f"images/{filename}"
-
-    except Exception as e:
-        logger.warning("[Mouser] %s — échec image : %s", ref, e)
-        return None
 
 
 def enrich_component(mouser_part_number: str, api_key: str) -> dict:

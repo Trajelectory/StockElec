@@ -1,4 +1,4 @@
-import json as _j
+import json
 import logging
 import re as _re
 
@@ -24,6 +24,13 @@ from . import component_bp
 # ── Cache thread-safe pour la détection P4 vs S3 ─────────────────────
 _p4_cache: dict = {}
 _p4_cache_lock  = threading.Lock()
+
+
+def clear_p4_cache() -> None:
+    """Vide le cache de détection P4 — à appeler après un changement d'URL ESP32."""
+    with _p4_cache_lock:
+        _p4_cache.clear()
+    logger.debug("[LED] Cache P4 invalidé")
 
 
 # ------------------------------------------------------------------ #
@@ -57,7 +64,7 @@ def _compute_led_indices(cell_id: str, cfg: dict, all_settings: dict | None = No
     offsets = {"A": 0, "B": 50, ...}
     all_settings : dict optionnel déjà chargé (évite des requêtes SQL supplémentaires)
     """
-    import re as _re, json as _j
+    import json
     # Séparer plateau ID (lettres) et numéro de case (chiffres)
     m = _re.match(r'^([A-Za-z]+)(\d+)$', cell_id)
     if not m:
@@ -65,7 +72,7 @@ def _compute_led_indices(cell_id: str, cfg: dict, all_settings: dict | None = No
     pid, num = m.group(1), int(m.group(2))
 
     try:
-        offsets = _j.loads(cfg["offsets"]) if cfg["offsets"] else {}
+        offsets = json.loads(cfg["offsets"]) if cfg["offsets"] else {}
     except Exception:
         offsets = {}
 
@@ -75,7 +82,7 @@ def _compute_led_indices(cell_id: str, cfg: dict, all_settings: dict | None = No
     s = all_settings or SettingsModel.get_all()
     raw_config = s.get("rangement_config", "")
     try:
-        plateau_cfg = _j.loads(raw_config) if raw_config else {"plateaux": []}
+        plateau_cfg = json.loads(raw_config) if raw_config else {"plateaux": []}
     except Exception:
         plateau_cfg = {"plateaux": []}
 
@@ -94,7 +101,7 @@ def _compute_led_indices(cell_id: str, cfg: dict, all_settings: dict | None = No
     # Taille de la boîte
     raw_sizes = s.get("rangement_sizes", "")
     try:
-        sizes = _j.loads(raw_sizes) if raw_sizes else {}
+        sizes = json.loads(raw_sizes) if raw_sizes else {}
     except Exception:
         sizes = {}
 
@@ -114,6 +121,8 @@ def _compute_led_indices(cell_id: str, cfg: dict, all_settings: dict | None = No
 
 # ── Mapping famille LCSC → couleur LED ───────────────────────────────
 # Défauts hardcodés — overridables depuis les settings (led_color_<keyword>)
+# Mapping catégories LCSC → familles LED — vérifié le 2025-04 (LCSC v3.x)
+# À re-vérifier si LCSC change ses noms de catégories
 LED_COLOR_DEFAULTS = {
     # ── Passifs ───────────────────────────────────────────────────
     "sensor":          "#34d399",   # Vert clair    — Capteurs (avant resistor)
@@ -407,13 +416,13 @@ def led_test():
     color    = data.get("color", cfg["color"])
 
     try:
-        offsets = _j.loads(cfg["offsets"]) if cfg["offsets"] else {}
+        offsets = json.loads(cfg["offsets"]) if cfg["offsets"] else {}
     except Exception:
         offsets = {}
 
     raw_config = SettingsModel.get("rangement_config", "")
     try:
-        plateau_cfg = _j.loads(raw_config) if raw_config else {"plateaux": []}
+        plateau_cfg = json.loads(raw_config) if raw_config else {"plateaux": []}
     except Exception:
         plateau_cfg = {"plateaux": []}
 

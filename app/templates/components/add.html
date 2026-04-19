@@ -182,6 +182,13 @@
                 <textarea name="notes" class="form-input" rows="3"
                           placeholder="{{ t.form.ph_notes }}"></textarea>
             </div>
+
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_source_url }} <span class="add-hint-inline">{{ t.form.hint_optional }}</span></label>
+                <input type="url" name="source_url" id="f-source-url" class="form-input"
+                       placeholder="https://aliexpress.com/item/... ou https://amazon.fr/dp/..."/>
+                <span class="add-hint">{{ t.form.hint_source_url }}</span>
+            </div>
         </div>
 
     </div>

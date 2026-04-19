@@ -131,6 +131,19 @@
             <span id="cd-kicad-gen-status" style="font-size:.72rem;color:var(--text-muted)"></span>
         </div>
         {% endif %}
+
+        {# Bouton ZIP — visible uniquement si au moins un fichier KiCad existe #}
+        {% if component.lcsc_part_number and (kicad_status.symbol or kicad_status.footprint or kicad_status.model_3d) %}
+        <div class="cd-kicad-gen-row" style="margin-top:.35rem">
+            <a href="{{ url_for('kicad.download_component_zip', lcsc_ref=component.lcsc_part_number) }}"
+               class="btn btn-secondary"
+               style="font-size:.72rem;padding:.25rem .7rem;text-decoration:none"
+               download>
+                📦 ZIP KiCad
+            </a>
+            <span style="font-size:.68rem;color:var(--text-muted)">sym + fp + 3D</span>
+        </div>
+        {% endif %}
         {% endif %}
 
     </div>
@@ -155,7 +168,7 @@
         </div>
 
         <!-- Références fournisseurs -->
-        {% if component.lcsc_part_number or component.mouser_part_number or component.digikey_part_number %}
+        {% if component.lcsc_part_number or component.mouser_part_number or component.digikey_part_number or component.source_url %}
         <div class="cd-section">
             <div class="cd-section-title">{{ t.detail.col_reference }}</div>
             <div class="cd-refs-inline">
@@ -178,6 +191,21 @@
                    target="_blank" rel="noopener" class="cd-ref-chip">
                     <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>DigiKey</span>
                     <span class="cd-ref-chip-val mono">{{ component.digikey_part_number }}</span>
+                </a>
+                {% endif %}
+                {% if component.source_url %}
+                <a href="{{ component.source_url }}" target="_blank" rel="noopener" class="cd-ref-chip">
+                    <span class="src-badge src-badge-other">
+                        <img class="src-icon src-favicon"
+                             data-src-url="{{ component.source_url }}"
+                             data-fallback="{{ url_for('static', filename='img/other.png') }}"
+                             src="{{ url_for('static', filename='img/other.png') }}"
+                             alt="Autre"/>
+                        Autre
+                    </span>
+                    <span class="cd-ref-chip-val" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        {{ component.source_url|replace('https://','',1)|replace('http://','',1)|truncate(30, True, '…') }}
+                    </span>
                 </a>
                 {% endif %}
             </div>

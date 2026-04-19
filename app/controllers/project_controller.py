@@ -14,25 +14,9 @@ from ..models.movement import MovementModel
 from ..models.database import get_db
 from ..models.settings import SettingsModel
 from ..services import lcsc_scraper, mouser_scraper, digikey_scraper
+from .utils import _t
 
 project_bp = Blueprint("projects", __name__, url_prefix="/projects")
-
-
-def _t(key: str, **kwargs) -> str:
-    """Retourne la string traduite selon la langue configurée."""
-    from app import load_locale
-    lang = SettingsModel.get("lang", "fr") or "fr"
-    locale = load_locale(lang)
-    parts = key.split(".")
-    val = locale
-    for p in parts:
-        val = val.get(p, key) if isinstance(val, dict) else key
-    if kwargs:
-        try:
-            val = val.format(**kwargs)
-        except (KeyError, ValueError):
-            pass
-    return val
 
 
 # ------------------------------------------------------------------ #
@@ -77,7 +61,6 @@ def new():
             bc = request.form.get("banner_color", "").strip()
             if bc and bc.startswith("#"):
                 image_path = _generate_color_banner(bc)
-        import json as _json
         raw_tags = request.form.getlist("tags")
         project_id = ProjectModel.create({
             "name":        name,
@@ -144,7 +127,6 @@ def edit(project_id):
         if request.form.get("delete_image") == "1":
             _delete_project_image(project.image_path)
             image_path = None
-        import json as _json
         raw_tags = request.form.getlist("tags")
         ProjectModel.update(project_id, {
             "name":        name,
@@ -208,7 +190,6 @@ def update_notes(project_id):
 @project_bp.route("/<int:project_id>/checklist", methods=["POST"])
 def update_checklist(project_id):
     """Met à jour la checklist via AJAX."""
-    import json as _json
     project = ProjectModel.get_by_id(project_id)
     if not project:
         return jsonify({"ok": False, "error": "Projet introuvable"}), 404
@@ -280,7 +261,7 @@ def delete(project_id):
 def project_image(filename):
     from flask import send_from_directory
     images_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "instance", "project_images")
+        os.path.join(current_app.instance_path, "project_images")
     )
     return send_from_directory(images_dir, filename)
 
@@ -323,8 +304,8 @@ def use_component(project_id, component_id):
     if result["ok"]:
         try:
             MovementModel.record(component_id, "project_use", quantity, note=f"Projet #{project_id}", project_id=project_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Ignored: %s", e)
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
     return jsonify({"ok": False, "error": result["error"]}), 400
 
@@ -337,8 +318,8 @@ def return_component(project_id, component_id):
     if result["ok"]:
         try:
             MovementModel.record(component_id, "project_return", quantity, note=f"Retour projet #{project_id}", project_id=project_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Ignored: %s", e)
         return jsonify({"ok": True, "new_qty": result["new_qty"]})
     return jsonify({"ok": False, "error": result["error"]}), 400
 
@@ -372,8 +353,8 @@ def prepare_kit(project_id):
                 MovementModel.record(pc.component_id, "project_use", available,
                                      note=f"Kit — Projet #{project_id}",
                                      project_id=project_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Ignored: %s", e)
 
     if debited == 0:
         return jsonify({"ok": False, "error": _t("projects.kit_none")})
@@ -513,15 +494,15 @@ def create_missing(project_id):
                 info = lcsc_scraper.enrich_component(lcsc)
                 if info:
                     ComponentModel.apply_enrichment(comp_id, info)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Ignored: %s", e)
         threading.Thread(target=_enrich, daemon=True).start()
 
     # Ajoute au projet
     try:
         ProjectModel.add_component(project_id, comp_id, max(1, qty))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Ignored: %s", e)
 
     return redirect(url_for("projects.detail", project_id=project_id))
 
@@ -544,8 +525,8 @@ def apply_bom(project_id):
         try:
             ProjectModel.add_component(project_id, int(comp_id), int(qty))
             added += 1
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Ignored: %s", e)
 
     # ── 2. Composants manquants cochés → créer + enrichir ───────────
     missing_ids = request.form.getlist("missing_id")
@@ -620,8 +601,8 @@ def apply_bom(project_id):
         try:
             ProjectModel.add_component(project_id, comp_id, max(1, qty))
             added += 1
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Ignored: %s", e)
 
     # Enrichissement en arrière-plan — LCSC
     if to_enrich:
@@ -634,8 +615,8 @@ def apply_bom(project_id):
                         info = lcsc_scraper.enrich_component(lcsc_ref)
                         if info:
                             ComponentModel.apply_enrichment(cid, info)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Ignored: %s", e)
         threading.Thread(target=_enrich_missing, daemon=True).start()
         flash(_t("msg.bom_enrich_started", n=len(to_enrich)), "info")
 
@@ -887,8 +868,8 @@ def _analyse_bom(rows: list[dict], project_id: int) -> dict | None:
                         info = lcsc_scraper.enrich_component(lcsc_ref)
                         if info:
                             ComponentModel.apply_enrichment(cid, info)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Ignored: %s", e)
 
         threading.Thread(target=_enrich_lcsc, daemon=True).start()
 
@@ -904,8 +885,8 @@ def _analyse_bom(rows: list[dict], project_id: int) -> dict | None:
                         info = mouser_scraper.enrich_component(mref, api_key)
                         if info:
                             ComponentModel.apply_enrichment(cid, info)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Ignored: %s", e)
 
         threading.Thread(target=_enrich_mouser, daemon=True).start()
 
@@ -922,8 +903,8 @@ def _analyse_bom(rows: list[dict], project_id: int) -> dict | None:
                         info = digikey_scraper.enrich_component(dref, client_id, client_secret)
                         if info:
                             ComponentModel.apply_enrichment(cid, info)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Ignored: %s", e)
 
         threading.Thread(target=_enrich_digikey, daemon=True).start()
 
@@ -978,7 +959,7 @@ def _save_project_image(file_storage) -> str | None:
     if ext not in _ALLOWED_EXTS:
         return None
     images_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "instance", "project_images")
+        os.path.join(current_app.instance_path, "project_images")
     )
     os.makedirs(images_dir, exist_ok=True)
     filename = f"{uuid.uuid4().hex}{ext}"
@@ -1009,7 +990,7 @@ def _delete_project_image(image_path: str | None):
     if not image_path:
         return
     images_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "instance", "project_images")
+        os.path.join(current_app.instance_path, "project_images")
     )
     filepath = os.path.join(images_dir, image_path)
     if os.path.exists(filepath):

@@ -1,8 +1,9 @@
 import os
 import shutil
-import json as _j
+import json
 import threading
 import logging
+import datetime
 import tempfile
 import zipfile
 import time
@@ -77,6 +78,10 @@ def settings():
             # Invalider le cache locale si la langue a changé
             import app as _app_module
             _app_module._locale_cache.clear()
+            # Invalider le cache de détection P4 si l'URL ESP32 a changé
+            if "esp32_url" in request.form:
+                from .routes_led import clear_p4_cache
+                clear_p4_cache()
             flash(_t("msg.settings_saved"), "success")
 
         # ── Enrichissement en masse ──────────────────────────────────
@@ -108,7 +113,7 @@ def settings():
         # ── Nettoyage images orphelines ──────────────────────────────
         elif action == "clean_images":
             instance_path = os.path.abspath(
-                os.path.join(component_bp.root_path, "..", "..", "instance")
+                current_app.instance_path
             )
             used = {r["image_path"] for r in db.execute(
                 "SELECT image_path FROM components WHERE image_path IS NOT NULL"
@@ -126,7 +131,7 @@ def settings():
         # ── Réconciliation EasyEDA (fichiers présents mais pas en base) ─
         elif action == "reconcile_easyeda":
             instance_path = os.path.abspath(
-                os.path.join(component_bp.root_path, "..", "..", "instance")
+                current_app.instance_path
             )
             pngs_dir = os.path.join(instance_path, "easyeda_pngs")
             updated = 0
@@ -181,7 +186,7 @@ def settings():
                 flash(_t("msg.easyeda_all_done"), "success")
             else:
                 instance_path = os.path.abspath(
-                    os.path.join(component_bp.root_path, "..", "..", "instance")
+                    current_app.instance_path
                 )
                 def _fetch_all_easyeda(items, inst_path):
                     import time
@@ -194,8 +199,8 @@ def settings():
                             if sym or fp:
                                 ComponentModel.save_easyeda_pngs(comp_id, sym, fp)
                             time.sleep(0.5)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("Ignored: %s", e)
 
                 items = [(r["id"], r["lcsc_part_number"]) for r in rows]
                 t = threading.Thread(
@@ -209,7 +214,7 @@ def settings():
         # ── Sauvegarde ────────────────────────────────────────────────
         elif action == "backup":
             instance_path = os.path.abspath(
-                os.path.join(component_bp.root_path, "..", "..", "instance")
+                current_app.instance_path
             )
             tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
             try:
@@ -218,16 +223,15 @@ def settings():
                         for f in files:
                             fp = os.path.join(root, f)
                             zf.write(fp, os.path.relpath(fp, instance_path))
-                from datetime import datetime
-                fname = f"stockelec_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+                fname = f"stockelec_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
                 response = send_file(tmp.name, as_attachment=True, download_name=fname,
                                      mimetype="application/zip")
             finally:
                 # Nettoyage du fichier temporaire après envoi
                 try:
                     os.unlink(tmp.name)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Ignored: %s", e)
             return response
 
         # ── Reset complet BDD (garde settings) ──────────────────────
@@ -251,7 +255,7 @@ def settings():
                     raise
                 # Supprime aussi les images et PNGs EasyEDA
                 instance_path = os.path.abspath(
-                    os.path.join(component_bp.root_path, "..", "..", "instance")
+                    current_app.instance_path
                 )
                 for folder in ("images", "easyeda_pngs", "project_images"):
                     folder_path = os.path.join(instance_path, folder)
@@ -297,7 +301,7 @@ def settings():
 
     # Taille des fichiers
     instance_path = os.path.abspath(
-        os.path.join(component_bp.root_path, "..", "..", "instance")
+        current_app.instance_path
     )
     def dir_size(path):
         total = 0
@@ -350,7 +354,7 @@ def settings():
     # Config plateaux pour le sélecteur de test ESP32
     raw_rang = SettingsModel.get("rangement_config", "")
     try:
-        config_plateaux = _j.loads(raw_rang).get("plateaux", []) if raw_rang else []
+        config_plateaux = json.loads(raw_rang).get("plateaux", []) if raw_rang else []
     except Exception:
         config_plateaux = []
 

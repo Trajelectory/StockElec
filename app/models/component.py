@@ -7,34 +7,35 @@ class Component:
     """Représente un composant électronique dans le stock."""
 
     def __init__(self, row):
-        keys = row.keys()
-        self.id                      = row["id"]
-        self.lcsc_part_number        = row["lcsc_part_number"]
-        self.manufacture_part_number = row["manufacture_part_number"]
-        self.manufacturer            = row["manufacturer"]
-        self.customer_no             = row["customer_no"]
-        self.package                 = row["package"]
-        self.description             = row["description"]
-        self.rohs                    = row["rohs"]
-        self.quantity                = row["quantity"]
-        self.min_stock               = row["min_stock"] if "min_stock" in keys else 0
-        self.unit_price              = row["unit_price"]
-        self.ext_price               = row["ext_price"]
-        self.category                = row["category"]
-        self.category_id             = row["category_id"] if "category_id" in keys else None
-        self.location                = row["location"]
-        self.notes                   = row["notes"]
-        self.image_path              = row["image_path"]    if "image_path"    in keys else None
-        self.datasheet_url           = row["datasheet_url"] if "datasheet_url" in keys else None
-        self.symbol_png              = row["symbol_png"]    if "symbol_png"    in keys else None
-        self.footprint_png           = row["footprint_png"] if "footprint_png" in keys else None
-        self.attributes              = row["attributes"]          if "attributes"          in keys else None
-        self.description_long        = row["description_long"]    if "description_long"    in keys else None
-        self.mouser_part_number      = row["mouser_part_number"]  if "mouser_part_number"  in keys else None
-        self.digikey_part_number     = row["digikey_part_number"] if "digikey_part_number" in keys else None
-        self.product_url             = row["product_url"]         if "product_url"         in keys else None
-        self.created_at              = row["created_at"]
-        self.updated_at              = row["updated_at"]
+        d = dict(row)
+        self.id                      = d["id"]
+        self.lcsc_part_number        = d["lcsc_part_number"]
+        self.manufacture_part_number = d["manufacture_part_number"]
+        self.manufacturer            = d["manufacturer"]
+        self.customer_no             = d["customer_no"]
+        self.package                 = d["package"]
+        self.description             = d["description"]
+        self.rohs                    = d["rohs"]
+        self.quantity                = d["quantity"]
+        self.min_stock               = d.get("min_stock", 0)
+        self.unit_price              = d["unit_price"]
+        self.ext_price               = d["ext_price"]
+        self.category                = d["category"]
+        self.category_id             = d.get("category_id")
+        self.location                = d["location"]
+        self.notes                   = d["notes"]
+        self.image_path              = d.get("image_path")
+        self.datasheet_url           = d.get("datasheet_url")
+        self.symbol_png              = d.get("symbol_png")
+        self.footprint_png           = d.get("footprint_png")
+        self.attributes              = d.get("attributes")
+        self.description_long        = d.get("description_long")
+        self.mouser_part_number      = d.get("mouser_part_number")
+        self.digikey_part_number     = d.get("digikey_part_number")
+        self.product_url             = d.get("product_url")
+        self.source_url              = d.get("source_url")
+        self.created_at              = d.get("created_at")
+        self.updated_at              = d.get("updated_at")
 
     @property
     def is_low_stock(self):
@@ -131,8 +132,8 @@ class ComponentModel:
                     customer_no, package, description, description_long, rohs,
                     quantity, min_stock, unit_price, ext_price,
                     category, category_id, location, notes,
-                    image_path, datasheet_url, product_url
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    image_path, datasheet_url, product_url, source_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     _to_none(data.get("lcsc_part_number")),
@@ -156,6 +157,7 @@ class ComponentModel:
                     data.get("image_path"),
                     data.get("datasheet_url"),
                     data.get("product_url"),
+                    _to_none(data.get("source_url")),
                 ),
             )
             db.commit()
@@ -191,7 +193,8 @@ class ComponentModel:
                     notes                   = ?,
                     image_path              = ?,
                     datasheet_url           = ?,
-                    product_url             = ?
+                    product_url             = ?,
+                    source_url              = ?
                 WHERE id = ?
                 """,
                 (
@@ -216,6 +219,7 @@ class ComponentModel:
                     data.get("image_path"),
                     data.get("datasheet_url"),
                     data.get("product_url"),
+                    _to_none(data.get("source_url")),
                     component_id,
                 ),
             )
@@ -274,14 +278,14 @@ class ComponentModel:
 
         # Mise à jour des champs vides du composant
         fields, values = [], []
-        row_keys = row.keys()
+        d = dict(row)
 
         def _maybe(col, new_val):
             if not new_val:
                 return
-            if col not in row_keys:
+            if col not in d:
                 return
-            if not row[col]:
+            if not d[col]:
                 fields.append(f"{col} = ?")
                 values.append(new_val)
 
@@ -329,8 +333,8 @@ class ComponentModel:
             if cat_id and not row["category_id"]:
                 fields.append("category_id = ?")
                 values.append(cat_id)
-        except (IndexError, KeyError):
-            pass
+        except (IndexError, KeyError) as e:
+            logger.debug("Ignored: %s", e)
 
         if fields:
             values.append(component_id)
@@ -403,11 +407,11 @@ class ComponentModel:
             "SELECT quantity, min_stock FROM components WHERE id=?", (component_id,)
         ).fetchone()
         if not row:
-            return {"ok": False, "error": "Composant introuvable"}
+            return {"ok": False, "error": "msg.err_not_found", "i18n": True}
 
         new_qty = row["quantity"] + delta
         if new_qty < 0:
-            return {"ok": False, "error": f"Stock insuffisant (disponible : {row['quantity']})"}
+            return {"ok": False, "error": "msg.err_stock_insufficient", "i18n": True, "qty": row["quantity"]}
 
         try:
             db.execute("UPDATE components SET quantity=? WHERE id=?", (new_qty, component_id))
@@ -420,6 +424,44 @@ class ComponentModel:
             "new_qty": new_qty,
             "is_low":  bool(row["min_stock"] and new_qty <= row["min_stock"]),
         }
+
+
+    @staticmethod
+    def get_dashboard_stats() -> dict:
+        """Stats globales pour le dashboard (n_components, n_total_qty, n_alerts, n_zero, total_value)."""
+        db = get_db()
+        row = db.execute("""
+            SELECT COUNT(*) AS n_components,
+                   SUM(quantity) AS n_total_qty,
+                   SUM(CASE WHEN min_stock > 0 AND quantity <= min_stock THEN 1 ELSE 0 END) AS n_alerts,
+                   SUM(CASE WHEN quantity = 0 THEN 1 ELSE 0 END) AS n_zero,
+                   ROUND(SUM(quantity * COALESCE(unit_price,0)),2) AS total_value
+            FROM components
+        """).fetchone()
+        return row
+
+    @staticmethod
+    def get_recent(limit: int = 6) -> list:
+        """Derniers composants ajoutés pour le dashboard."""
+        db = get_db()
+        return db.execute("""
+            SELECT id, description, manufacture_part_number, lcsc_part_number,
+                   mouser_part_number, digikey_part_number, product_url,
+                   package, quantity, min_stock, unit_price, image_path
+            FROM components ORDER BY created_at DESC LIMIT ?
+        """, (limit,)).fetchall()
+
+    @staticmethod
+    def get_alerts_summary(limit: int = 6) -> list:
+        """Composants en alerte pour le dashboard (les plus critiques en premier)."""
+        db = get_db()
+        return db.execute("""
+            SELECT id, description, lcsc_part_number, mouser_part_number,
+                   quantity, min_stock, image_path
+            FROM components
+            WHERE min_stock > 0 AND quantity <= min_stock
+            ORDER BY quantity ASC LIMIT ?
+        """, (limit,)).fetchall()
 
     @staticmethod
     def get_low_stock() -> list:
@@ -526,9 +568,10 @@ class ComponentModel:
         rohs_col    = _col("rohs")
         cust_col    = _col("customer no.", "customer #", "customer_no")
         min_stock_col = _col("min_stock", "min stock", "seuil alerte", "seuil")
-        cat_col       = _col("category", "catégorie", "categorie")
-        loc_col       = _col("location", "emplacement", "location")
-        notes_col     = _col("notes", "remarques")
+        cat_col        = _col("category", "catégorie", "categorie")
+        loc_col        = _col("location", "emplacement", "location")
+        notes_col      = _col("notes", "remarques")
+        source_url_col = _col("source / url achat", "source_url", "fournisseur", "url achat", "url")
 
         for i, row in enumerate(rows, start=1):
             try:
@@ -546,7 +589,8 @@ class ComponentModel:
                 min_stock_v = max(0, int(_clean(row.get(min_stock_col, "") if min_stock_col else "") or 0))
                 category_v  = _clean(row.get(cat_col,   "") if cat_col   else "")
                 location_v  = _clean(row.get(loc_col,   "") if loc_col   else "")
-                notes_v     = _clean(row.get(notes_col, "") if notes_col else "")
+                notes_v      = _clean(row.get(notes_col,      "") if notes_col      else "")
+                source_url_v = _clean(row.get(source_url_col, "") if source_url_col else "")
 
                 # Ignore les lignes sans aucune ref fournisseur
                 if not any([lcsc, mouser_ref, digikey_ref]):
@@ -592,8 +636,8 @@ class ComponentModel:
                         manufacture_part_number, manufacturer,
                         customer_no, package, description, description_long, rohs,
                         quantity, min_stock, unit_price, ext_price,
-                        category, location, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        category, location, notes, source_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         _to_none(lcsc),
@@ -613,6 +657,7 @@ class ComponentModel:
                         _to_none(category_v),
                         _to_none(location_v),
                         _to_none(notes_v),
+                        _to_none(source_url_v),
                     ),
                 )
                 new_id = cursor.lastrowid

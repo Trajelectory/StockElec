@@ -219,8 +219,8 @@ def _svg_to_png(svg_content: str, dest_path: str, size: int) -> bool:
         with open(dest_path, "wb") as f:
             f.write(png_bytes)
         return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Ignored: %s", e)
 
     # Tentative 2 : svglib + reportlab
     try:
@@ -240,8 +240,8 @@ def _svg_to_png(svg_content: str, dest_path: str, size: int) -> bool:
             renderPM.drawToFile(drawing, dest_path, fmt="PNG",
                                 dpi=int(size / max(drawing.width, drawing.height) * 72))
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Ignored: %s", e)
 
     # Tentative 3 : génère une image placeholder blanche avec le texte de la ref
     try:

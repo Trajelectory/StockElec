@@ -1,6 +1,6 @@
 import io
 import csv
-import json as _j
+import json
 import logging
 import re as _re
 
@@ -31,14 +31,13 @@ from .routes_labels import _save_component_image, _download_image_from_url
 
 @component_bp.route("/export/csv")
 def export_csv():
-    import csv, io
     db = get_db()
     rows = db.execute("""
         SELECT lcsc_part_number, mouser_part_number, digikey_part_number,
                manufacture_part_number, manufacturer,
                description, description_long, package, rohs,
                quantity, min_stock, unit_price, ext_price,
-               category, location, notes, datasheet_url, product_url,
+               category, location, notes, datasheet_url, product_url, source_url,
                created_at
         FROM components ORDER BY description
     """).fetchall()
@@ -52,7 +51,7 @@ def export_csv():
         _t("msg.csv_col_package"), _t("msg.csv_col_rohs"),
         _t("msg.csv_col_qty"), _t("msg.csv_col_min_stock"),
         _t("msg.csv_col_unit_price"), _t("msg.csv_col_total_price"),
-        "Catégorie", "Emplacement", "Notes", "Datasheet", "Lien produit",
+        "Catégorie", "Emplacement", "Notes", "Datasheet", "Lien produit", "Source / URL achat",
         "Créé le",
     ])
     for r in rows:
@@ -154,7 +153,6 @@ def reorder():
 
 @component_bp.route("/reorder/export")
 def reorder_export():
-    import csv, io
     db          = get_db()
     distributor = request.args.get("dist", "all")   # lcsc | mouser | digikey | all
     show_zero   = request.args.get("show_zero", "0") == "1"

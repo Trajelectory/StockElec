@@ -1,5 +1,5 @@
 import os
-import json as _j
+import json
 import logging
 import re as _re
 import uuid
@@ -109,7 +109,7 @@ def _download_image_from_url(image_url: str, ref: str) -> str | None:
     import uuid as _uuid
 
     images_dir = os.path.abspath(
-        os.path.join(component_bp.root_path, "..", "..", "instance", "images")
+        os.path.join(current_app.instance_path, "images")
     )
     os.makedirs(images_dir, exist_ok=True)
 
@@ -169,7 +169,7 @@ def _save_component_image(file_storage) -> str | None:
     if ext not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
         return None
     images_dir = os.path.abspath(
-        os.path.join(component_bp.root_path, "..", "..", "instance", "images")
+        os.path.join(current_app.instance_path, "images")
     )
     os.makedirs(images_dir, exist_ok=True)
     import uuid as _uuid
@@ -259,7 +259,7 @@ def easyeda_pngs(lcsc_ref):
     # Cache valide ?
     if not force and row and (row["symbol_png"] or row["footprint_png"]):
         # Vérifie que les fichiers existent encore
-        instance_path = os.path.join(component_bp.root_path, "..", "..", "instance")
+        instance_path = current_app.instance_path
         sym_ok = row["symbol_png"] and os.path.exists(
             os.path.join(os.path.abspath(instance_path), row["symbol_png"])
         )
@@ -276,7 +276,7 @@ def easyeda_pngs(lcsc_ref):
 
     # Téléchargement + conversion
     instance_path = os.path.abspath(
-        os.path.join(component_bp.root_path, "..", "..", "instance")
+        current_app.instance_path
     )
     result = fetch_and_save(lcsc_ref, instance_path)
     sym = result.get("symbol_png")
@@ -302,7 +302,7 @@ def easyeda_png_file(filename):
     """Sert les fichiers PNG EasyEDA depuis instance/easyeda_pngs/."""
     import os
     pngs_dir = os.path.abspath(
-        os.path.join(component_bp.root_path, "..", "..", "instance", "easyeda_pngs")
+        os.path.join(current_app.instance_path, "easyeda_pngs")
     )
     return send_from_directory(pngs_dir, filename)
 

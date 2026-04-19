@@ -1,4 +1,4 @@
-import json as _j
+import json
 import logging
 import re as _re
 
@@ -22,13 +22,12 @@ from . import component_bp
 
 @component_bp.route("/rangement")
 def rangement():
-    import json as _json
     db = get_db()
 
     # Config des plateaux (sauvegardée en settings)
     raw = SettingsModel.get("rangement_config", "")
     try:
-        config = _json.loads(raw) if raw else {"plateaux": [
+        config = json.loads(raw) if raw else {"plateaux": [
             {"id": "A", "label": "Plateau A", "cols": 5, "rows": 4},
         ]}
     except Exception:
@@ -37,14 +36,14 @@ def rangement():
     # Assignations case → composant
     raw_assign = SettingsModel.get("rangement_assign", "")
     try:
-        assignments = _json.loads(raw_assign) if raw_assign else {}
+        assignments = json.loads(raw_assign) if raw_assign else {}
     except Exception:
         assignments = {}
 
     # Tailles des cases
     raw_sizes = SettingsModel.get("rangement_sizes", "")
     try:
-        sizes = _json.loads(raw_sizes) if raw_sizes else {}
+        sizes = json.loads(raw_sizes) if raw_sizes else {}
     except Exception:
         sizes = {}
 
@@ -67,11 +66,10 @@ def rangement():
 
 @component_bp.route("/rangement/save", methods=["POST"])
 def rangement_save():
-    import json as _json
     data = request.get_json() or {}
 
     if "config" in data:
-        SettingsModel.set("rangement_config", _json.dumps(data["config"]))
+        SettingsModel.set("rangement_config", json.dumps(data["config"]))
 
     if "assignments" in data:
         raw = data["assignments"]
@@ -79,6 +77,7 @@ def rangement_save():
         new_assignments = {
             k: v for k, v in raw.items()
             if isinstance(v, int) and v > 0
+            and _re.match(r'^[A-Za-z]{1,4}[0-9]{1,4}$', str(k))
         }
 
         db = get_db()
@@ -86,7 +85,7 @@ def rangement_save():
         # Lit les ANCIENNES assignations avant d'écraser
         raw_old = SettingsModel.get("rangement_assign", "")
         try:
-            old_assignments = _json.loads(raw_old) if raw_old else {}
+            old_assignments = json.loads(raw_old) if raw_old else {}
         except Exception:
             old_assignments = {}
 
@@ -104,7 +103,7 @@ def rangement_save():
                                    if not v or str(v) in valid_ids}
 
         # Sauvegarde les nouvelles
-        SettingsModel.set("rangement_assign", _json.dumps(new_assignments))
+        SettingsModel.set("rangement_assign", json.dumps(new_assignments))
 
         # IDs des composants encore assignés dans le nouvel état
         assigned_ids = {str(v) for v in new_assignments.values() if v}
@@ -127,6 +126,6 @@ def rangement_save():
             raise
 
     if "sizes" in data:
-        SettingsModel.set("rangement_sizes", _json.dumps(data["sizes"]))
+        SettingsModel.set("rangement_sizes", json.dumps(data["sizes"]))
 
     return jsonify({"ok": True})

@@ -3,27 +3,45 @@ Utilitaires partagés entre les controllers.
 """
 import functools
 import logging
+import threading
+import time as _time
 
 from flask import request, jsonify
 from ..models.settings import SettingsModel
 
 logger = logging.getLogger(__name__)
 
+# Cache TTL pour la langue courante — évite 1 SQL par appel à _t()
+# (le context_processor Jinja a son propre cache ; celui-ci couvre les appels Python)
+_lang_cache: dict = {"lang": None, "ts": 0.0}
+_lang_lock = threading.Lock()
+_LANG_TTL  = 2.0  # secondes
+
+
+def _get_lang() -> str:
+    """Retourne la langue courante avec cache TTL 2s — 1 SQL max toutes les 2s."""
+    now = _time.time()
+    with _lang_lock:
+        if _lang_cache["lang"] is None or now - _lang_cache["ts"] > _LANG_TTL:
+            _lang_cache["lang"] = SettingsModel.get("lang", "fr") or "fr"
+            _lang_cache["ts"]   = now
+    return _lang_cache["lang"]
+
 
 def _t(key: str, **kwargs) -> str:
     """Retourne la string traduite selon la langue configurée."""
     from app import load_locale
-    lang = SettingsModel.get("lang", "fr") or "fr"
+    lang   = _get_lang()
     locale = load_locale(lang)
-    parts = key.split(".")
-    val = locale
+    parts  = key.split(".")
+    val    = locale
     for p in parts:
         val = val.get(p, key) if isinstance(val, dict) else key
     if kwargs:
         try:
             val = val.format(**kwargs)
-        except (KeyError, ValueError):
-            pass
+        except (KeyError, ValueError) as e:
+            logger.debug("Ignored: %s", e)
     return val
 
 
@@ -44,8 +62,9 @@ def require_esp32_token(f):
         if not expected:
             return f(*args, **kwargs)
 
-        # Requête navigateur — Referer présent (vient de l'interface web)
-        if request.referrer:
+        # Requête navigateur — Referer présent ET appartenant au même hôte
+        # (vérifié pour éviter qu'un attaquant forge un header Referer arbitraire)
+        if request.referrer and request.referrer.startswith(request.host_url):
             return f(*args, **kwargs)
 
         # Requête AJAX navigateur — header standard des fetch()/XMLHttpRequest

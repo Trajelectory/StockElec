@@ -88,3 +88,4 @@
 .src-badge-lcsc   { background: rgba(124,108,255,.15); color: var(--accent); }
 .src-badge-mouser { background: rgba(0,100,200,.12);   color: #0064c8; }
 .src-badge-digikey { background: rgba(255,102,0,.12);  color: #e55a00; }
+.src-badge-other  { background: rgba(100,100,100,.12); color: var(--text-muted); }

@@ -655,8 +655,8 @@ def register_in_kicad(kicad_dir: str, prefix: str = "") -> dict:
         try:
             tuple(int(x) for x in version_candidate.split("."))
             result["kicad_version"] = version_candidate
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.debug("Ignored: %s", e)
 
     table_path = _find_sym_lib_table()
     if not table_path:
@@ -879,8 +879,8 @@ def register_footprints_in_kicad(kicad_dir: str, prefix: str = "") -> dict:
         try:
             tuple(int(x) for x in parts[-2].split("."))
             result["kicad_version"] = parts[-2]
-        except ValueError:
-            pass
+        except ValueError as e:
+            logger.debug("Ignored: %s", e)
 
     # Lire le contenu actuel (ou créer un fichier vide)
     if os.path.isfile(table_path):

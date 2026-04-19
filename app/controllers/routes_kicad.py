@@ -97,6 +97,11 @@ def generate_one():
     if not lcsc_ref:
         return jsonify({"ok": False, "error": "Référence LCSC manquante."}), 400
 
+    # Valider le format LCSC (Cxxxxx — lettre + chiffres)
+    import re as _re
+    if not _re.match(r'^C\d+$', lcsc_ref):
+        return jsonify({"ok": False, "error": f"Format invalide : {lcsc_ref!r} — attendu Cxxxxx."}), 400
+
     kicad_dir = _kicad_dir()
     os.makedirs(kicad_dir, exist_ok=True)
 
@@ -244,3 +249,59 @@ def download_file(lcsc_ref, file_type):
     filename = os.path.basename(filepath)
     logger.info("[KICAD] Téléchargement %s → %s", file_type, filename)
     return send_file(filepath, as_attachment=True, download_name=filename)
+
+
+# ------------------------------------------------------------------ #
+#  F4 — ZIP KiCad pour un seul composant
+#  GET /kicad/component/<lcsc_ref>.zip
+# ------------------------------------------------------------------ #
+
+@kicad_bp.route("/component/<lcsc_ref>.zip")
+def download_component_zip(lcsc_ref):
+    """
+    Génère et télécharge un ZIP contenant sym + footprint + modèle 3D
+    pour un seul composant LCSC, directement depuis la fiche composant.
+    Retourne 404 si aucun fichier n'a encore été généré.
+    """
+    kicad_dir = _kicad_dir()
+    lcsc_ref  = lcsc_ref.strip().upper()
+
+    status = get_component_kicad_status(lcsc_ref, kicad_dir)
+    paths  = status.get("paths", {})
+
+    # Collecter les fichiers disponibles
+    files_to_zip = {}
+    for ftype, fpath in paths.items():
+        if fpath and os.path.isfile(fpath):
+            files_to_zip[ftype] = fpath
+
+    if not files_to_zip:
+        return jsonify({
+            "error": f"Aucun fichier KiCad généré pour {lcsc_ref}. "
+                     f"Utilisez le bouton '⚙ Générer KiCad' sur la fiche."
+        }), 404
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for ftype, fpath in files_to_zip.items():
+            # Conserver l'arborescence relative à kicad_dir
+            arcname = os.path.relpath(fpath, kicad_dir)
+            zf.write(fpath, arcname)
+
+            # Pour les footprints .pretty, inclure aussi les fichiers du dossier
+            if ftype == "footprint" and os.path.isdir(fpath):
+                for root, dirs, fnames in os.walk(fpath):
+                    for fname in fnames:
+                        full = os.path.join(root, fname)
+                        zf.write(full, os.path.relpath(full, kicad_dir))
+
+    buf.seek(0)
+    download_name = f"kicad_{lcsc_ref}.zip"
+    logger.info("[KICAD] ZIP composant %s — %d fichier(s)", lcsc_ref, len(files_to_zip))
+
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=download_name,
+        mimetype="application/zip",
+    )

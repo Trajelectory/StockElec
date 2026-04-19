@@ -1,6 +1,6 @@
 from .database import get_db
 
-STATUS_OPTIONS = ["idée", "conception", "commandé", "en production", "assemblage", "debug", "terminé", "archivé"]
+STATUS_OPTIONS = ["idea", "design", "ordered", "production", "assembly", "debug", "done", "archived"]
 
 # Tags disponibles — (slug, label, emoji, couleur)
 TAG_OPTIONS = [
@@ -170,7 +170,7 @@ class ProjectModel:
                 (
                     data["name"],
                     data.get("description"),
-                    data.get("status", "idée"),
+                    data.get("status", "idea"),
                     data.get("image_path"),
                     _json.dumps(data.get("tags",      []), ensure_ascii=False),
                     _json.dumps(data.get("checklist", []), ensure_ascii=False),
@@ -194,7 +194,7 @@ class ProjectModel:
                 (
                     data["name"],
                     data.get("description"),
-                    data.get("status", "idée"),
+                    data.get("status", "idea"),
                     data.get("image_path"),
                     _json.dumps(data.get("tags", []),      ensure_ascii=False),
                     _json.dumps(data.get("checklist", []), ensure_ascii=False),
@@ -267,3 +267,29 @@ class ProjectModel:
             (component_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+    @staticmethod
+    def get_active(limit: int = 4) -> list:
+        """Projets actifs (non terminés/archivés) pour le dashboard."""
+        from .database import get_db
+        db = get_db()
+        return db.execute("""
+            SELECT id, name, status, created_at
+            FROM projects WHERE status NOT IN ('done', 'archived')
+            ORDER BY created_at DESC LIMIT ?
+        """, (limit,)).fetchall()
+
+    @staticmethod
+    def get_recent_movements(limit: int = 8) -> list:
+        """Derniers mouvements de stock toutes sources confondues pour le dashboard."""
+        from .database import get_db
+        db = get_db()
+        return db.execute("""
+            SELECT m.type, m.quantity, m.created_at, m.note,
+                   c.id AS component_id, c.description, c.lcsc_part_number, c.image_path
+            FROM stock_movements m
+            JOIN components c ON c.id = m.component_id
+            ORDER BY m.created_at DESC LIMIT ?
+        """, (limit,)).fetchall()
+

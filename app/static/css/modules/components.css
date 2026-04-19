@@ -53,11 +53,6 @@
     border-color: rgba(244,63,94,.3);
 }
 .btn-danger:hover { background: var(--danger); color: #fff; }
-.btn-success {
-    background: var(--success-dim); color: var(--success);
-    border-color: rgba(52,209,126,.3);
-}
-.btn-success:hover { background: var(--success); color: #000; }
 .btn-sm { padding: .28rem .65rem; font-size: .78rem; }
 .btn-lg { padding: .6rem 1.4rem; font-size: .95rem; }
 .btn-full { width: 100%; justify-content: center; }

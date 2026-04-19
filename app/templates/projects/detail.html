@@ -55,7 +55,7 @@
                 <button class="pd-status-current" id="pd-status-btn"
                         onclick="toggleStatusPicker()"
                         title="Cliquer pour changer le statut">
-                    <span id="pd-status-emoji">{% if project.status == 'idée' %}💡{% elif project.status == 'conception' %}✏️{% elif project.status == 'commandé' %}🛒{% elif project.status == 'en production' %}🏭{% elif project.status == 'assemblage' %}🔧{% elif project.status == 'debug' %}🔬{% elif project.status == 'terminé' %}✅{% else %}📦{% endif %}</span>
+                    <span id="pd-status-emoji">{% if project.status == 'idea' %}💡{% elif project.status == 'design' %}✏️{% elif project.status == 'ordered' %}🛒{% elif project.status == 'production' %}🏭{% elif project.status == 'assembly' %}🔧{% elif project.status == 'debug' %}🔬{% elif project.status == 'done' %}✅{% else %}📦{% endif %}</span>
                     <span id="pd-status-label">{{ project.status }}</span>
                     <svg class="pd-status-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none">
                         <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -63,14 +63,14 @@
                 </button>
                 <div class="pd-status-picker" id="pd-status-picker" style="display:none">
                     {% set statuses = [
-                        ('idée',         '💡', 'Idée'),
-                        ('conception',   '✏️', 'Conception'),
-                        ('commandé',     '🛒', 'Commandé'),
-                        ('en production','🏭', 'En production'),
-                        ('assemblage',   '🔧', 'Assemblage'),
+                        ('idea',       '💡', 'Idée'),
+                        ('design',     '✏️', 'Conception'),
+                        ('ordered',    '🛒', 'Commandé'),
+                        ('production', '🏭', 'En production'),
+                        ('assembly',   '🔧', 'Assemblage'),
                         ('debug',        '🔬', 'Debug'),
-                        ('terminé',      '✅', 'Terminé'),
-                        ('archivé',      '📦', 'Archivé'),
+                        ('done',     '✅', 'Terminé'),
+                        ('archived', '📦', 'Archivé'),
                     ] %}
                     {% for slug, emoji, label in statuses %}
                     <button class="pd-status-option {% if project.status == slug %}pd-status-option-active{% endif %}"
@@ -613,14 +613,14 @@ let _links     = {{ project.links | tojson }};
 
 // ── Statut rapide ────────────────────────────────────────────────
 const STATUS_COLORS = {
-    'idée':          'var(--info)',
-    'conception':    'var(--accent)',
-    'commandé':      '#f97316',
-    'en production': '#8b5cf6',
-    'assemblage':    'var(--warning)',
+    'idea':          'var(--info)',
+    'design':    'var(--accent)',
+    'ordered':      '#f97316',
+    'production': '#8b5cf6',
+    'assembly':    'var(--warning)',
     'debug':         'var(--danger)',
-    'terminé':       'var(--success)',
-    'archivé':       'var(--text-muted)',
+    'done':       'var(--success)',
+    'archived':       'var(--text-muted)',
 };
 
 function toggleStatusPicker() {

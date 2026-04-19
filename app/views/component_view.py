@@ -33,8 +33,8 @@ class ComponentView:
         if component.attributes:
             try:
                 attrs = _json.loads(component.attributes)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Ignored: %s", e)
         from ..models.settings import SettingsModel
         from ..models.movement import MovementModel
         from ..services.kicad_jlc import get_component_kicad_status

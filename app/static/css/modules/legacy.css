@@ -66,7 +66,7 @@
 /* -- Grille de projets -- */
 
 /* -- Badges de statut projet -- */
-.badge-status-archivé   { background:rgba(124,130,160,.2); color:var(--text-muted); }
+.badge-status-archived   { background:rgba(124,130,160,.2); color:var(--text-muted); }
 
 .link-small:hover { color:var(--accent); }
 
@@ -201,13 +201,13 @@
 .result-count       { font-size:.8rem;color:var(--text-muted); }
 .empty-icon         { font-size:2rem;opacity:.4; }
 .page-ellipsis      { padding:.3rem .4rem;color:var(--text-muted); }
-.badge-status-idée          { background:rgba(6,182,212,.15);   color:#06b6d4; }
-.badge-status-conception    { background:var(--accent-dim);      color:var(--accent); }
-.badge-status-commandé      { background:rgba(249,115,22,.15);   color:#f97316; }
-.badge-status-en-production { background:rgba(139,92,246,.15);   color:#8b5cf6; }
-.badge-status-assemblage    { background:var(--warning-dim);     color:var(--warning); }
+.badge-status-idea          { background:rgba(6,182,212,.15);   color:#06b6d4; }
+.badge-status-design    { background:var(--accent-dim);      color:var(--accent); }
+.badge-status-ordered      { background:rgba(249,115,22,.15);   color:#f97316; }
+.badge-status-production { background:rgba(139,92,246,.15);   color:#8b5cf6; }
+.badge-status-assembly    { background:var(--warning-dim);     color:var(--warning); }
 .badge-status-debug         { background:var(--danger-dim);      color:var(--danger); }
-.badge-status-terminé       { background:var(--success-dim);     color:var(--success); }
+.badge-status-done       { background:var(--success-dim);     color:var(--success); }
 .badge-status-en-cours      { background:var(--info-dim);        color:var(--info); }
 .badge-status-en-pause      { background:var(--warning-dim);     color:var(--warning); }
 

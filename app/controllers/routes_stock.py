@@ -1,5 +1,5 @@
 import sqlite3
-import json as _j
+import json
 import logging
 import re as _re
 
@@ -13,7 +13,6 @@ from flask import (
     current_app,
 )
 
-import requests as _requests
 
 from ..models.component import ComponentModel, ITEMS_PER_PAGE_DEFAULT
 from ..models.category import CategoryModel
@@ -28,49 +27,12 @@ from . import component_bp
 @component_bp.route("/")
 def home():
     """Page d'accueil — dashboard avec stats, alertes, mouvements récents."""
-    db = get_db()
-
-    stats = db.execute("""
-        SELECT COUNT(*) AS n_components,
-               SUM(quantity) AS n_total_qty,
-               SUM(CASE WHEN min_stock > 0 AND quantity <= min_stock THEN 1 ELSE 0 END) AS n_alerts,
-               SUM(CASE WHEN quantity = 0 THEN 1 ELSE 0 END) AS n_zero,
-               ROUND(SUM(quantity * COALESCE(unit_price,0)),2) AS total_value
-        FROM components
-    """).fetchone()
-
-    # Derniers composants ajoutés
-    recent = db.execute("""
-        SELECT id, description, manufacture_part_number, lcsc_part_number,
-               mouser_part_number, digikey_part_number, product_url,
-               package, quantity, min_stock, unit_price, image_path
-        FROM components ORDER BY created_at DESC LIMIT 6
-    """).fetchall()
-
-    # Composants en alerte
-    alerts = db.execute("""
-        SELECT id, description, lcsc_part_number, mouser_part_number,
-               quantity, min_stock, image_path
-        FROM components
-        WHERE min_stock > 0 AND quantity <= min_stock
-        ORDER BY quantity ASC LIMIT 6
-    """).fetchall()
-
-    # Derniers mouvements
-    movements = db.execute("""
-        SELECT m.type, m.quantity, m.created_at, m.note,
-               c.id AS component_id, c.description, c.lcsc_part_number, c.image_path
-        FROM stock_movements m
-        JOIN components c ON c.id = m.component_id
-        ORDER BY m.created_at DESC LIMIT 8
-    """).fetchall()
-
-    # Projets actifs
-    projects = db.execute("""
-        SELECT id, name, status, created_at
-        FROM projects WHERE status NOT IN ('terminé', 'archivé')
-        ORDER BY created_at DESC LIMIT 4
-    """).fetchall()
+    from ..models.project import ProjectModel
+    stats     = ComponentModel.get_dashboard_stats()
+    recent    = ComponentModel.get_recent(limit=6)
+    alerts    = ComponentModel.get_alerts_summary(limit=6)
+    movements = ProjectModel.get_recent_movements(limit=8)
+    projects  = ProjectModel.get_active(limit=4)
 
     return render_template("components/home.html",
         stats=stats, recent=recent, alerts=alerts,
@@ -108,7 +70,6 @@ def stock():
     category_groups = CategoryModel.get_grouped_for_stock()
 
     # Emplacements distincts pour le filtre sidebar
-    import re as _re
     locations_raw = get_db().execute(
         "SELECT DISTINCT location FROM components WHERE location IS NOT NULL AND location != '' ORDER BY location"
     ).fetchall()
@@ -145,16 +106,22 @@ def stock():
 def adjust(component_id):
     data     = request.json or {}
     absolute = data.get("absolute")
-    delta    = int(data.get("delta", 0))
+    try:
+        delta = int(data.get("delta") or 0)
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Paramètre delta invalide"}), 400
 
     comp = ComponentModel.get_by_id(component_id)
     if not comp:
-        return jsonify({"ok": False, "error": "Composant introuvable"}), 404
+        return jsonify({"ok": False, "error": _t("msg.err_not_found")}), 404
 
     qty_before = comp.quantity
 
     if absolute is not None:
-        delta = int(absolute) - comp.quantity
+        try:
+            delta = int(absolute) - comp.quantity
+        except (ValueError, TypeError):
+            return jsonify({"ok": False, "error": "Paramètre absolute invalide"}), 400
 
     if delta == 0:
         logger.info("[ADJUST] #%s %s — delta=0, rien à faire (qty=%s)",
@@ -185,8 +152,12 @@ def adjust(component_id):
             "ok": True, "new_qty": result["new_qty"],
             "is_low": comp.is_low_stock, "min_stock": comp.min_stock,
         })
-    logger.warning("[ADJUST] ❌ #%s erreur : %s", component_id, result["error"])
-    return jsonify({"ok": False, "error": result["error"]}), 400
+    # Résolution i18n — le model retourne une clé quand i18n=True
+    err_msg = result["error"]
+    if result.get("i18n"):
+        err_msg = _t(err_msg, qty=result.get("qty", ""))
+    logger.warning("[ADJUST] ❌ #%s erreur : %s", component_id, err_msg)
+    return jsonify({"ok": False, "error": err_msg}), 400
 
 
 # ------------------------------------------------------------------ #

@@ -30,17 +30,15 @@ Structure JSON réelle (vérifiée) :
 import os
 import time
 import random
-import urllib.request
 import logging
 
 import requests
 
+from .image_utils import download_image as _download_image
+
 logger = logging.getLogger(__name__)
 
 LCSC_DETAIL_URL = "https://wmsc.lcsc.com/ftps/wm/product/detail"
-IMAGES_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "instance", "images")
-)
 
 _SESSION = requests.Session()
 _SESSION.headers.update({
@@ -175,8 +173,8 @@ def extract_info(result: dict) -> dict:
             price = first.get("price") or first.get("usdPrice") or first.get("productPrice")
             if price:
                 info["unit_price"] = round(float(price), 6)
-        except (IndexError, KeyError, TypeError, ValueError):
-            pass
+        except (IndexError, KeyError, TypeError, ValueError) as e:
+            logger.debug("Ignored: %s", e)
 
     # Key Attributes (caractéristiques techniques)
     # Stockés dans productNameEn sous forme "Clé:Valeur Clé:Valeur..."
@@ -205,117 +203,14 @@ def extract_info(result: dict) -> dict:
 
 def download_image(image_url: str, lcsc_part_number: str) -> str | None:
     """
-    Télécharge l'image dans instance/images/<CXXXXXX>.jpg
-    Retourne le chemin relatif "images/<filename>" ou None si échec.
+    Télécharge l'image LCSC dans instance/images/.
+    Délégué à image_utils.download_image() — logique centralisée.
     """
-    if not image_url:
-        return None
-
-    os.makedirs(IMAGES_DIR, exist_ok=True)
-
-    # Extension depuis l'URL (sans query string)
-    clean_url = image_url.split("?")[0]
-    ext = os.path.splitext(clean_url)[-1].lower()
-    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
-        ext = ".jpg"
-
-    filename = f"{lcsc_part_number}{ext}"
-    filepath = os.path.join(IMAGES_DIR, filename)
-
-    # Ne re-télécharge pas si déjà présent
-    if os.path.exists(filepath):
-        logger.debug("[LCSC] %s — image déjà en cache", lcsc_part_number)
-        return f"images/{filename}"
-
-    try:
-        req = urllib.request.Request(
-            image_url,
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Referer":    "https://www.lcsc.com/",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=15) as response:
-            content = response.read()
-
-        if len(content) < 500:          # image trop petite = probablement une erreur
-            logger.warning("[LCSC] %s — image trop petite (%d o), ignorée", lcsc_part_number, len(content))
-            return None
-
-        with open(filepath, "wb") as f:
-            f.write(content)
-
-        logger.info("[LCSC] %s — image téléchargée (%d Ko)", lcsc_part_number, len(content) // 1024)
-        return f"images/{filename}"
-
-    except Exception as e:
-        logger.warning("[LCSC] %s — échec téléchargement image : %s", lcsc_part_number, e)
-        return None
-
-
-# ------------------------------------------------------------------ #
-#  Fonction principale
-# ------------------------------------------------------------------ #
-
-def search_by_mpn(mpn: str) -> dict | None:
-    """
-    Recherche un composant LCSC par MPN (Manufacturer Part Number).
-    Retourne le dict result{} complet (même format que fetch_product) ou None.
-    Utilisé pour le double enrichissement Mouser→LCSC.
-
-    Stratégie :
-      1. Recherche dans la liste LCSC par keyword (MPN)
-      2. Récupère le productCode du premier résultat correspondant
-      3. Appelle fetch_product avec ce code pour avoir la structure complète
-    """
-    if not mpn or len(mpn) < 4:
-        return None
-    try:
-        # Endpoint de recherche par keyword
-        resp = _SESSION.get(
-            "https://wmsc.lcsc.com/ftps/wm/product/list",
-            params={"keyword": mpn, "currentPage": 1, "pageSize": 8},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        if not (data.get("code") == 200 and data.get("ok")):
-            logger.debug("[LCSC] search_by_mpn %s — code inattendu: %s", mpn, data.get("code"))
-            return None
-
-        result = data.get("result") or {}
-        # L'endpoint list peut retourner les produits sous différentes clés
-        products = (result.get("productList")
-                    or result.get("list")
-                    or result.get("products")
-                    or [])
-        if not products:
-            logger.debug("[LCSC] search_by_mpn %s — aucun résultat", mpn)
-            return None
-
-        # Cherche correspondance exacte sur productModel (MPN)
-        product_code = None
-        for p in products:
-            pm = str(p.get("productModel") or p.get("mpn") or "")
-            if pm.upper() == mpn.upper():
-                product_code = p.get("productCode") or p.get("lcscPartNumber")
-                break
-        # Fallback : premier résultat
-        if not product_code:
-            p = products[0]
-            product_code = p.get("productCode") or p.get("lcscPartNumber")
-
-        if not product_code:
-            logger.debug("[LCSC] search_by_mpn %s — productCode introuvable dans les résultats", mpn)
-            return None
-
-        logger.debug("[LCSC] search_by_mpn %s → %s — appel detail", mpn, product_code)
-        # Appel detail pour avoir la structure complète (attributs, images, etc.)
-        return fetch_product(str(product_code))
-
-    except Exception as e:
-        logger.debug("[LCSC] search_by_mpn %s : %s", mpn, e)
-        return None
+    return _download_image(
+        image_url,
+        lcsc_part_number,
+        referer="https://www.lcsc.com/",
+    )
 
 
 def enrich_component(lcsc_part_number: str) -> dict:

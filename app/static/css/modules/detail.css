@@ -3,7 +3,6 @@
 
 /* ── Attributs techniques ──────────────────────────────────────── */
 
-
 /* ════ Migré depuis templates ════ */
 /* ── components/detail.html ── */
 @media (max-width: 800px) {
@@ -239,8 +238,6 @@
 
 /* Refs */
 .cd-refs { display: flex; flex-direction: column; gap: .4rem; }
-.cd-ref-val { font-family: var(--mono); color: var(--text); text-decoration: none; }
-.cd-ref-val:hover { color: var(--accent); }
 
 /* Fields */
 .cd-fields { display: flex; flex-direction: column; gap: .35rem; }
@@ -434,16 +431,6 @@
 }
 
 /* ── KiCad downloads ────────────────────────────────────────────── */
-.cd-kicad-btns { display:flex; flex-wrap:wrap; gap:.4rem; }
-.cd-kicad-btn {
-    display:inline-flex; align-items:center; gap:.3rem;
-    padding:.3rem .65rem;
-    background:var(--bg-surface); border:1px solid var(--border);
-    border-radius:var(--radius); color:var(--text);
-    text-decoration:none; font-size:.78rem; font-family:var(--mono);
-    transition:border-color .12s, background .12s;
-}
-.cd-kicad-btn:hover { border-color:var(--accent); background:var(--accent-dim); color:var(--accent); }
 
 /* ── Édition inline quantité ────────────────────────────────────── */
 .cd-qty-input {
@@ -460,39 +447,4 @@
     font-family: inherit;
 }
 
-
 /* ── Badges KiCad ───────────────────────────────────────────────── */
-.cd-kicad-sep {
-    display: inline-block;
-    width: 1px;
-    height: .9rem;
-    background: var(--border);
-    margin: 0 .1rem;
-    vertical-align: middle;
-    opacity: .6;
-}
-
-.cd-kicad-badge {
-    background: rgba(107,116,160,.08);
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    font-weight: 600;
-    opacity: .5;
-    gap: .3rem;
-}
-
-.cd-kicad-badge-on {
-    opacity: 1;
-    color: var(--success);
-    background: var(--success-dim);
-    border-color: rgba(52,209,126,.2);
-}
-
-.cd-kicad-dot {
-    display: inline-block;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-    flex-shrink: 0;
-}

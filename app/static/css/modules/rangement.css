@@ -185,33 +185,6 @@ input[type=number] { -moz-appearance:textfield; }
     opacity: 1;
     transform: translateY(0);
 }
-.led-toast.toast-ok {
-    background: rgba(76,175,80,.12);
-    border-color: rgba(76,175,80,.35);
-    color: #4caf50;
-}
-.led-toast.toast-queued {
-    background: rgba(124,108,255,.12);
-    border-color: rgba(124,108,255,.35);
-    color: var(--accent);
-}
-.led-toast.toast-err {
-    background: rgba(220,53,69,.1);
-    border-color: rgba(220,53,69,.35);
-    color: var(--danger);
-}
-
-/* Find highlight */
-.gf-search-dimmed {
-    opacity:.1; transition:opacity .2s; pointer-events:none;
-}
-.gf-search-match {
-    opacity:1 !important;
-    border-color:var(--accent) !important;
-    box-shadow:0 0 0 2px var(--accent), 0 0 16px rgba(124,108,255,.4) !important;
-    z-index:1;
-}
-#gf-find-input:focus { outline:none; border-color:var(--accent); }
 
 /* ID de case */
 .gf-cell-id {

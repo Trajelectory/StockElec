@@ -24,30 +24,12 @@
 }
 
 /* ── Filtres / Toolbar table ────────────────────────────────────── */
-.table-toolbar {
-    display: flex; align-items: center; gap: .6rem;
-    margin-bottom: .85rem; flex-wrap: wrap;
-    position: sticky; top: 54px; z-index: 100;
-    background: var(--bg); padding: .5rem 0 .4rem;
-    margin-top: -.25rem;
-    border-bottom: 1px solid var(--border);
-    box-shadow: 0 4px 8px -2px rgba(0,0,0,.25);
-}
-/* Thème clair : ombre invisible, on garde seulement la bordure */
-[data-theme="light"] .table-toolbar {
-    box-shadow: none;
-}
 /* Retire le sticky en impression */
-@media print { .table-toolbar { position: static; box-shadow: none; border-bottom: none; } }
-.search-input-wrap { position: relative; flex: 1; min-width: 180px; }
-.search-input-wrap .form-input { padding-left: 2rem; }
 .search-icon {
     position: absolute; left: .6rem; top: 50%;
     transform: translateY(-50%);
     color: var(--text-muted); font-size: .85rem; pointer-events: none;
 }
-.filter-group { display: flex; gap: .4rem; align-items: center; }
-.per-page-wrap { display: flex; align-items: center; gap: .3rem; font-size: .82rem; color: var(--text-muted); }
 .per-page-btn {
     padding: .22rem .55rem; border-radius: var(--radius-sm);
     border: 1px solid var(--border); font-size: .8rem; font-weight: 600;
@@ -127,33 +109,8 @@
 @media (max-width: 768px) {
     .badge-xs { font-size: .72rem; padding: .1rem .45rem; }
 }
-.alert-threshold {
-    font-size: .7rem; color: var(--warning); font-weight: 600;
-    white-space: nowrap;
-}
-
-/* ── Résumé filtres actifs ──────────────────────────────────────── */
-.filter-badge {
-    display: inline-flex; align-items: center; gap: .3rem;
-    background: var(--accent-dim); border: 1px solid rgba(124,108,255,.25);
-    color: var(--accent); border-radius: 1rem;
-    padding: .2rem .65rem; font-size: .78rem; font-weight: 600;
-}
-.filter-badge a { color: var(--accent); font-size: .8rem; }
 
 /* ── Bannière alerte stock bas (accueil) ────────────────────────── */
-.low-stock-banner {
-    background: var(--warning-dim); border: 1px solid rgba(245,158,11,.3);
-    border-left: 3px solid var(--warning);
-    border-radius: var(--radius-sm); padding: .6rem 1rem;
-    margin-bottom: 1rem; font-size: .85rem; color: var(--warning);
-    display: flex; align-items: center; gap: .5rem;
-}
-
-/* ── Colonnes masquées selon largeur écran ───────────────────────── */
-.td-description {
-    max-width: 220px;
-}
 .td-desc-link {
     display: block;
     white-space: nowrap;

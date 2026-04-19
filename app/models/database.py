@@ -6,17 +6,22 @@ from flask import g
 logger = logging.getLogger(__name__)
 
 DATABASE = None
+_wal_initialized = False  # PRAGMAs WAL/synchronous persistants — 1 seule init suffît
 
 
 def get_db():
+    global _wal_initialized
     db = getattr(g, "_database", None)
     if db is None:
         db = g._database = sqlite3.connect(DATABASE, timeout=10)
         db.row_factory = sqlite3.Row
-        # WAL : lectures concurrentes sans bloquer les écritures (Waitress multi-thread)
-        db.execute("PRAGMA journal_mode=WAL")
-        db.execute("PRAGMA synchronous=NORMAL")
+        # foreign_keys doit être activé par connexion (non persistant)
         db.execute("PRAGMA foreign_keys=ON")
+        if not _wal_initialized:
+            # WAL et synchronous sont persistants sur le fichier — 1 seule fois
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("PRAGMA synchronous=NORMAL")
+            _wal_initialized = True
     return db
 
 
@@ -53,6 +58,7 @@ def init_db(app):
                 notes                   TEXT,
                 image_path              TEXT,
                 datasheet_url           TEXT,
+                source_url              TEXT,
                 created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -75,7 +81,7 @@ def init_db(app):
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 name        TEXT NOT NULL,
                 description TEXT,
-                status      TEXT DEFAULT 'idee',
+                status      TEXT DEFAULT 'idea',
                 tags        TEXT DEFAULT '[]',
                 checklist   TEXT DEFAULT '[]',
                 links       TEXT DEFAULT '[]',
@@ -123,6 +129,7 @@ def init_db(app):
             ("mouser_part_number",  "TEXT"),
             ("digikey_part_number", "TEXT"),
             ("product_url",         "TEXT"),
+            ("source_url",          "TEXT"),
             ("symbol_png",          "TEXT"),
             ("footprint_png",       "TEXT"),
         ]:
@@ -200,3 +207,26 @@ def _migrate_v2(db):
         if idx_name not in indexes:
             db.execute(idx_sql)
     db.commit()
+
+    # ── Migration v3.2 — statuts projet FR → slugs anglais ───────
+    # Idempotente : on ne migre que si des valeurs FR subsistent encore
+    fr_statuts = db.execute(
+        "SELECT COUNT(*) FROM projects WHERE status IN "
+        "('idée','conception','commandé','en production','assemblage','terminé','archivé')"
+    ).fetchone()[0]
+    if fr_statuts > 0:
+        db.execute("""
+            UPDATE projects SET status = CASE status
+                WHEN 'idée'          THEN 'idea'
+                WHEN 'conception'    THEN 'design'
+                WHEN 'commandé'      THEN 'ordered'
+                WHEN 'en production' THEN 'production'
+                WHEN 'assemblage'    THEN 'assembly'
+                WHEN 'debug'         THEN 'debug'
+                WHEN 'terminé'       THEN 'done'
+                WHEN 'archivé'       THEN 'archived'
+                ELSE status
+            END
+        """)
+        db.commit()
+        logger.info("[DB] Migration v3.2 : %d projet(s) migrés vers slugs anglais", fr_statuts)

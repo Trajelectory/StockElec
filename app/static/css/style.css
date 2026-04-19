@@ -35,6 +35,9 @@
 @import url('modules/lightbox.css');
 @import url('modules/settings.css');
 @import url('modules/projects.css');
+@import url('modules/projects_detail.css');
+@import url('modules/projects_kanban.css');
+@import url('modules/projects_form.css');
 @import url('modules/labels.css');
 @import url('modules/dashboard.css');
 @import url('modules/legacy.css');

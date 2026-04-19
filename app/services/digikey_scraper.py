@@ -12,18 +12,16 @@ Le token est mis en cache en mémoire et renouvelé automatiquement à expiratio
 import logging
 import time
 import os
-import urllib.request
 
 import requests
+
+from .image_utils import download_image as _download_image
 
 logger = logging.getLogger(__name__)
 
 TOKEN_URL   = "https://api.digikey.com/v1/oauth2/token"
 SEARCH_URL   = "https://api.digikey.com/products/v4/search/keyword"
 DETAILS_URL  = "https://api.digikey.com/products/v4/search/{part}/productdetails"
-IMAGES_DIR  = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "instance", "images")
-)
 
 # Cache token en mémoire — protégé par un Lock pour thread safety (Waitress multi-thread)
 import threading as _threading
@@ -242,8 +240,8 @@ def extract_info(product: dict) -> dict:
             price = float(unit_price)
             if price > 0:
                 info["unit_price"] = round(price, 6)
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug("Ignored: %s", e)
 
     # Fallback prix — dans ProductVariations.StandardPricing
     if "unit_price" not in info:
@@ -256,8 +254,8 @@ def extract_info(product: dict) -> dict:
                     if price > 0:
                         info["unit_price"] = round(price, 6)
                         break
-                except (ValueError, IndexError, TypeError):
-                    pass
+                except (ValueError, IndexError, TypeError) as e:
+                    logger.debug("Ignored: %s", e)
 
     # Attributs techniques — Parameters
     params = product.get("Parameters") or []
@@ -291,46 +289,15 @@ def extract_info(product: dict) -> dict:
 
 
 def download_image(image_url: str, ref: str) -> str | None:
-    """Télécharge l'image dans instance/images/digikey_<ref>.<ext>"""
-    if not image_url:
-        return None
-
-    import urllib.parse
-    os.makedirs(IMAGES_DIR, exist_ok=True)
-
-    # Encoder l'URL pour gérer les espaces et caractères de contrôle
-    parsed = urllib.parse.urlsplit(image_url)
-    safe_url = urllib.parse.urlunsplit(
-        parsed._replace(path=urllib.parse.quote(parsed.path, safe="/%"))
+    """
+    Télécharge l'image DigiKey dans instance/images/.
+    Délégué à image_utils.download_image() — logique centralisée.
+    """
+    return _download_image(
+        image_url,
+        f"digikey_{ref}",
+        referer="https://www.digikey.com/",
     )
-
-    clean_url = safe_url.split("?")[0]
-    ext = os.path.splitext(clean_url)[-1].lower()
-    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
-        ext = ".jpg"
-
-    filename = f"digikey_{ref.replace('/', '_').replace(' ', '_')}{ext}"
-    filepath = os.path.join(IMAGES_DIR, filename)
-
-    if os.path.exists(filepath) and os.path.getsize(filepath) > 500:
-        return f"images/{filename}"
-
-    try:
-        req = urllib.request.Request(
-            safe_url,
-            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.digikey.com/"},
-        )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            content = r.read()
-        if len(content) < 500:
-            return None
-        with open(filepath, "wb") as f:
-            f.write(content)
-        logger.info("[DigiKey] %s — image téléchargée", ref)
-        return f"images/{filename}"
-    except Exception as e:
-        logger.warning("[DigiKey] %s — échec image : %s", ref, e)
-        return None
 
 
 def enrich_component(digikey_part_number: str, client_id: str, client_secret: str) -> dict:

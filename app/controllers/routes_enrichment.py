@@ -1,6 +1,5 @@
-import json as _j
+import json
 import logging
-import re as _re
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +11,6 @@ from flask import (
     current_app,
 )
 
-import requests as _requests
 
 from ..models.component import ComponentModel
 from ..models.settings import SettingsModel
@@ -29,7 +27,10 @@ def enrich(component_id):
     if not comp:
         return jsonify({"ok": False, "error": _t("msg.err_not_found")}), 404
 
-    # DigiKey
+    # Priorité d'enrichissement : DigiKey → Mouser → LCSC
+    # Raison : on utilise la source dont on a déjà la référence sur le composant.
+    # DigiKey en premier car son API v4 retourne les attributs techniques les plus complets.
+    # LCSC en dernier car ses attributs sont déjà récupérés lors de l'ajout initial.
     if comp.digikey_part_number:
         client_id     = SettingsModel.get("digikey_client_id", "")
         client_secret = SettingsModel.get("digikey_client_secret", "")
