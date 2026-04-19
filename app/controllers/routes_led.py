@@ -1,0 +1,447 @@
+import json as _j
+import logging
+import re as _re
+
+logger = logging.getLogger(__name__)
+
+from flask import (
+    request,
+    jsonify,
+    render_template,
+    Response,
+    current_app,
+)
+
+import time as _time
+import threading
+import requests as _requests
+
+from ..models.component import ComponentModel
+from ..models.settings import SettingsModel
+from .utils import _t
+from . import component_bp
+
+# ── Cache thread-safe pour la détection P4 vs S3 ─────────────────────
+_p4_cache: dict = {}
+_p4_cache_lock  = threading.Lock()
+
+
+# ------------------------------------------------------------------ #
+#  API LED — ESP32 WS2812B
+# ------------------------------------------------------------------ #
+
+def _get_led_config():
+    """Retourne la config ESP32 depuis les settings — 1 seule requête SQL via get_all()."""
+    s = SettingsModel.get_all()
+    return {
+        "url":      s.get("esp32_url",      "").strip().rstrip("/"),
+        "color":    s.get("esp32_color",    "purple"),
+        "duration": int(s.get("esp32_duration", "5") or "5"),
+        "offsets":  s.get("esp32_offsets",  "{}"),
+        "token":    s.get("esp32_token",    ""),
+    }
+
+
+def _led_headers(cfg: dict) -> dict:
+    """Headers HTTP pour les requêtes ESP32 — inclut X-Token si configuré."""
+    h = {}
+    if cfg.get("token"):
+        h["X-Token"] = cfg["token"]
+    return h
+
+
+def _compute_led_indices(cell_id: str, cfg: dict, all_settings: dict | None = None) -> tuple[list[int], str]:
+    """
+    Calcule les indices LED physiques pour une case donnée.
+    cell_id = "A3" (plateau A, case 3)
+    offsets = {"A": 0, "B": 50, ...}
+    all_settings : dict optionnel déjà chargé (évite des requêtes SQL supplémentaires)
+    """
+    import re as _re, json as _j
+    # Séparer plateau ID (lettres) et numéro de case (chiffres)
+    m = _re.match(r'^([A-Za-z]+)(\d+)$', cell_id)
+    if not m:
+        return [], ""
+    pid, num = m.group(1), int(m.group(2))
+
+    try:
+        offsets = _j.loads(cfg["offsets"]) if cfg["offsets"] else {}
+    except Exception:
+        offsets = {}
+
+    offset = int(offsets.get(pid, 0))
+
+    # Récupérer la config du plateau — depuis all_settings si disponible
+    s = all_settings or SettingsModel.get_all()
+    raw_config = s.get("rangement_config", "")
+    try:
+        plateau_cfg = _j.loads(raw_config) if raw_config else {"plateaux": []}
+    except Exception:
+        plateau_cfg = {"plateaux": []}
+
+    plateau = next((p for p in plateau_cfg.get("plateaux", []) if p["id"] == pid), None)
+    if not plateau:
+        # Fallback : indice direct
+        return [offset + num - 1], pid
+
+    cols = int(plateau.get("cols", 1))
+
+    # Position de la case origine (1-indexé → 0-indexé)
+    idx0  = num - 1
+    row0  = idx0 // cols
+    col0  = idx0 % cols
+
+    # Taille de la boîte
+    raw_sizes = s.get("rangement_sizes", "")
+    try:
+        sizes = _j.loads(raw_sizes) if raw_sizes else {}
+    except Exception:
+        sizes = {}
+
+    size  = sizes.get(cell_id, "1x1")
+    parts = size.split("x")
+    sw    = int(parts[0]) if len(parts) == 2 else 1
+    sh    = int(parts[1]) if len(parts) == 2 else 1
+
+    # Générer tous les indices de la zone
+    indices = []
+    for r in range(row0, row0 + sh):
+        for c in range(col0, col0 + sw):
+            indices.append(offset + r * cols + c)
+
+    return indices, pid
+
+
+# ── Mapping famille LCSC → couleur LED ───────────────────────────────
+# Défauts hardcodés — overridables depuis les settings (led_color_<keyword>)
+LED_COLOR_DEFAULTS = {
+    # ── Passifs ───────────────────────────────────────────────────
+    "sensor":          "#34d399",   # Vert clair    — Capteurs (avant resistor)
+    "resistor":        "#f97316",   # Orange        — Résistances
+    "capacitor":       "#3b82f6",   # Bleu          — Condensateurs
+    "inductor":        "#eab308",   # Jaune         — Inductances
+    "ferrite":         "#eab308",   # Jaune         — Ferrites
+    # ── Semi-conducteurs discrets ─────────────────────────────────
+    "transistor":      "#22c55e",   # Vert          — Transistors / Thyristors
+    "mosfet":          "#22c55e",   # Vert          — MOSFETs
+    "diode":           "#ef4444",   # Rouge         — Diodes
+    # ── Optoélectronique ─────────────────────────────────────────
+    "optoelectronic":  "#06b6d4",   # Cyan          — Optoélectronique
+    "display":         "#06b6d4",   # Cyan          — Afficheurs
+    # ── LEDs & drivers ───────────────────────────────────────────
+    "led driver":      "#f0abfc",   # Rose vif      — LED Drivers (avant "led")
+    "led ":            "#f0abfc",   # Rose          — LEDs (espace évite "led driver")
+    # ── ICs & logique ────────────────────────────────────────────
+    "amplifier":       "#8b5cf6",   # Violet foncé  — Amplificateurs
+    "comparator":      "#8b5cf6",   # Violet foncé  — Comparateurs
+    "integrated":      "#a855f7",   # Violet        — Circuits intégrés
+    "microcontroller": "#a855f7",   # Violet        — MCU
+    "embedded":        "#a855f7",   # Violet        — Dev boards / MCU
+    "memory":          "#a855f7",   # Violet        — Mémoires
+    "logic":           "#a855f7",   # Violet        — Logique
+    "interface":       "#a855f7",   # Violet        — Interface ICs
+    # ── Connectique ──────────────────────────────────────────────
+    "connector":       "#f8fafc",   # Blanc         — Connecteurs
+    "socket":          "#f8fafc",   # Blanc         — Sockets
+    "ic ":             "#a855f7",   # Violet        — ICs (après connector)
+    "header":          "#f8fafc",   # Blanc         — Headers
+    "shunt":           "#f8fafc",   # Blanc         — Shunts / Jumpers
+    # ── Switches ─────────────────────────────────────────────────
+    "switch":          "#94a3b8",   # Gris bleuté   — Interrupteurs
+    "button":          "#94a3b8",   # Gris bleuté   — Boutons
+    # ── Timing ───────────────────────────────────────────────────
+    "crystal":         "#67e8f9",   # Cyan clair    — Quartz
+    "oscillator":      "#67e8f9",   # Cyan clair    — Oscillateurs
+    "clock":           "#67e8f9",   # Cyan clair    — Clock/Timing
+    "real time":       "#67e8f9",   # Cyan clair    — RTC
+    # ── Protection ───────────────────────────────────────────────
+    "fuse":            "#fbbf24",   # Ambre         — Fusibles
+    "protection":      "#fbbf24",   # Ambre         — Protection
+    # ── Capteurs ─────────────────────────────────────────────────
+    # ── Alimentation ─────────────────────────────────────────────
+    "power":           "#fb923c",   # Orange vif    — Power Management
+    "voltage":         "#fb923c",   # Orange vif    — Régulateurs
+    # ── Relais ───────────────────────────────────────────────────
+    "relay":           "#c084fc",   # Violet clair  — Relais
+    "transformer":     "#c084fc",   # Violet clair  — Transformateurs
+    # ── Moteurs ──────────────────────────────────────────────────
+    "motor":           "#4ade80",   # Vert vif      — Moteurs / Servos
+    "servo":           "#4ade80",   # Vert vif      — Servomoteurs
+    # ── RF / Sans fil ────────────────────────────────────────────
+    "rf":              "#38bdf8",   # Bleu clair    — RF
+    "antenna":         "#38bdf8",   # Bleu clair    — Antennes
+    "iot":             "#38bdf8",   # Bleu clair    — IoT modules
+    "communication":   "#38bdf8",   # Bleu clair    — Modules comm
+}
+
+# Clés de settings par famille principale (keyword → setting key)
+LED_COLOR_SETTING_KEYS = {
+    "sensor":          "led_color_sensor",     # avant resistor (Photoresistors)
+    "resistor":        "led_color_resistor",
+    "capacitor":       "led_color_capacitor",
+    "inductor":        "led_color_inductor",
+    "ferrite":         "led_color_inductor",
+    "transistor":      "led_color_transistor",
+    "mosfet":          "led_color_transistor",
+    "diode":           "led_color_diode",
+    "optoelectronic":  "led_color_optoelectronic",
+    "display":         "led_color_optoelectronic",
+    "led driver":      "led_color_led",
+    "led ":            "led_color_led",
+    "amplifier":       "led_color_amplifier",
+    "comparator":      "led_color_amplifier",
+    "integrated":      "led_color_ic",
+    "microcontroller": "led_color_ic",
+    "embedded":        "led_color_ic",
+    "memory":          "led_color_ic",
+    "logic":           "led_color_ic",
+    "interface":       "led_color_ic",
+    "connector":       "led_color_connector",
+    "ic ":             "led_color_ic",
+    "socket":          "led_color_connector",
+    "header":          "led_color_connector",
+    "shunt":           "led_color_connector",
+    "switch":          "led_color_switch",
+    "button":          "led_color_switch",
+    "crystal":         "led_color_crystal",
+    "oscillator":      "led_color_crystal",
+    "clock":           "led_color_crystal",
+    "real time":       "led_color_crystal",
+    "fuse":            "led_color_fuse",
+    "protection":      "led_color_fuse",
+    "power":           "led_color_power",
+    "voltage":         "led_color_power",
+    "relay":           "led_color_relay",
+    "transformer":     "led_color_relay",
+    "motor":           "led_color_motor",
+    "servo":           "led_color_motor",
+    "rf":              "led_color_rf",
+    "antenna":         "led_color_rf",
+    "iot":             "led_color_rf",
+    "communication":   "led_color_rf",
+}
+
+def _color_for_category(category: str, default: str) -> str:
+    """Retourne la couleur LED selon la catégorie — lit les settings en priorité."""
+    if not category:
+        return default
+    cat_lower = category.lower()
+    for keyword, setting_key in LED_COLOR_SETTING_KEYS.items():
+        if keyword in cat_lower:
+            # Lire depuis les settings (override utilisateur)
+            saved = SettingsModel.get(setting_key, "").strip()
+            if saved:
+                return saved
+            # Sinon valeur par défaut
+            return LED_COLOR_DEFAULTS.get(keyword, default)
+    return default
+
+
+@component_bp.route("/api/led/<cell_id>/on", methods=["POST"])
+def led_on(cell_id):
+    """Allume les LEDs correspondant à la case donnée sur l'ESP32."""
+    cfg = _get_led_config()
+    if not cfg["url"]:
+        return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
+
+    indices, pid = _compute_led_indices(cell_id, cfg)
+    if not indices:
+        return jsonify({"ok": False, "error": _t("msg.led_calc_error")}), 400
+
+    # Couleur : depuis la catégorie du composant si component_id fourni
+    data         = request.get_json(silent=True) or {}
+    component_id = data.get("component_id")
+    color        = cfg["color"]   # couleur par défaut
+    comp_desc    = ""
+
+    if component_id:
+        comp = ComponentModel.get_by_id(int(component_id))
+        if comp:
+            comp_desc = comp.description or ""
+            if comp.category:
+                color = _color_for_category(comp.category, cfg["color"])
+
+    # Index du tiroir pour le second ruban LED (A=0, B=1, C=2...)
+    drawer_index = ord(pid.upper()[0]) - ord('A') if pid else None
+
+    payload = {
+        "leds":         indices,
+        "color":        color,
+        "duration":     cfg["duration"],
+        "cell":         cell_id,
+        "component_id": int(component_id) if component_id else None,
+    }
+    if drawer_index is not None:
+        payload["drawer"] = drawer_index
+
+    try:
+        esp_url = cfg["url"]
+        # Détecte P4 (display:true dans /ping) — cache 60s thread-safe
+        now = _time.time()
+        with _p4_cache_lock:
+            cached = _p4_cache.get(esp_url)
+        if cached is None or now - cached[1] > 60:
+            try:
+                ping = _requests.get(f"{esp_url}/ping", timeout=2)
+                is_p4 = ping.status_code == 200 and ping.json().get("display", False)
+            except Exception:
+                is_p4 = False
+            with _p4_cache_lock:
+                _p4_cache[esp_url] = (is_p4, now)
+        else:
+            is_p4 = cached[0]
+
+        device   = "P4" if is_p4 else "S3"
+        endpoint = "/led" if is_p4 else "/leds"
+
+        # ── Log lisible ───────────────────────────────────────────────
+        logger.info(
+            "\n"
+            "┌─ LED ON ───────────────────────────────────\n"
+            "│  Device    : %s  (%s%s)\n"
+            "│  Case      : %s  →  LEDs %s  tiroir %s\n"
+            "│  Couleur   : %s\n"
+            "│  Durée     : %ss\n"
+            "│  Composant : #%s  %s\n"
+            "│  Payload   → %s%s\n"
+            "└────────────────────────────────────────────",
+            device, esp_url, endpoint,
+            cell_id, indices, drawer_index,
+            color,
+            cfg["duration"],
+            component_id or "—", comp_desc[:50] or "—",
+            esp_url, endpoint,
+        )
+
+        resp = _requests.post(
+            f"{esp_url}{endpoint}",
+            json=payload,
+            headers=_led_headers(cfg),
+            timeout=5,
+        )
+
+        status_icon = "✅" if resp.status_code in (200, 202) else "❌"
+        logger.info("[LED] %s Réponse HTTP %s", status_icon, resp.status_code)
+
+        if resp.status_code in (200, 202):
+            queued = resp.status_code == 202
+            if queued:
+                logger.info("[LED] ⏳ Mis en file d'attente (202)")
+            return jsonify({"ok": True, "leds": indices, "queued": queued})
+        return jsonify({"ok": False, "error": f"ESP32 HTTP {resp.status_code}"}), 502
+
+    except requests.RequestException as e:
+        logger.warning("[LED] ✗ Erreur réseau : %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@component_bp.route("/api/led/off", methods=["POST"])
+def led_off():
+    """Éteint toutes les LEDs."""
+    cfg = _get_led_config()
+    if not cfg["url"]:
+        return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
+    logger.info("[LED] ⬛ OFF → %s", cfg["url"])
+    try:
+        resp = _requests.post(f"{cfg['url']}/off", headers=_led_headers(cfg), timeout=5)
+        status_icon = "✅" if resp.status_code == 200 else "❌"
+        logger.info("[LED] %s OFF réponse HTTP %s", status_icon, resp.status_code)
+        return jsonify({"ok": resp.status_code == 200})
+    except requests.RequestException as e:
+        logger.warning("[LED] ✗ OFF erreur réseau : %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@component_bp.route("/api/led/ping", methods=["GET"])
+def led_ping():
+    """Vérifie que l'ESP32 est joignable."""
+    cfg = _get_led_config()
+    if not cfg["url"]:
+        return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
+    logger.info("[LED] 🔔 PING → %s", cfg["url"])
+    try:
+        resp = _requests.get(f"{cfg['url']}/ping", timeout=4)
+        if resp.status_code == 200:
+            data = resp.json()
+            device = "P4" if data.get("display") else "S3"
+            logger.info(
+                "[LED] ✅ PING OK  device=%s  uptime=%ss  ip=%s",
+                device, data.get("uptime", "?"), cfg["url"]
+            )
+            return jsonify({"ok": True, "leds": data.get("leds", "?"),
+                            "display": data.get("display", False), "ip": cfg["url"]})
+        logger.warning("[LED] ❌ PING HTTP %s", resp.status_code)
+        return jsonify({"ok": False, "error": f"HTTP {resp.status_code}"}), 502
+    except requests.RequestException as e:
+        logger.warning("[LED] ✗ PING erreur réseau : %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@component_bp.route("/api/led/status", methods=["GET"])
+def led_status():
+    """Récupère l'état courant des LEDs depuis l'ESP32."""
+    cfg = _get_led_config()
+    if not cfg["url"]:
+        return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
+    try:
+        resp = _requests.get(f"{cfg['url']}/status",
+                             headers=_led_headers(cfg), timeout=4)
+        if resp.status_code == 200:
+            return jsonify(resp.json())
+        return jsonify({"ok": False, "error": f"HTTP {resp.status_code}"}), 502
+    except requests.RequestException as e:
+        logger.warning("[LED] ✗ STATUS erreur réseau : %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+@component_bp.route("/api/led/test", methods=["POST"])
+def led_test():
+    """Lance un chenillard sur un plateau pour valider le câblage."""
+    cfg = _get_led_config()
+    if not cfg["url"]:
+        return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
+
+    data     = request.get_json() or {}
+    pid      = data.get("plateau", "A")
+    delay_ms = int(data.get("delay_ms", 80))
+    color    = data.get("color", cfg["color"])
+
+    try:
+        offsets = _j.loads(cfg["offsets"]) if cfg["offsets"] else {}
+    except Exception:
+        offsets = {}
+
+    raw_config = SettingsModel.get("rangement_config", "")
+    try:
+        plateau_cfg = _j.loads(raw_config) if raw_config else {"plateaux": []}
+    except Exception:
+        plateau_cfg = {"plateaux": []}
+
+    plateau = next((p for p in plateau_cfg.get("plateaux", []) if p["id"] == pid), None)
+    if not plateau:
+        return jsonify({"ok": False, "error": f"Plateau '{pid}' introuvable"}), 400
+
+    offset = int(offsets.get(pid, 0))
+    count  = plateau["cols"] * plateau["rows"]
+
+    payload = {"offset": offset, "count": count, "delay_ms": delay_ms, "color": color}
+    logger.info("[LED] → TEST plateau=%s offset=%s count=%s delay=%sms",
+                pid, offset, count, delay_ms)
+    try:
+        resp = _requests.post(f"{cfg['url']}/test",
+                              json=payload,
+                              headers=_led_headers(cfg),
+                              timeout=5)
+        logger.info("[LED] ← TEST HTTP %s", resp.status_code)
+        if resp.status_code == 200:
+            return jsonify({"ok": True, "plateau": pid,
+                            "offset": offset, "count": count})
+        return jsonify({"ok": False, "error": f"ESP32 HTTP {resp.status_code}"}), 502
+    except requests.RequestException as e:
+        logger.warning("[LED] ✗ TEST erreur réseau : %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 503
+
+
+# ------------------------------------------------------------------ #
+#  Serving images
+# ------------------------------------------------------------------ #

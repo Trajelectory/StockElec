@@ -1,0 +1,12 @@
+/* ── Lightbox ───────────────────────────────────────────────────── */
+.lightbox {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,.88);
+    align-items: center; justify-content: center;
+    cursor: pointer;
+}
+.lightbox.open { display: flex; }
+.lightbox img {
+    max-width: 90vw; max-height: 90vh; object-fit: contain;
+    border-radius: var(--radius); background: #fff; padding: 8px;
+}

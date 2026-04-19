@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+{% block title %}{{ component.description or 'Composant' }} — StockElec{% endblock %}
+
+{% block content %}
+
+<!-- ══ HEADER ════════════════════════════════════════════════════ -->
+<div class="cd-header">
+    <div class="cd-header-left">
+        <a href="{{ url_for('components.stock') }}" class="btn-back">← {{ t.detail.back_stock }}</a>
+        {% if component.category %}
+        <div class="cd-breadcrumb">
+            {% for part in component.category.split(' / ') %}
+            <a href="{{ url_for('components.stock', category=component.category) }}" class="cd-breadcrumb-part">{{ part }}</a>
+            {% if not loop.last %}<span class="cd-breadcrumb-sep">/</span>{% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="cd-header-right">
+        {% if projects_using %}
+        <span class="cd-used-badge">
+            Utilisé dans {{ projects_using|length }} projet{{ 's' if projects_using|length > 1 }}
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ══ LAYOUT 3 ZONES ════════════════════════════════════════════ -->
+<div class="cd-layout">
+
+    <!-- ── Colonne gauche : galerie ──────────────────────────────── -->
+    <div class="cd-gallery-col">
+
+        <!-- Image principale -->
+        <div class="cd-img-main">
+            {% if component.image_path %}
+            <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
+                 alt="{{ component.description }}"
+                 onclick="openLightbox(this.src, 'Photo')"
+                 class="cd-img-main-img" title="{{ t.detail.title_enlarge }}"/>
+            {% else %}
+            <div class="cd-img-main-empty">
+                <span>📷</span>
+                {% if component.lcsc_part_number or component.digikey_part_number or component.mouser_part_number %}
+                <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
+                        onclick="enrichComponent({{ component.id }})">{{ t.detail.btn_fetch }}</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Symbole + Footprint -->
+        {% if component.lcsc_part_number %}
+        <div class="cd-img-thumbs">
+            <div class="cd-img-thumb-item" id="gallery-symbol">
+                {% if component.symbol_png %}
+                <img src="{{ url_for('components.easyeda_png_file', filename=component.symbol_png.split('easyeda_pngs/')|last) }}"
+                     alt="{{ t.detail.alt_symbol }}" onclick="openLightbox(this.src, 'Symbole')"
+                     class="cd-img-thumb" title="{{ t.detail.title_enlarge }}"/>
+                {% else %}
+                <div class="cd-img-load" id="sym-placeholder" onclick="loadPngs()" title="{{ t.detail.title_load }}">
+                    <span>〜</span>
+                    <span class="cd-load-hint" id="sym-hint">{{ t.detail.btn_load }}</span>
+                </div>
+                {% endif %}
+                <span class="cd-img-label">{{ t.detail.label_symbol }}</span>
+            </div>
+            <div class="cd-img-thumb-item" id="gallery-footprint">
+                {% if component.footprint_png %}
+                <img src="{{ url_for('components.easyeda_png_file', filename=component.footprint_png.split('easyeda_pngs/')|last) }}"
+                     alt="{{ t.detail.alt_footprint }}" onclick="openLightbox(this.src, 'Footprint')"
+                     class="cd-img-thumb" title="{{ t.detail.title_enlarge }}"/>
+                {% else %}
+                <div class="cd-img-load" id="fp-placeholder" onclick="loadPngs()" title="{{ t.detail.title_load }}">
+                    <span>⬡</span>
+                    <span class="cd-load-hint" id="fp-hint">{{ t.detail.btn_load }}</span>
+                </div>
+                {% endif %}
+                <span class="cd-img-label">{{ t.detail.label_footprint }}</span>
+            </div>
+        </div>
+
+        <!-- Badges KiCad sous les miniatures -->
+        <div class="cd-kicad-badges-row">
+            {% if kicad_status.symbol %}
+            <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='symbol') }}"
+               class="cd-kicad-img-badge cd-kicad-img-badge-on"
+               title="Télécharger le symbole KiCad (.kicad_sym)" download>
+                <img src="{{ url_for('static', filename='img/symbol.png') }}" width="32" height="32" alt="Symbole KiCad"/>
+            </a>
+            {% else %}
+            <span class="cd-kicad-img-badge cd-kicad-img-badge-off" title="Symbole KiCad non généré">
+                <img src="{{ url_for('static', filename='img/symbol.png') }}" width="32" height="32" alt="Symbole KiCad"/>
+            </span>
+            {% endif %}
+
+            {% if kicad_status.footprint %}
+            <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='footprint') }}"
+               class="cd-kicad-img-badge cd-kicad-img-badge-on"
+               title="Télécharger la footprint KiCad (.kicad_mod)" download>
+                <img src="{{ url_for('static', filename='img/footprint.png') }}" width="32" height="32" alt="Footprint KiCad"/>
+            </a>
+            {% else %}
+            <span class="cd-kicad-img-badge cd-kicad-img-badge-off" title="Footprint KiCad non générée">
+                <img src="{{ url_for('static', filename='img/footprint.png') }}" width="32" height="32" alt="Footprint KiCad"/>
+            </span>
+            {% endif %}
+
+            {% if kicad_status.model_3d %}
+            <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='model3d') }}"
+               class="cd-kicad-img-badge cd-kicad-img-badge-on"
+               title="Télécharger le modèle 3D (.step)" download>
+                <img src="{{ url_for('static', filename='img/model3D.png') }}" width="32" height="32" alt="Modèle 3D"/>
+            </a>
+            {% else %}
+            <span class="cd-kicad-img-badge cd-kicad-img-badge-off" title="Modèle 3D non généré">
+                <img src="{{ url_for('static', filename='img/model3D.png') }}" width="32" height="32" alt="Modèle 3D"/>
+            </span>
+            {% endif %}
+        </div>
+
+        {# Bouton génération unitaire — visible uniquement si au moins un fichier manque #}
+        {% if component.lcsc_part_number and not (kicad_status.symbol and kicad_status.footprint and kicad_status.model_3d) %}
+        <div class="cd-kicad-gen-row">
+            <button id="cd-kicad-gen-btn"
+                    onclick="generateKicadOne('{{ component.lcsc_part_number }}')"
+                    class="btn btn-secondary"
+                    style="font-size:.72rem;padding:.25rem .7rem">
+                {{ t.detail.kicad_gen_btn }}
+            </button>
+            <span id="cd-kicad-gen-status" style="font-size:.72rem;color:var(--text-muted)"></span>
+        </div>
+        {% endif %}
+        {% endif %}
+
+    </div>
+
+    <!-- ── Colonne centrale : infos ──────────────────────────────── -->
+    <div class="cd-info-col cd-info-card">
+
+        <!-- Titre + badges -->
+        <div class="cd-title-block">
+            <h1 class="cd-title">{{ component.description or '—' }}</h1>
+            {% if component.description_long %}
+            <p class="cd-subtitle">{{ component.description_long }}</p>
+            {% endif %}
+            <div class="cd-badges">
+                {% if component.rohs == 'YES' %}<span class="badge badge-green">{{ t.detail.label_rohs }}</span>{% endif %}
+                {% if component.package %}<span class="badge badge-gray">{{ component.package }}</span>{% endif %}
+                {% if component.datasheet_url %}
+                <a href="{{ component.datasheet_url }}" target="_blank" rel="noopener"
+                   class="badge badge-purple" title="{{ t.detail.title_open_ds }}">{{ t.detail.label_ds }}</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Références fournisseurs -->
+        {% if component.lcsc_part_number or component.mouser_part_number or component.digikey_part_number %}
+        <div class="cd-section">
+            <div class="cd-section-title">{{ t.detail.col_reference }}</div>
+            <div class="cd-refs-inline">
+                {% if component.lcsc_part_number %}
+                <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
+                   target="_blank" rel="noopener" class="cd-ref-chip">
+                    <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>LCSC</span>
+                    <span class="cd-ref-chip-val mono">{{ component.lcsc_part_number }}</span>
+                </a>
+                {% endif %}
+                {% if component.mouser_part_number %}
+                <a href="{{ 'https://www.mouser.fr/ProductDetail/' ~ component.mouser_part_number }}"
+                   target="_blank" rel="noopener" class="cd-ref-chip">
+                    <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>Mouser</span>
+                    <span class="cd-ref-chip-val mono">{{ component.mouser_part_number }}</span>
+                </a>
+                {% endif %}
+                {% if component.digikey_part_number %}
+                <a href="{{ 'https://www.digikey.fr/fr/products/result?keywords=' ~ component.digikey_part_number }}"
+                   target="_blank" rel="noopener" class="cd-ref-chip">
+                    <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>DigiKey</span>
+                    <span class="cd-ref-chip-val mono">{{ component.digikey_part_number }}</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- {{ t.detail.section_identification }} -->
+        <div class="cd-section">
+            <div class="cd-section-title">{{ t.detail.section_identification }}</div>
+            <div class="cd-fields">
+                {% if component.manufacture_part_number %}
+                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_mpn }}</span><span class="cd-val mono">{{ component.manufacture_part_number }}</span></div>
+                {% endif %}
+                {% if component.manufacturer %}
+                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_manufacturer }}</span><span class="cd-val">{{ component.manufacturer }}</span></div>
+                {% endif %}
+                {% if component.customer_no %}
+                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_customer_no }}</span><span class="cd-val mono">{{ component.customer_no }}</span></div>
+                {% endif %}
+                {% if component.category %}
+                <div class="cd-field">
+                    <span class="cd-lbl">{{ t.detail.label_category }}</span>
+                    <a href="{{ url_for('components.stock', category=component.category) }}" class="cd-val cd-cat-link">{{ component.category }}</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Localisation -->
+        {% if component.location or component.unit_price is not none %}
+        <div class="cd-section">
+            <div class="cd-section-title">{{ t.detail.section_localisation }}</div>
+            <div class="cd-fields">
+                {% if component.location %}
+                <div class="cd-field">
+                    <span class="cd-lbl">{{ t.detail.label_location }}</span>
+                    {% if esp32_url %}
+                    <span class="cd-val">
+                        <button id="detail-led-btn" onclick="flashLed('{{ component.location }}', {{ component.id }})"
+                                title="{{ t.detail.led_flash }}" class="cd-led-btn">
+                            📍 {{ component.location }}
+                            <span class="cd-led-badge">💡</span>
+                        </button>
+                        <span id="detail-led-status" class="cd-led-status"></span>
+                    </span>
+                    {% else %}
+                    <span class="cd-val">📍 {{ component.location }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if component.unit_price is not none %}
+                <div class="cd-field">
+                    <span class="cd-lbl">{{ t.detail.label_unit_price }}</span>
+                    <span class="cd-val">
+                        {{ "%.4f"|format(component.unit_price) }} €
+                        {% if component.lcsc_part_number %}
+                        <span id="price-check-result" style="margin-left:.5rem;font-size:.78rem"></span>
+                        <button id="price-check-btn"
+                                onclick="checkPrice('{{ component.lcsc_part_number }}')"
+                                title="Vérifier le prix actuel sur LCSC"
+                                style="margin-left:.4rem;font-size:.68rem;padding:.1rem .4rem;
+                                       background:none;border:1px solid var(--border);border-radius:var(--radius-sm);
+                                       color:var(--text-muted);cursor:pointer;vertical-align:middle">
+                            ↻
+                        </button>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                {% if component.ext_price is not none %}
+                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_ext_price }}</span><span class="cd-val">{{ "%.2f"|format(component.ext_price) }} €</span></div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if component.notes %}
+        <div class="cd-section">
+            <div class="cd-section-title">{{ t.detail.section_notes }}</div>
+            <p class="cd-notes">{{ component.notes }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Caractéristiques -->
+        {% if attributes_dict %}
+        <div class="cd-section">
+            <div class="cd-section-title">{{ t.detail.label_attrs }}</div>
+            <div class="cd-attrs-grid">
+                {% for key, val in attributes_dict.items() %}
+                <span class="cd-attr-key">{{ key }}</span>
+                <span class="cd-attr-val">{{ val }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Projets utilisant ce composant -->
+        {% if projects_using %}
+        <div class="cd-section">
+            <div class="cd-section-title">{{ t.detail.label_used_in }}</div>
+            <div class="cd-projects">
+                {% for p in projects_using %}
+                <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="cd-project-tag">
+                    {{ p.name }}
+                    <span class="cd-project-qty">×{{ p.quantity }}</span>
+                    <span class="badge badge-status-{{ p.status|replace(' ','-') }} badge-xs">{{ p.status }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Historique des mouvements -->
+        {% if history %}
+        <div class="cd-section">
+            <div class="cd-section-title">
+                📋 Historique récent
+                <a href="{{ url_for('components.history', component_id=component.id) }}"
+                   style="font-size:.7rem;font-weight:400;color:var(--accent);margin-left:.5rem">Tout voir →</a>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:.2rem">
+                {% for mv in history %}
+                <div style="display:flex;align-items:center;gap:.5rem;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.76rem">
+                    <span style="flex-shrink:0;font-size:.8rem">{{ '↑' if mv.type == 'in' else '↓' if mv.type == 'out' else '~' }}</span>
+                    <span style="font-weight:700;color:{{ 'var(--success)' if mv.type == 'in' else 'var(--danger)' if mv.type == 'out' else 'var(--accent)' }};flex-shrink:0">
+                        {{ '+' if mv.type == 'in' else '-' if mv.type == 'out' else '~' }}{{ mv.quantity }}
+                    </span>
+                    <span style="flex:1;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        {{ mv.note or '—' }}
+                        {% if mv.project_name %}<span class="badge badge-blue" style="font-size:.6rem">{{ mv.project_name }}</span>{% endif %}
+                    </span>
+                    <span style="flex-shrink:0;color:var(--text-muted);font-size:.7rem">{{ mv.created_at[5:16] }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Méta -->
+        <div class="cd-meta">
+            {{ t.detail.label_added }} {{ component.created_at[:16] }}
+            {% if component.updated_at != component.created_at %}
+            · {{ t.detail.label_updated }} {{ component.updated_at[:16] }}
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- ── Colonne droite : stock ─────────────────────────────────── -->
+    <div class="cd-stock-col">
+        <div class="cd-stock-card">
+            <div class="cd-stock-label">{{ t.detail.label_stock }}</div>
+
+            <div class="cd-qty-row">
+                <button class="cd-qty-btn" onclick="adjustQty({{ component.id }}, -1, this)">−</button>
+                <span class="cd-qty-val {% if component.quantity == 0 %}qty-zero{% elif component.is_low_stock %}qty-low{% endif %}"
+                      id="qty-{{ component.id }}"
+                      title="{{ t.detail.click_to_edit if t.detail.click_to_edit is defined else 'Cliquer pour éditer' }}"
+                      onclick="startQtyEdit({{ component.id }}, this)"
+                      style="cursor:pointer">{{ component.quantity }}</span>
+                <input type="number" id="qty-edit-{{ component.id }}"
+                       class="cd-qty-input" style="display:none"
+                       min="0" max="99999"
+                       onblur="saveQty({{ component.id }})"
+                       onkeydown="if(event.key==='Enter')saveQty({{ component.id }});if(event.key==='Escape')cancelQtyEdit({{ component.id }})"/>
+                <button class="cd-qty-btn" onclick="adjustQty({{ component.id }}, +1, this)">+</button>
+            </div>
+
+            {% if component.min_stock > 0 %}
+            <div class="cd-seuil {% if component.is_low_stock %}cd-seuil-alert{% endif %}">
+                {% if component.is_low_stock %}⚠️ Sous le seuil{% else %}⚡ Seuil : {{ component.min_stock }}{% endif %}
+            </div>
+            {% endif %}
+
+            {% if component.unit_price is not none %}
+            <div class="cd-stock-price">
+                {{ "%.4f"|format(component.unit_price) }} € / pièce
+                {% if component.quantity > 0 %}
+                <div class="cd-stock-total">= {{ "%.2f"|format(component.unit_price * component.quantity) }} € en stock</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="cd-stock-actions">
+                <a href="{{ url_for('components.labels_print', ids=component.id|string) }}"
+                   class="btn btn-secondary btn-full" target="_blank">{{ t.detail.btn_label }}</a>
+                <a href="{{ url_for('components.edit', component_id=component.id) }}"
+                   class="btn btn-primary btn-full">{{ t.detail.btn_edit }}</a>
+                <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
+                      onsubmit="return confirm('{{ t.detail.confirm_delete }}')">
+                    <input type="hidden" name="confirm_delete" value="yes"/>
+                    <button type="submit" class="btn btn-danger btn-full">{{ t.detail.btn_delete }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+    <div class="lightbox-inner lightbox-inner-lg" onclick="event.stopPropagation()">
+        <div class="lightbox-header">
+            <span id="lightbox-title" class="lightbox-title"></span>
+            <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        </div>
+        <img id="lightbox-img" src="" alt=""/>
+    </div>
+</div>
+
+<script>
+const component_lcsc_part_number_or_tojson = {{ (component.lcsc_part_number or '')|tojson | tojson }};
+const LCSC_REF = {{ (component.lcsc_part_number or '')|tojson }};
+const t_detail_error_generic  = {{ t.detail.error_generic  | tojson }};
+const t_detail_error_network  = {{ t.detail.error_network  | tojson }};
+const t_detail_btn_fetching   = {{ t.detail.btn_fetching   | tojson }};
+const t_detail_btn_fetch_ok   = {{ t.detail.btn_fetch_ok   | tojson }};
+const t_detail_btn_fetch_fail = {{ t.detail.btn_fetch_fail | tojson }};
+const t_detail_error_unknown  = {{ t.detail.error_unknown  | tojson }};
+const t_detail_led_sending    = {{ t.detail.led_sending    | tojson }};
+const t_detail_led_ok         = {{ t.detail.led_ok         | tojson }};
+const t_detail_led_err        = {{ t.detail.led_err        | tojson }};
+
+function generateKicadOne(lcscRef) {
+    const btn    = document.getElementById('cd-kicad-gen-btn');
+    const status = document.getElementById('cd-kicad-gen-status');
+    const prefix = {{ kicad_prefix | tojson }};
+    btn.disabled = true;
+    btn.textContent = {{ t.detail.kicad_gen_running | tojson }};
+    status.textContent = '';
+
+    fetch('/kicad/generate-one', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        body: JSON.stringify({lcsc_ref: lcscRef, prefix: prefix})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (!d.ok) {
+            status.textContent = '❌ ' + (d.error || 'Erreur');
+            btn.disabled = false;
+            btn.textContent = {{ t.detail.kicad_gen_btn | tojson }};
+            return;
+        }
+        status.textContent = {{ t.detail.kicad_gen_launched | tojson }};
+        btn.textContent = {{ t.detail.kicad_gen_in_progress | tojson }};
+        // Recharger la page après 12s pour afficher les badges mis à jour
+        setTimeout(() => { window.location.reload(); }, 12000);
+    })
+    .catch(() => {
+        status.textContent = '❌ Erreur réseau';
+        btn.disabled = false;
+        btn.textContent = {{ t.detail.kicad_gen_btn | tojson }};
+    });
+}
+</script>
+<script src="{{ url_for('static', filename='js/detail.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

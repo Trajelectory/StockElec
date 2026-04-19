@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Catégories — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.settings') }}" class="btn-back">{{ t.categories.back }}</a>
+    <h1>{{ t.categories.title }}</h1>
+</div>
+
+<div class="add-layout">
+
+    <!-- ── Colonne principale ─────────────────────────────────────── -->
+    <div class="add-col-main">
+
+        {% if groups %}
+        <div class="add-section">
+            {% for parent, cats in groups.items() %}
+            <div class="catmgr-group">
+
+                <!-- En-tête du groupe -->
+                <div class="catmgr-group-header">
+                    <span class="catmgr-group-icon">📁</span>
+                    <span class="catmgr-group-name">{{ parent }}</span>
+                    <span class="catmgr-count">
+                        {% set child_count = cats | selectattr('parent_id') | list | length %}
+                        {% if child_count > 0 %}
+                            {{ child_count }} sous-catégorie{{ 's' if child_count > 1 }}
+                        {% endif %}
+                    </span>
+                    <!-- Supprimer tout le groupe -->
+                    {% for c in cats %}{% if c.parent_id is none %}
+                    <form method="post" class="catmgr-del-form"
+                          onsubmit="return confirm('{{ t.categories.confirm_delete_group }}')">
+                        <input type="hidden" name="action" value="delete"/>
+                        <input type="hidden" name="category_id" value="{{ c.id }}"/>
+                        <button type="submit" class="catmgr-del-btn catmgr-del-group"
+                                title="{{ t.categories.title_del_group }}">{{ t.categories.btn_delete_group }}</button>
+                    </form>
+                    {% endif %}{% endfor %}
+                </div>
+
+                <!-- Sous-catégories -->
+                {% set children = cats | selectattr('parent_id') | list %}
+                {% if children %}
+                <div class="catmgr-children">
+                    {% for c in children %}
+                    <div class="catmgr-child">
+                        <span class="catmgr-child-name">{{ c.name }}</span>
+                        <span class="catmgr-child-path">{{ c.full_path }}</span>
+                        <form method="post" class="catmgr-del-form"
+                              onsubmit="return confirm('{{ t.categories.confirm_delete_cat }}')">
+                            <input type="hidden" name="action" value="delete"/>
+                            <input type="hidden" name="category_id" value="{{ c.id }}"/>
+                            <button type="submit" class="catmgr-del-btn" title="{{ t.categories.title_delete }}">✕</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+            </div>
+            {% if not loop.last %}<div class="add-inner-sep"></div>{% endif %}
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="add-section">
+            <div style="text-align:center;padding:2rem;color:var(--text-muted)">
+                <div style="font-size:2.5rem;margin-bottom:.5rem">🗂️</div>
+                <div style="font-weight:600;margin-bottom:.35rem">{{ t.categories.empty }}</div>
+                <div style="font-size:.82rem">{{ t.categories.empty_hint }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- ── Colonne latérale : formulaire ──────────────────────────── -->
+    <div class="add-col-side">
+        <div class="add-section add-section-sticky">
+            <div class="add-section-title">
+                <span class="add-section-icon">➕</span> {{ t.categories.form_title }}
+            </div>
+
+            <form method="post">
+                <input type="hidden" name="action" value="create"/>
+
+                <div class="add-field">
+                    <label class="add-label">{{ t.categories.label_group_required }} <span class="add-required">*</span></label>
+                    <input type="text" name="parent_name" class="form-input"
+                           placeholder="{{ t.categories.ph_group }}"
+                           list="existing-parents" autocomplete="off" id="input-group"/>
+                    <datalist id="existing-parents">
+                        {% for parent in groups.keys() %}
+                        <option value="{{ parent }}"/>
+                        {% endfor %}
+                    </datalist>
+                    <span class="add-hint">{{ t.categories.label_group_hint }}</span>
+                </div>
+
+                <div class="add-field">
+                    <label class="add-label">{{ t.categories.label_subcat }}</label>
+                    <input type="text" name="child_name" class="form-input"
+                           placeholder="{{ t.categories.ph_subcat }}" id="input-child"/>
+                    <span class="add-hint">{{ t.categories.hint_leave_empty }}</span>
+                </div>
+
+                <div class="add-separator"></div>
+                <button type="submit" class="btn btn-primary btn-full">{{ t.categories.btn_create }}</button>
+            </form>
+
+            <div class="add-separator"></div>
+
+            <div class="catmgr-tip">
+                {{ t.categories.lcsc_note.replace("{lcsc}", t.categories.source_lcsc) }}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

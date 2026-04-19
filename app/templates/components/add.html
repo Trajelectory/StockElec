@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% from "partials/category_select.html" import category_select %}
+{% block title %}Ajouter un composant — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.stock') }}" class="btn-back">{{ t.form.back_stock }}</a>
+    <h1>{{ t.form.title_add }}</h1>
+</div>
+
+{% if request.args.get('added') %}
+<div class="add-success-banner">
+    ✅ <strong>{{ request.args.get('added') }}</strong> ajouté avec succès —
+    <a href="{{ url_for('components.stock') }}" class="add-success-link">{{ t.form.see_stock }}</a>
+</div>
+{% endif %}
+
+<!-- ══ Formulaire ════════════════════════════════════════════════════ -->
+<form method="post" action="{{ url_for('components.add') }}" id="add-form" enctype="multipart/form-data">
+<input type="hidden" name="datasheet_url" id="f-datasheet"/>
+<input type="hidden" name="image_url"    id="f-image-url"/>
+
+<div class="add-layout">
+
+    <!-- ── Colonne principale ──────────────────────────────────────── -->
+    <div class="add-col-main">
+
+        <!-- Bloc unique : Import + Identification + Organisation -->
+        <div class="add-section">
+
+            <!-- Import rapide unifié LCSC / Mouser -->
+            <div id="smart-lookup">
+                <div class="lcsc-lookup-header" style="margin-bottom:.75rem">
+                    <div>
+                        <span class="lcsc-lookup-title">{{ t.form.quick_import }}</span>
+                        <span class="lcsc-lookup-hint">{{ t.form.label_lcsc_hint }} <span style="opacity:.5">·</span> {{ t.form.hint_or_mouser }}</span>
+                    </div>
+                    <div id="smart-source-badge" style="display:none;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:99px;background:var(--accent-dim);color:var(--accent)"></div>
+                </div>
+                <div class="lcsc-lookup-row">
+                    <input type="text" id="smart-ref-input" class="form-input lcsc-ref-input"
+                           placeholder="ex: C149504 ou 652-3852A-282101AL"
+                           autocomplete="off" spellcheck="false"
+                           oninput="detectSource(this.value)"/>
+                    <button type="button" class="btn btn-primary" id="smart-lookup-btn" onclick="lookupSmart()">
+                        🔍 Rechercher
+                    </button>
+                </div>
+                <div id="smart-lookup-status" class="lcsc-status" style="display:none"></div>
+                <div id="smart-preview-box" class="lcsc-preview" style="display:none">
+                    <img id="smart-preview-img" src="" alt="" class="lcsc-preview-img"/>
+                    <div class="lcsc-preview-info">
+                        <div class="lcsc-preview-name" id="smart-preview-name"></div>
+                        <div class="lcsc-preview-meta" id="smart-preview-meta"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="applySmartPreview()">
+                        ✓ Utiliser ces données
+                    </button>
+                </div>
+            </div>
+
+            <div class="add-inner-sep"></div>
+
+            <!-- Identification -->
+            <div class="add-section-title">
+                <span class="add-section-icon">🔖</span> {{ t.add.section_identification }}
+            </div>
+
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_description }} <span class="add-required">*</span></label>
+                <input type="text" name="description" id="f-description" class="form-input" required
+                       placeholder="{{ t.form.ph_desc_long }}"/>
+            </div>
+
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_desc_long }} <span class="add-hint-inline">{{ t.form.hint_optional_lcsc }}</span></label>
+                <input type="text" name="description_long" id="f-description-long" class="form-input"
+                       placeholder="ex: Resistors - Chip Resistor - Surface Mount RoHS"/>
+            </div>
+
+            <div class="add-row-3">
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_lcsc }}</label>
+                    <input type="text" name="lcsc_part_number" id="f-lcsc" class="form-input mono-input"
+                           placeholder="C149504"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_mouser }}</label>
+                    <input type="text" name="mouser_part_number" id="f-mouser" class="form-input mono-input"
+                           placeholder="{{ t.form.ph_mouser }}"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_digikey }}</label>
+                    <input type="text" name="digikey_part_number" id="f-digikey" class="form-input mono-input"
+                           placeholder="{{ t.form.ph_digikey }}"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_mpn }}</label>
+                    <input type="text" name="manufacture_part_number" id="f-mfr-part" class="form-input mono-input"
+                           placeholder="0805W8F1003T5E"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_manufacturer }}</label>
+                    <input type="text" name="manufacturer" id="f-manufacturer" class="form-input"
+                           placeholder="{{ t.form.ph_manufacturer }}"/>
+                </div>
+            </div>
+
+            <div class="add-row-2">
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_package }}</label>
+                    <input type="text" name="package" id="f-package" class="form-input mono-input"
+                           placeholder="{{ t.form.ph_package }}"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_rohs }}</label>
+                    <select name="rohs" id="f-rohs" class="form-input">
+                        <option value="">{{ t.form.rohs_none }}</option>
+                        <option value="YES">{{ t.form.rohs_yes }}</option>
+                        <option value="NO">{{ t.form.rohs_no }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Image manuelle (optionnel, utile pour composants hors LCSC) -->
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_image }} <span class="add-hint-inline">{{ t.form.hint_optional }}</span></label>
+                <div class="img-upload-wrap">
+                    <div class="img-upload-placeholder" id="img-preview-empty">
+                        <span>📷</span><span style="font-size:.75rem;color:var(--text-muted)">{{ t.form.no_image }}</span>
+                    </div>
+                    <img src="" class="img-upload-preview" id="img-preview" style="display:none" alt=""/>
+                    <div class="img-upload-controls">
+                        <label class="btn btn-secondary btn-sm img-upload-btn">
+                            📂 Choisir une image
+                            <input type="file" name="image_file" id="image_file"
+                                   accept=".jpg,.jpeg,.png,.webp" hidden
+                                   onchange="previewImage(this)"/>
+                        </label>
+                        <span class="img-upload-hint">{{ t.form.hint_image_add }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="add-inner-sep"></div>
+
+            <!-- Organisation -->
+            <div class="add-section-title">
+                <span class="add-section-icon">🗂️</span> Organisation
+            </div>
+
+            <div class="add-row-2">
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_category }}</label>
+                    <select name="category" id="f-category" class="form-input input-select">
+                        <option value="">{{ t.form.cat_none }}</option>
+                        {% for group in category_groups %}
+                            {% if group.group %}
+                                <optgroup label="{{ group.group }}">
+                                    {% for opt in group.options %}
+                                        <option value="{{ opt.value }}">{{ opt.label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                            {% else %}
+                                {% for opt in group.options %}
+                                    <option value="{{ opt.value }}">{{ opt.label }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <span class="add-hint">{{ t.form.hint_desc_prefilled }}</span>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_location }}</label>
+                    <input type="text" name="location" class="form-input"
+                           placeholder="{{ t.form.ph_location }}"/>
+                </div>
+            </div>
+
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_notes }}</label>
+                <textarea name="notes" class="form-input" rows="3"
+                          placeholder="{{ t.form.ph_notes }}"></textarea>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Colonne latérale : Stock & Prix ────────────────────────── -->
+    <div class="add-col-side">
+        <div class="add-section add-section-sticky">
+            <div class="add-section-title">
+                <span class="add-section-icon">📦</span> {{ t.form.section_stock }}
+            </div>
+
+            <div class="add-field">
+                <label class="add-label">{{ t.form.label_qty }} <span class="add-required">*</span></label>
+                <input type="number" name="quantity" id="f-quantity" class="form-input add-qty-input"
+                       value="0" min="0" required/>
+            </div>
+
+            <div class="add-field">
+                <label class="add-label">{{ t.form.label_min_stock }}</label>
+                <input type="number" name="min_stock" class="form-input"
+                       value="0" min="0"/>
+                <span class="add-hint">{{ t.form.hint_0_alert }}</span>
+            </div>
+
+            <div class="add-separator"></div>
+
+            <div class="add-field">
+                <label class="add-label">{{ t.form.label_unit_price }}</label>
+                <input type="number" name="unit_price" id="f-unit-price" class="form-input"
+                       step="0.0001" min="0" placeholder="0.0000"
+                       oninput="autoCalcTotal()"/>
+            </div>
+
+            <div class="add-field">
+                <label class="add-label">{{ t.add.section_price }}
+                    <span class="add-hint-inline" id="total-auto-hint">{{ t.form.hint_auto }}</span>
+                </label>
+                <input type="number" name="ext_price" id="f-ext-price" class="form-input"
+                       step="0.01" min="0" placeholder="0.00"/>
+            </div>
+
+            <div class="add-separator"></div>
+
+            <button type="submit" class="btn btn-primary btn-full">{{ t.form.btn_save }}</button>
+            <a href="{{ url_for('components.stock') }}" class="btn btn-secondary btn-full" style="margin-top:.4rem">
+                Annuler
+            </a>
+        </div>
+    </div>
+
+</div>
+</form>
+
+<script>
+/* Variables injectées par Jinja */
+const t_form_search_btn = {{ t.form.search_btn | tojson }};
+const t_form_error_network = {{ t.form.error_network | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/add.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Importer BOM — {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn-back">
+        ← {{ project.name }}
+    </a>
+    <h1>{{ t.import_bom.title }}</h1>
+</div>
+
+<div class="import-layout">
+    <div class="form-card">
+        <form method="post" action="{{ url_for('projects.import_bom', project_id=project.id) }}"
+              enctype="multipart/form-data">
+
+            <div class="drop-zone" id="drop-zone">
+                <div class="drop-icon">📂</div>
+                <p class="drop-title">{{ t.import_bom.drop_hint }}</p>
+                <p class="drop-subtitle">{{ t.import_bom.or }}</p>
+                <label class="btn btn-primary btn-file">
+                    Parcourir…
+                    <input type="file" name="bom_file" id="bom_file" accept=".csv" hidden required/>
+                </label>
+                <p id="file-name" class="file-selected" style="display:none"></p>
+            </div>
+
+            <div class="form-actions" style="margin-top:1.5rem">
+                <button type="submit" class="btn btn-primary btn-lg">{{ t.import_bom.btn_analyze }}</button>
+                <a href="{{ url_for('projects.detail', project_id=project.id) }}"
+                   class="btn btn-secondary">{{ t.import_bom.btn_cancel }}</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="info-card">
+        <h2>{{ t.import_bom.formats_title }}</h2>
+
+        <p style="font-size:.82rem;font-weight:700;color:var(--accent);margin:.5rem 0 .25rem">
+            {{ t.import_bom.btn_export_cart }}
+        </p>
+        <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.35rem">
+            Fichier <code>export_cart_*.csv</code> téléchargé depuis ton panier LCSC
+        </p>
+        <ul class="column-list" style="margin-bottom:.75rem">
+            <li><code>LCSC#</code> · <code>MPN</code> · <code>Quantity</code></li>
+        </ul>
+
+        <p style="font-size:.82rem;font-weight:700;color:var(--accent);margin:.5rem 0 .25rem">
+            🔧 BOM KiCad / JLCPCB
+        </p>
+        <ul class="column-list" style="margin-bottom:.75rem">
+            <li><strong>KiCad 7/8</strong> — <em>Tools → Edit Symbol Fields → Export</em></li>
+            <li><strong>Plugin JLCPCB</strong> — <code>Comment, Designator, LCSC Part Number</code></li>
+            <li><strong>bom2csv</strong> — {{ t.import_bom.separator }} <code>;</code> {{ t.import_bom.supported }}</li>
+        </ul>
+
+        <p>Colonne LCSC reconnue sous ces noms :</p>
+        <ul class="column-list">
+            <li><code>LCSC#</code> &nbsp;<code>LCSC Part Number</code></li>
+            <li><code>LCSC Part #</code> &nbsp;<code>LCSC</code></li>
+            <li><code>Supplier Part Number</code></li>
+        </ul>
+
+        <p class="info-note" style="margin-top:.75rem">
+            {{ t.import_bom.lcsc_hint }}
+        </p>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/import_bom.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

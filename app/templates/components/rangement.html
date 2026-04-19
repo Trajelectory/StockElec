@@ -1,0 +1,1107 @@
+{% extends "base.html" %}
+{% block title %}Plan de rangement — StockElec{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1>{{ t.storage.title }}</h1>
+    <div style="display:flex;gap:.5rem;align-items:center">
+        <button class="btn btn-secondary btn-sm" onclick="toggleConfig()">{{ t.storage.btn_manage }}</button>
+        <button class="btn btn-primary btn-sm" id="btn-save" onclick="saveAll()">{{ t.storage.btn_save }}</button>
+    </div>
+</div>
+
+<!-- ── Panel config ───────────────────────────────────────────────── -->
+<div id="config-panel" style="display:none;margin-bottom:1.25rem">
+    <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+            <div class="card-title" style="margin:0">{{ t.storage.card_plateaux }} <span style="font-weight:400;font-size:.8rem;color:var(--text-muted)">({{ config.plateaux|length }} au total)</span></div>
+            <div style="display:flex;gap:.5rem">
+                <button class="btn btn-secondary btn-sm" onclick="addPlateau()">{{ t.storage.btn_add_plateau }}</button>
+                <button class="btn btn-primary btn-sm" onclick="saveConfig()">{{ t.storage.btn_apply }}</button>
+            </div>
+        </div>
+        <div id="plateau-list"
+             style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;max-height:260px;overflow-y:auto;padding-right:.25rem;margin-bottom:.6rem">
+            {% for p in config.plateaux %}
+            <div class="plateau-cfg-row"
+                 style="display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                <input type="text" placeholder="{{ t.storage.ph_id }}" value="{{ p.id }}"
+                       class="form-input cfg-pid" style="width:44px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono);padding:.25rem;font-size:.8rem"/>
+                <input type="text" placeholder="{{ t.storage.ph_name }}" value="{{ p.label }}"
+                       class="form-input cfg-plabel" style="flex:1;padding:.25rem .4rem;font-size:.8rem"/>
+                <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+                    <button type="button" onclick="stepInput(this.nextElementSibling,-1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" value="{{ p.cols }}" min="1" max="20" class="cfg-pcols"
+                           style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+                    <button type="button" onclick="stepInput(this.previousElementSibling,+1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
+                <span style="font-size:.7rem;color:var(--text-faint)">×</span>
+                <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+                    <button type="button" onclick="stepInput(this.nextElementSibling,-1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" value="{{ p.rows }}" min="1" max="20" class="cfg-prows"
+                           style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+                    <button type="button" onclick="stepInput(this.previousElementSibling,+1)"
+                            style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
+                <button onclick="removePlateau(this)" class="btn btn-danger btn-sm" style="padding:.2rem .4rem;font-size:.75rem">🗑</button>
+            </div>
+            {% endfor %}
+        </div>
+        <span style="font-size:.72rem;color:var(--text-muted)">{{ t.storage.hint_id }}</span>
+    </div>
+</div>
+
+<!-- ── Tabs ───────────────────────────────────────────────────────── -->
+<div class="gf-tabs-wrapper">
+    <button class="gf-tabs-arrow gf-tabs-arrow-left" id="tabs-left" onclick="scrollTabs(-1)">◀</button>
+    <div class="gf-tabs-bar" id="gf-tabs-bar">
+        {% for p in config.plateaux %}
+        <button class="gf-tab {% if loop.first %}gf-tab-active{% endif %}"
+                data-pid="{{ p.id }}" onclick="switchTab('{{ p.id }}')">
+            <span class="gf-tab-inner">
+                <span class="gf-tab-pid" style="position:relative;display:inline-block">
+                    {{ p.id }}
+                    <span class="gf-find-dot" data-pid="{{ p.id }}"></span>
+                </span>
+                <span class="gf-tab-label">{{ p.label }}</span>
+                <span class="gf-tab-count" data-pid="{{ p.id }}">{{ p.cols }}×{{ p.rows }}</span>
+            </span>
+        </button>
+        {% endfor %}
+    </div>
+    <button class="gf-tabs-arrow gf-tabs-arrow-right" id="tabs-right" onclick="scrollTabs(1)">▶</button>
+</div>
+
+<!-- ── Barre de contrôle unifiée ──────────────────────────────────── -->
+<div class="gf-control-bar">
+    <!-- Recherche -->
+    <div class="gf-find-wrap">
+        <input type="text" id="gf-find-input"
+               placeholder="{{ t.storage.find_placeholder }}"
+               oninput="highlightSearch(this.value)"
+               class="gf-find-input"/>
+        <button id="gf-find-clear" onclick="clearHighlight()" class="gf-find-clear-btn">{{ t.storage.find_clear }}</button>
+    </div>
+    <span id="gf-find-status" class="gf-find-status"></span>
+
+    <!-- Séparateur -->
+    <div class="gf-ctrl-sep"></div>
+
+    <!-- Infos plateau -->
+    <span id="stat-nom" class="gf-stat-nom"></span>
+    <span id="stat-dims" class="gf-stat-dim"></span>
+
+    <!-- Barre progression -->
+    <div class="gf-prog-wrap">
+        <div class="gf-prog-bar">
+            <div id="stat-bar" class="gf-prog-fill"></div>
+        </div>
+        <span id="stat-fill" class="gf-stat-fill"></span>
+    </div>
+
+    <!-- Séparateur -->
+    <div class="gf-ctrl-sep"></div>
+
+    <!-- Zoom -->
+    <label class="gf-zoom-label">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="opacity:.5">
+            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input type="range" min="44" max="120" value="88" step="4" id="cell-zoom"
+               class="gf-zoom-slider"
+               oninput="document.documentElement.style.setProperty('--gf-cell', this.value + 'px')"/>
+    </label>
+
+    <!-- Vider plateau -->
+    <button id="btn-clear-plateau" class="gf-clear-btn"
+            onclick="clearCurrentPlateau()"
+            title="{{ t.storage.title_clear }}">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <path d="M3 5h10M6 5V3h4v2M7 8v4M9 8v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="2" y="5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        {{ t.storage.btn_clear }}
+    </button>
+</div>
+
+<!-- ── Grille ─────────────────────────────────────────────────────── -->
+<div id="gf-grid-container">
+    {% for p in config.plateaux %}
+    <div class="gf-plateau" data-pid="{{ p.id }}"
+         style="display:{% if loop.first %}flex{% else %}none{% endif %};justify-content:center">
+        <div class="gf-grid" id="grid-{{ p.id }}"
+             data-pid="{{ p.id }}" data-cols="{{ p.cols }}" data-rows="{{ p.rows }}"
+             style="display:grid;grid-template-columns:repeat({{ p.cols }},var(--gf-cell));grid-template-rows:repeat({{ p.rows }},var(--gf-cell));gap:var(--gf-gap)">
+            {# On rend toutes les cases — les cases "absorbées" par un span seront masquées via JS #}
+            {% for row in range(p.rows) %}
+            {% for col in range(p.cols) %}
+            {% set idx = row * p.cols + col + 1 %}
+            {% set cell_id = p.id ~ idx %}
+            {% set comp_id = assignments.get(cell_id) %}
+            {% set comp = components | selectattr('id', 'equalto', comp_id) | first if comp_id else none %}
+            {% set size = sizes.get(cell_id, '1x1') %}
+            {% set sw = size.split('x')[0] | int %}
+            {% set sh = size.split('x')[1] | int %}
+            <div class="gf-cell {% if comp %}gf-filled{% endif %}"
+                 id="cell-{{ cell_id }}"
+                 data-cell="{{ cell_id }}"
+                 data-pid="{{ p.id }}"
+                 data-row="{{ row + 1 }}"
+                 data-col="{{ col + 1 }}"
+                 data-sw="{{ sw }}"
+                 data-sh="{{ sh }}"
+                 
+                 oncontextmenu="openContextMenu(event, '{{ cell_id }}')"
+                 onmouseenter="showTooltip(event, '{{ cell_id }}')"
+                 onmousemove="showTooltip(event, '{{ cell_id }}')"
+                 onmouseleave="hideTooltip()"
+                 title=""
+                 style="grid-column: {{ col+1 }} / span {{ sw }};grid-row: {{ row+1 }} / span {{ sh }};">
+
+                <span class="gf-cell-id">{{ cell_id }}{% if size != '1x1' %} <span style="opacity:.6;font-size:.5rem">{{ size }}</span>{% endif %}</span>
+
+                {% if comp %}
+                    {% if comp.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=comp.image_path.split('images/')|last) }}"
+                         class="gf-cell-img" style="width:{{ [40, sw*40]|min }}px;height:{{ [40, sh*40]|min }}px"/>
+                    {% else %}
+                    <span class="gf-cell-icon">📦</span>
+                    {% endif %}
+                    <span class="gf-cell-name">{{ (comp.description or comp.lcsc_part_number or '?')[:35] }}</span>
+                    <span class="gf-cell-qty">{{ comp.quantity }} pcs</span>
+                {% else %}
+                    <span class="gf-cell-plus">+</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ── Popup ──────────────────────────────────────────────────────── -->
+<div id="cell-popup" onclick="if(event.target===this)closePopup()"
+     style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.75);align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;width:500px;max-width:95vw;height:600px;display:flex;flex-direction:column;gap:.75rem;box-shadow:var(--shadow)">
+        <div style="display:flex;align-items:center;gap:.75rem">
+            <div>
+                <div style="font-weight:800;font-size:1rem" id="popup-title">{{ t.storage.cell_label }} A1</div>
+                <div style="font-size:.75rem;color:var(--text-muted)" id="popup-current">{{ t.storage.cell_empty }}</div>
+            </div>
+            <span id="popup-remaining" style="margin-left:auto;font-size:.75rem;color:var(--text-muted)"></span>
+            <button onclick="closePopup()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1">✕</button>
+        </div>
+
+        <!-- Taille de la boîte -->
+        <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--bg-surface);border-radius:var(--radius-sm);flex-wrap:wrap">
+            <span style="font-size:.78rem;color:var(--text-muted);font-weight:600">{{ t.storage.box_size }}</span>
+            {% for size in ['1x1','2x1','1x2','2x2','3x1','1x3','3x2','2x3','3x3','4x1','1x4'] %}
+            <button class="gf-size-btn" data-size="{{ size }}" onclick="selectSize('{{ size }}')"
+                    style="padding:.25rem .55rem;border-radius:5px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-muted);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .12s;font-family:var(--mono)">
+                {{ size }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <input type="text" id="popup-search" class="form-input"
+               placeholder="{{ t.storage.ph_search }}"
+               oninput="filterPopup(this.value)"/>
+        <div id="popup-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:.2rem;padding-right:.25rem"></div>
+        <div style="display:flex;gap:.5rem;padding-top:.5rem;border-top:1px solid var(--border)">
+            <button class="btn btn-danger btn-sm" onclick="clearCell()">{{ t.storage.btn_empty_cell }}</button>
+            <button class="btn btn-secondary btn-sm" onclick="closePopup()" style="margin-left:auto">{{ t.storage.btn_close }}</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Menu contextuel (clic droit) ──────────────────────────── -->
+<div id="ctx-menu"
+     style="display:none;position:fixed;z-index:500;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.35rem;box-shadow:var(--shadow);min-width:200px">
+    <div id="ctx-cell-label"
+         style="font-size:.7rem;font-weight:700;color:var(--text-muted);padding:.3rem .6rem .4rem;font-family:var(--mono)"></div>
+    <button class="ctx-item" onclick="ctxAssign()">
+        📦 {{ t.storage.ctx_assign }}
+    </button>
+    <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
+    <button class="ctx-item" id="ctx-led-btn" onclick="ctxLed()">
+        💡 <span id="ctx-led-label">{{ t.storage.ctx_led_on }}</span>
+    </button>
+    <div style="height:1px;background:var(--border);margin:.25rem 0"></div>
+    <button class="ctx-item ctx-item-danger" id="ctx-clear-btn" onclick="ctxClear()">
+        🗑️ {{ t.storage.ctx_clear }}
+    </button>
+</div>
+
+<!-- ── Infobulle composant (clic gauche sur case remplie) ──────── -->
+<div id="cell-tooltip"
+     style="display:none;position:fixed;z-index:450;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;box-shadow:var(--shadow);min-width:220px;max-width:300px;pointer-events:none">
+    <div id="tooltip-cell-id" style="font-size:.68rem;font-weight:700;color:var(--text-muted);font-family:var(--mono);margin-bottom:.4rem"></div>
+    <div style="display:flex;gap:.75rem;align-items:center">
+        <img id="tooltip-img" src="" style="width:48px;height:48px;object-fit:contain;border-radius:6px;display:none"/>
+        <span id="tooltip-icon" style="font-size:2rem;display:none">📦</span>
+        <div>
+            <div id="tooltip-name" style="font-weight:700;font-size:.85rem;color:var(--text);line-height:1.3"></div>
+            <div id="tooltip-lcsc" style="font-size:.72rem;color:var(--text-muted);font-family:var(--mono)"></div>
+            <div id="tooltip-mfg"  style="font-size:.72rem;color:var(--text-muted)"></div>
+        </div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.55rem">
+        <span id="tooltip-qty"  style="font-size:.75rem;font-weight:700;padding:.15rem .45rem;border-radius:4px;background:var(--accent-dim);color:var(--accent)"></span>
+        <span id="tooltip-pkg"  style="font-size:.72rem;padding:.15rem .45rem;border-radius:4px;background:var(--bg-surface);color:var(--text-muted)"></span>
+        <span id="tooltip-loc"  style="font-size:.72rem;padding:.15rem .45rem;border-radius:4px;background:var(--bg-surface);color:var(--text-muted)"></span>
+    </div>
+    <div id="tooltip-hint" style="font-size:.68rem;color:var(--text-faint);margin-top:.5rem;font-style:italic"></div>
+</div>
+
+
+<script>
+const COMPONENTS      = {{ components | tojson }};
+const ESP32_URL       = {{ (current_esp32_url or '') | tojson }};
+let   assignments = {{ assignments | tojson }};
+let   sizes       = {{ sizes | tojson }};
+let   currentCell = null;
+let   currentSize = '1x1';
+let   activePid   = '{{ config.plateaux[0].id if config.plateaux else "" }}';
+const CONFIG      = {{ config | tojson }};
+let   liveConfig  = JSON.parse(JSON.stringify(CONFIG));  // copie mutable
+
+// ── Init — masque les cases absorbées par les spans ───────────────
+function initGrid(pid) {
+    const p = liveConfig.plateaux.find(x => x.id === pid);
+    if (!p) return;
+
+    // Réinitialise TOUTES les cases : visibles + position exacte 1x1
+    document.querySelectorAll(`[data-pid="${pid}"].gf-cell`).forEach(c => {
+        c.classList.remove('gf-hidden');
+        // On pose explicitement col/row depuis les data-attributes
+        // (pas '' qui laisserait l'ancien inline style Jinja actif sur les cases absorbées)
+        const col = parseInt(c.dataset.col);
+        const row = parseInt(c.dataset.row);
+        c.style.gridColumn = `${col} / span 1`;
+        c.style.gridRow    = `${row} / span 1`;
+        c.dataset.sw = 1;
+        c.dataset.sh = 1;
+    });
+
+    // Recalcule les spans selon les sizes actuelles
+    document.querySelectorAll(`[data-pid="${pid}"].gf-cell`).forEach(cell => {
+        const cellId       = cell.dataset.cell;
+        const size         = sizes[cellId] || '1x1';
+        const [sw, sh]     = size.split('x').map(Number);
+        if (sw === 1 && sh === 1) return;
+
+        cell.dataset.sw    = sw;
+        cell.dataset.sh    = sh;
+        const col  = parseInt(cell.dataset.col);
+        const row  = parseInt(cell.dataset.row);
+
+        // Ajuste le style de la cellule maître
+        cell.style.gridColumn = `${col} / span ${sw}`;
+        cell.style.gridRow    = `${row} / span ${sh}`;
+
+        // Masque les cases couvertes
+        for (let r = row; r < row + sh; r++) {
+            for (let c2 = col; c2 < col + sw; c2++) {
+                if (r === row && c2 === col) continue;
+                const idx     = (r - 1) * p.cols + (c2 - 1) + 1;
+                const covCell = document.getElementById(`cell-${pid + idx}`);
+                if (covCell) covCell.classList.add('gf-hidden');
+            }
+        }
+    });
+}
+
+// ── Supprime les flèches natives des inputs number ────────────────
+// (géré via CSS -moz-appearance et webkit ci-dessous)
+
+// ── +/− pour les inputs col/rangée ───────────────────────────────
+function stepInput(input, delta) {
+    const val = parseInt(input.value) || 1;
+    const min = parseInt(input.min) || 1;
+    const max = parseInt(input.max) || 20;
+    input.value = Math.min(max, Math.max(min, val + delta));
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────
+function switchTab(pid) {
+    activePid = pid;
+    document.querySelectorAll('.gf-plateau').forEach(el => {
+        el.style.display = el.dataset.pid === pid ? 'flex' : 'none';
+    });
+    document.querySelectorAll('.gf-tab').forEach(btn => {
+        const active = btn.dataset.pid === pid;
+        btn.classList.toggle('gf-tab-active', active);
+        btn.style.background = '';
+        btn.style.color      = '';
+    });
+    updateStats(pid);
+    // Réappliquer le highlight sur le nouveau plateau si une recherche est active
+    const q = document.getElementById('gf-find-input')?.value || '';
+    if (q) highlightSearch(q);
+}
+
+function updateStats(pid) {
+    const p = liveConfig.plateaux.find(x => x.id === pid);
+    if (!p) return;
+    const total  = p.cols * p.rows;
+    const filled = Object.entries(assignments).filter(([k,v]) => k.startsWith(pid) && v).length;
+    const pct    = total ? Math.round(filled / total * 100) : 0;
+    document.getElementById('stat-nom').textContent  = p.label;
+    document.getElementById('stat-dims').textContent = `${p.cols}×${p.rows} {{ t.storage.stat_cells }}`;
+    document.getElementById('stat-fill').textContent = `${filled}/${total} {{ t.storage.stat_occupied }} · ${pct}%`;
+    document.getElementById('stat-bar').style.width  = pct + '%';
+}
+
+function updateTabCount(pid) {
+    const p      = liveConfig.plateaux.find(x => x.id === pid);
+    if (!p) return;
+    const total  = p.cols * p.rows;
+    const filled = Object.entries(assignments).filter(([k,v]) => k.startsWith(pid) && v).length;
+    const el     = document.querySelector(`.gf-tab-count[data-pid="${pid}"]`);
+    if (el) el.textContent = filled ? `${filled}/${total}` : `${p.cols}×${p.rows}`;
+}
+
+// ── Popup ────────────────────────────────────────────────────────
+function openPopup(cellId) {
+    currentCell = cellId;
+    currentSize = sizes[cellId] || '1x1';
+    const compId = assignments[cellId];
+    const comp   = compId ? COMPONENTS.find(c => c.id == compId) : null;
+
+    document.getElementById('popup-title').textContent   = `{{ t.storage.cell_label }} ${cellId}`;
+    document.getElementById('popup-current').textContent = comp
+        ? (comp.description || comp.lcsc_part_number || comp.lcsc_part_number || '?')
+        : '{{ t.storage.cell_empty_popup }}';
+
+    // Met à jour les boutons de taille
+    document.querySelectorAll('.gf-size-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.size === currentSize);
+    });
+    // Compteur
+    const placed    = new Set(Object.values(assignments).map(v => String(v)));
+    const remaining = COMPONENTS.filter(c => !placed.has(String(c.id))).length;
+    document.getElementById('popup-remaining').textContent = `${remaining} {{ t.storage.tooltip_no_loc }}`;
+
+    document.getElementById('popup-search').value = '';
+    filterPopup('');
+
+    document.getElementById('cell-popup').style.display = 'flex';
+    setTimeout(() => document.getElementById('popup-search').focus(), 60);
+}
+
+function closePopup() {
+    document.getElementById('cell-popup').style.display = 'none';
+    currentCell = null;
+}
+
+function selectSize(size) {
+    currentSize = size;
+    document.querySelectorAll('.gf-size-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.size === size);
+    });
+}
+
+function filterPopup(q) {
+    const lq   = q.toLowerCase();
+    const list = document.getElementById('popup-list');
+    const cur  = assignments[currentCell];
+    const placed = new Set(Object.values(assignments).map(v => String(v)));
+
+    const filtered = COMPONENTS.filter(c =>
+        String(c.id) === String(cur) || !placed.has(String(c.id))
+    ).filter(c =>
+        !q
+        || (c.description || '').toLowerCase().includes(lq)
+        || (c.lcsc_part_number || '').toLowerCase().includes(lq)
+        || (c.manufacture_part_number || '').toLowerCase().includes(lq)
+        || (c.package || '').toLowerCase().includes(lq)
+    ).slice(0, 50);
+
+    if (!filtered.length) {
+        list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);font-size:.85rem">{{ t.storage.empty_search }}</div>';
+        return;
+    }
+
+    list.innerHTML = filtered.map(c => {
+        const isCur    = cur == c.id;
+        const placed2  = Object.entries(assignments).find(([k,v]) => v == c.id && k !== currentCell);
+        return `<div onclick="selectComp(${c.id})"
+            style="display:flex;align-items:center;gap:.65rem;padding:.45rem .6rem;border-radius:7px;cursor:pointer;
+                   background:${isCur ? 'var(--accent-dim)' : 'transparent'};
+                   border:1px solid ${isCur ? 'var(--accent)' : 'transparent'};transition:background .1s"
+            onmouseover="this.style.background='${isCur ? 'var(--accent-dim)' : 'var(--bg-hover)'}'"
+            onmouseout="this.style.background='${isCur ? 'var(--accent-dim)' : 'transparent'}'">
+            ${c.image_path
+                ? `<img src="/images/${c.image_path.split('images/').pop()}" style="width:36px;height:36px;object-fit:contain;border-radius:5px;background:#fff;flex-shrink:0"/>`
+                : `<div style="width:36px;height:36px;background:var(--bg-surface);border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">📦</div>`}
+            <div style="flex:1;min-width:0">
+                <div style="font-size:.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${isCur ? 'var(--accent)' : 'var(--text)'}">
+                    ${c.description || c.manufacture_part_number || '—'}
+                </div>
+                <div style="font-size:.7rem;color:var(--text-muted);display:flex;gap:.4rem;margin-top:1px;flex-wrap:wrap">
+                    <span style="font-family:var(--mono)">${c.lcsc_part_number || ''}</span>
+                    ${c.package ? `<span style="background:var(--border);padding:0 4px;border-radius:3px;font-size:.65rem">${c.package}</span>` : ''}
+                    <span style="color:${c.quantity < 5 ? 'var(--warning)' : 'var(--text-muted)'}">${c.quantity} pcs</span>
+                    ${placed2 ? `<span style="color:var(--info);font-size:.65rem">📍 ${placed2[0]}</span>` : ''}
+                </div>
+            </div>
+            ${isCur ? '<span style="color:var(--accent);font-size:1rem;flex-shrink:0">✓</span>' : ''}
+        </div>`;
+    }).join('');
+}
+
+function selectComp(compId) {
+    if (!currentCell) return;
+    for (const [k, v] of Object.entries(assignments)) {
+        if (v == compId && k !== currentCell) delete assignments[k];
+    }
+    assignments[currentCell] = compId;
+    sizes[currentCell] = currentSize;
+    const cell = currentCell;
+    closePopup();
+    refreshCell(cell);
+    initGrid(activePid);
+    updateStats(activePid);
+    updateTabCount(activePid);
+    autoSave();
+}
+
+function clearCell() {
+    if (!currentCell) return;
+    delete assignments[currentCell];
+    sizes[currentCell] = '1x1';
+    const cell = currentCell;
+    closePopup();
+    refreshCell(cell);
+    initGrid(activePid);
+    updateStats(activePid);
+    updateTabCount(activePid);
+    autoSave();
+}
+
+// ── Rafraîchit une cellule ────────────────────────────────────────
+const CELL_PX = 88; // taille de base en px
+const GAP_PX  = 6;
+
+function cellDims(sw, sh) {
+    // Taille réelle en px de la cellule fusionnée
+    const w = sw * CELL_PX + (sw - 1) * GAP_PX;
+    const h = sh * CELL_PX + (sh - 1) * GAP_PX;
+    return { w, h };
+}
+
+function refreshCell(cellId) {
+    const cell   = document.getElementById(`cell-${cellId}`);
+    if (!cell) return;
+    const compId = assignments[cellId];
+    const comp   = compId ? COMPONENTS.find(c => c.id == compId) : null;
+    const size   = sizes[cellId] || '1x1';
+    const [sw, sh] = size.split('x').map(Number);
+    const { w, h } = cellDims(sw, sh);
+
+    cell.className = 'gf-cell' + (comp ? ' gf-filled' : '');
+    cell.dataset.sw = sw;
+    cell.dataset.sh = sh;
+    cell.title = cellId + (comp ? ' — ' + (comp.description || comp.lcsc_part_number) : '');
+
+    // Dimensions adaptées
+    const imgSize  = Math.min(Math.round(Math.min(w, h) * 0.52), 120);
+    const fontSize = sw === 1 && sh === 1 ? '.52rem'
+                   : sw + sh <= 4         ? '.62rem'
+                   :                        '.72rem';
+    const qtySize  = sw === 1 && sh === 1 ? '.58rem' : '.68rem';
+    const lines    = sh === 1 ? 2 : sh >= 3 ? 5 : 3;
+    const iconSize = Math.min(Math.round(imgSize * 0.8), 64);
+
+    cell.innerHTML = '';
+
+    // Label ID
+    const idSpan = document.createElement('span');
+    idSpan.className = 'gf-cell-id';
+    idSpan.innerHTML = cellId + (size !== '1x1'
+        ? ` <span style="opacity:.55;font-size:.48rem">${size}</span>` : '');
+    cell.appendChild(idSpan);
+
+    // Réappliquer le highlight si une recherche est active
+    const _fq = document.getElementById('gf-find-input')?.value?.trim() || '';
+    if (_fq) {
+        const _matchIds = new Set(
+            COMPONENTS.filter(c =>
+                (c.description || '').toLowerCase().includes(_fq.toLowerCase()) ||
+                (c.lcsc_part_number || '').toLowerCase().includes(_fq.toLowerCase()) ||
+                (c.package || '').toLowerCase().includes(_fq.toLowerCase())
+            ).map(c => String(c.id))
+        );
+        const _compId = assignments[cellId];
+        const _isMatch = _compId && _matchIds.has(String(_compId));
+        cell.classList.toggle('gf-search-match', _isMatch);
+        cell.classList.toggle('gf-search-dimmed', !_isMatch && !!_compId);
+    }
+
+    if (comp) {
+        if (comp.image_path) {
+            const img = document.createElement('img');
+            img.src = '/images/' + comp.image_path.split('images/').pop();
+            img.className = 'gf-cell-img';
+            img.style.width  = imgSize + 'px';
+            img.style.height = imgSize + 'px';
+            img.style.marginTop = sh === 1 ? '10px' : '14px';
+            cell.appendChild(img);
+        } else {
+            const ic = document.createElement('span');
+            ic.className = 'gf-cell-icon';
+            ic.textContent = '📦';
+            ic.style.fontSize = iconSize + 'px';
+            ic.style.marginTop = sh === 1 ? '8px' : '12px';
+            cell.appendChild(ic);
+        }
+
+        const name = document.createElement('span');
+        name.className = 'gf-cell-name';
+        name.textContent = (comp.description || comp.lcsc_part_number || '?')
+            .slice(0, sw >= 3 ? 80 : sw >= 2 ? 50 : 35);
+        name.style.fontSize = fontSize;
+        name.style.webkitLineClamp = lines;
+        cell.appendChild(name);
+
+        const qty = document.createElement('span');
+        qty.className = 'gf-cell-qty';
+        qty.textContent = comp.quantity + ' pcs';
+        qty.style.fontSize = qtySize;
+        cell.appendChild(qty);
+
+    } else {
+        const plus = document.createElement('span');
+        plus.className = 'gf-cell-plus';
+        plus.textContent = '+';
+        plus.style.fontSize = Math.min(Math.round(h * 0.35), 48) + 'px';
+        cell.appendChild(plus);
+    }
+}
+
+// ── Auto-save ────────────────────────────────────────────────────
+let _saveTimer = null;
+function clearCurrentPlateau() {
+    const pid = activePid;
+    if (!pid) return;
+
+    // Trouver le nom du plateau
+    const livePlateau = liveConfig.plateaux.find(p => p.id === pid);
+    const label  = livePlateau ? livePlateau.label : pid;
+    const count  = Object.keys(assignments).filter(k => k.startsWith(pid)).length;
+
+    if (count === 0) {
+        alert(`Le plateau "${label}" est déjà vide.`);
+        return;
+    }
+    if (!confirm(`Vider le plateau "${label}" ?
+${count} case(s) seront libérées.
+Les composants resteront dans le stock mais perdront leur emplacement.`)) {
+        return;
+    }
+
+    // Récupérer TOUTES les cases du plateau (pas seulement celles assignées)
+    const livePlateau2 = liveConfig.plateaux.find(p => p.id === pid);
+    const totalCells = livePlateau2 ? livePlateau2.cols * livePlateau2.rows : 0;
+
+    // Vider assignments ET remettre sizes à 1x1 pour chaque case du plateau
+    for (let i = 1; i <= totalCells; i++) {
+        const cellId = pid + i;
+        delete assignments[cellId];
+        sizes[cellId] = '1x1';   // remettre explicitement, pas delete
+    }
+    // Aussi couvrir les éventuelles clés orphelines hors plage
+    Object.keys(assignments).filter(k => k.startsWith(pid)).forEach(k => {
+        delete assignments[k];
+        sizes[k] = '1x1';
+    });
+    Object.keys(sizes).filter(k => k.startsWith(pid)).forEach(k => {
+        sizes[k] = '1x1';
+    });
+
+    // Rafraîchir : initGrid remet les gridColumn/gridRow + refreshCell le contenu
+    initGrid(pid);
+    for (let i = 1; i <= totalCells; i++) {
+        refreshCell(pid + i);
+    }
+    updateStats(pid);
+    updateTabCount(pid);
+
+    // Sauvegarder
+    const btn = document.getElementById('btn-clear-plateau');
+    btn.textContent = '⏳';
+    btn.disabled = true;
+    fetch('/rangement/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({assignments, sizes})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok !== false) {
+            btn.textContent = '✅ Vidé';
+            setTimeout(() => {
+                btn.textContent = '{{ t.storage.btn_clear }}';
+                btn.disabled = false;
+            }, 1500);
+            updateStats();
+        } else {
+            btn.textContent = '❌ Erreur';
+            btn.disabled = false;
+        }
+    })
+    .catch(() => {
+        btn.textContent = '❌ Erreur réseau';
+        btn.disabled = false;
+    });
+}
+
+function autoSave() {
+    const btn = document.getElementById('btn-save');
+    btn.textContent = '⏳ Sauvegarde…';
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+        fetch('/rangement/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({assignments, sizes})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok !== false) {
+                btn.textContent = '✅ Sauvegardé';
+                setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 1800);
+            } else {
+                btn.textContent = '❌ Erreur';
+                setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 2000);
+            }
+        })
+        .catch(() => { btn.textContent = '❌ Erreur réseau'; setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 2000); });
+    }, 600);
+}
+
+function saveAll() {
+    const btn = document.getElementById('btn-save');
+    btn.textContent = '⏳ Sauvegarde…';
+    btn.disabled = true;
+    fetch('/rangement/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({assignments, sizes})
+    }).then(r => r.json()).then(() => {
+        btn.textContent = '✅ Sauvegardé !';
+        setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; btn.disabled = false; }, 2000);
+    }).catch(() => { btn.textContent = '❌ Erreur'; btn.disabled = false; });
+}
+
+// ── Config ───────────────────────────────────────────────────────
+function toggleConfig() {
+    const p = document.getElementById('config-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+function addPlateau() {
+    const list = document.getElementById('plateau-list');
+    const div  = document.createElement('div');
+    div.className = 'plateau-cfg-row';
+    div.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm)';
+    div.innerHTML = `
+        <input type="text" placeholder="ID" value="" class="form-input cfg-pid" style="width:44px;text-align:center;font-weight:800;text-transform:uppercase;font-family:var(--mono);padding:.25rem;font-size:.8rem"/>
+        <input type="text" placeholder="{{ t.storage.ph_name }}" value="Nouveau plateau" class="form-input cfg-plabel" style="flex:1;padding:.25rem .4rem;font-size:.8rem"/>
+        <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+            <button type="button" onclick="stepInput(this.nextElementSibling,-1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+            <input type="number" value="7" min="1" max="20" class="cfg-pcols" style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+            <button type="button" onclick="stepInput(this.previousElementSibling,+1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+        </div>
+        <span style="font-size:.7rem;color:var(--text-faint)">×</span>
+        <div style="display:flex;align-items:center;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+            <button type="button" onclick="stepInput(this.nextElementSibling,-1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+            <input type="number" value="4" min="1" max="20" class="cfg-prows" style="width:28px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);background:transparent;color:var(--text);font-size:.8rem;font-weight:700;padding:0;height:28px;-moz-appearance:textfield"/>
+            <button type="button" onclick="stepInput(this.previousElementSibling,+1)" style="width:22px;height:28px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.9rem;font-weight:700" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+        </div>
+        <button onclick="removePlateau(this)" class="btn btn-danger btn-sm" style="padding:.2rem .4rem;font-size:.75rem">🗑</button>
+    `;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+}
+function removePlateau(btn) {
+    if (!confirm('{{ t.storage.confirm_delete }}')) return;
+    const row = btn.closest('.plateau-cfg-row');
+    // Récupérer l'ID du plateau depuis l'input
+    const pid = row.querySelector('.cfg-pid').value.toUpperCase().trim();
+    row.remove();
+    // Nettoyer les assignments et sizes de ce plateau en mémoire
+    if (pid) {
+        Object.keys(assignments).filter(k => k.startsWith(pid)).forEach(k => delete assignments[k]);
+        Object.keys(sizes).filter(k => k.startsWith(pid)).forEach(k => delete sizes[k]);
+        // Supprimer de liveConfig
+        liveConfig.plateaux = liveConfig.plateaux.filter(p => p.id !== pid);
+    }
+}
+function saveConfig() {
+    const rows = document.querySelectorAll('.plateau-cfg-row');
+    const plateaux = [...rows].map(r => ({
+        id:    r.querySelector('.cfg-pid').value.toUpperCase().trim() || 'X',
+        label: r.querySelector('.cfg-plabel').value.trim() || 'Plateau',
+        cols:  parseInt(r.querySelector('.cfg-pcols').value) || 5,
+        rows:  parseInt(r.querySelector('.cfg-prows').value) || 4,
+    }));
+
+    // Nettoyer les assignments des plateaux qui n'existent plus
+    const activePids = new Set(plateaux.map(p => p.id));
+    Object.keys(assignments).forEach(k => {
+        // Extraire le PID (lettres au début de la clé)
+        const pid = k.match(/^([A-Z]+)/)?.[1];
+        if (pid && !activePids.has(pid)) {
+            delete assignments[k];
+            delete sizes[k];
+        }
+    });
+
+    // Mettre à jour liveConfig immédiatement
+    liveConfig.plateaux = plateaux;
+
+    const btn = document.querySelector('[onclick="saveConfig()"]');
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+
+    fetch('/rangement/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({config: {plateaux}, assignments, sizes})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok !== false) window.location.reload();
+        else {
+            alert('{{ t.storage.err_save_colon }}' + (data.error || ''));
+            if (btn) { btn.textContent = '{{ t.storage.btn_apply }}'; btn.disabled = false; }
+        }
+    })
+    .catch(() => {
+        alert('{{ t.storage.err_save }}');
+        if (btn) { btn.textContent = '{{ t.storage.btn_apply }}'; btn.disabled = false; }
+    });
+}
+
+// ── Navigation tabs ──────────────────────────────────────────────
+function scrollTabs(dir) {
+    const bar = document.getElementById('gf-tabs-bar');
+    bar.scrollBy({ left: dir * 200, behavior: 'smooth' });
+}
+
+function updateTabsArrows() {
+    const bar   = document.getElementById('gf-tabs-bar');
+    const left  = document.getElementById('tabs-left');
+    const right = document.getElementById('tabs-right');
+    if (!bar || !left || !right) return;
+    left.classList.toggle('visible',  bar.scrollLeft > 5);
+    right.classList.toggle('visible', bar.scrollLeft < bar.scrollWidth - bar.clientWidth - 5);
+}
+
+document.getElementById('gf-tabs-bar')?.addEventListener('scroll', updateTabsArrows);
+
+// ── Infobulle (survol ou clic sur case remplie) ───────────────────
+let _tooltipTimer = null;
+
+function showTooltip(e, cellId) {
+    const compId = assignments[cellId];
+    if (!compId) return;
+    const comp = COMPONENTS.find(c => c.id == compId);
+    if (!comp) return;
+
+    clearTimeout(_tooltipTimer);
+    _tooltipTimer = setTimeout(() => {
+        const tt = document.getElementById('cell-tooltip');
+
+        document.getElementById('tooltip-cell-id').textContent = `{{ t.storage.cell_label }} ${cellId}`;
+        document.getElementById('tooltip-name').textContent    = comp.description || comp.lcsc_part_number || '?';
+        document.getElementById('tooltip-lcsc').textContent    = comp.lcsc_part_number || '';
+        document.getElementById('tooltip-mfg').textContent     = comp.manufacturer ? `🏭 ${comp.manufacturer}` : '';
+        document.getElementById('tooltip-qty').textContent     = `${comp.quantity} pcs`;
+        document.getElementById('tooltip-pkg').textContent     = comp.package || '';
+        document.getElementById('tooltip-loc').textContent     = comp.location || '{{ t.storage.tooltip_no_loc }}';
+        document.getElementById('tooltip-hint').textContent    = '{{ t.storage.tooltip_right_click }}';
+
+        // Image
+        const img  = document.getElementById('tooltip-img');
+        const icon = document.getElementById('tooltip-icon');
+        if (comp.image_path) {
+            img.src = '/images/' + comp.image_path.split('images/').pop();
+            img.style.display  = 'block';
+            icon.style.display = 'none';
+        } else {
+            img.style.display  = 'none';
+            icon.style.display = 'inline';
+        }
+
+        // Positionner
+        tt.style.display = 'block';
+        const x = Math.min(e.clientX + 12, window.innerWidth  - tt.offsetWidth  - 12);
+        const y = Math.min(e.clientY + 12, window.innerHeight - tt.offsetHeight - 12);
+        tt.style.left = x + 'px';
+        tt.style.top  = y + 'px';
+    }, 200);
+}
+
+function hideTooltip() {
+    clearTimeout(_tooltipTimer);
+    document.getElementById('cell-tooltip').style.display = 'none';
+}
+
+// ── Menu contextuel ──────────────────────────────────────────────
+let _ctxCell = null;
+
+function openContextMenu(e, cellId) {
+    e.preventDefault();
+    e.stopPropagation();
+    hideTooltip();
+    _ctxCell = cellId;
+
+    const hasCom = !!assignments[cellId];
+    document.getElementById('ctx-cell-label').textContent = `{{ t.storage.cell_label }} ${cellId}`;
+
+    // Vider la case : désactivé si case vide
+    const clearBtn = document.getElementById('ctx-clear-btn');
+    clearBtn.disabled = !hasCom;
+    clearBtn.style.opacity = hasCom ? '1' : '.35';
+
+    // Allumer LED : désactivé si case vide ou ESP32 non configuré
+    const ledBtn = document.getElementById('ctx-led-btn');
+    if (ledBtn) {
+        const ledOk = hasCom && !!ESP32_URL;
+        ledBtn.disabled = !ledOk;
+        ledBtn.style.opacity = ledOk ? '1' : '.35';
+        ledBtn.style.cursor  = ledOk ? 'pointer' : 'not-allowed';
+        if (ledBtn.querySelector('#ctx-led-label'))
+            ledBtn.querySelector('#ctx-led-label').textContent = '{{ t.storage.ctx_led_on }}';
+    }
+
+    const menu = document.getElementById('ctx-menu');
+    menu.style.display = 'block';
+    const x = Math.min(e.clientX, window.innerWidth  - menu.offsetWidth  - 8);
+    const y = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = x + 'px';
+    menu.style.top  = y + 'px';
+}
+
+function closeContextMenu() {
+    document.getElementById('ctx-menu').style.display = 'none';
+    // Ne pas effacer _ctxCell ici — les handlers ctxAssign/ctxClear en ont besoin
+}
+
+function ctxAssign() {
+    const cell = _ctxCell;
+    closeContextMenu();
+    _ctxCell = null;
+    if (cell) openPopup(cell);
+}
+
+function ctxClear() {
+    const cell = _ctxCell;
+    closeContextMenu();
+    _ctxCell = null;
+    if (!cell) return;
+    currentCell = cell;
+    clearCell();
+}
+
+function showLedToast(msg, type) {
+    const t = document.getElementById('led-toast');
+    if (!t) return;
+    clearTimeout(t._timer);
+    t.className = `led-toast toast-${type}`;
+    t.textContent = msg;
+    requestAnimationFrame(() => {
+        t.classList.add('show');
+        t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+    });
+}
+
+function ctxLed() {
+    const cell  = _ctxCell;
+    closeContextMenu();
+    _ctxCell = null;
+    if (!cell) return;
+
+    if (!ESP32_URL) {
+        alert('{{ t.storage.ctx_led_no_config }}');
+        return;
+    }
+
+    const compId = assignments[cell];
+    if (!compId) return;   // case vide — bouton grisé normalement
+
+    const label = document.getElementById('ctx-led-label');
+    if (label) label.textContent = '{{ t.storage.ctx_led_sending }}';
+
+    fetch(`/api/led/${cell}/on`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({component_id: compId}),
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                if (data.queued) {
+                    showLedToast('⏳ {{ t.storage.ctx_led_ok }} — en file', 'queued');
+                } else {
+                    showLedToast('💡 {{ t.storage.ctx_led_ok }}', 'ok');
+                }
+                if (label) {
+                    label.textContent = data.queued
+                        ? '⏳ {{ t.storage.ctx_led_on }}'
+                        : '{{ t.storage.ctx_led_ok }}';
+                    setTimeout(() => { if(label) label.textContent = '{{ t.storage.ctx_led_on }}'; }, 2500);
+                }
+            } else {
+                showLedToast('❌ ' + (data.error || '{{ t.storage.ctx_led_err }}'), 'err');
+                if (label) label.textContent = '{{ t.storage.ctx_led_on }}';
+            }
+        })
+        .catch(e => {
+            showLedToast('❌ {{ t.storage.err_network }}', 'err');
+            if (label) label.textContent = '{{ t.storage.ctx_led_on }}';
+        });
+}
+
+// ── Find my component ────────────────────────────────────────────
+function highlightSearch(query) {
+    const q = query.trim().toLowerCase();
+    const clearBtn = document.getElementById('gf-find-clear');
+    const status   = document.getElementById('gf-find-status');
+
+    // Afficher/cacher le bouton ✕
+    if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
+
+    if (!q) {
+        // Réinitialiser tout
+        document.querySelectorAll('.gf-cell').forEach(c => {
+            c.classList.remove('gf-search-match', 'gf-search-dimmed');
+        });
+        document.querySelectorAll('.gf-find-dot').forEach(d => d.style.display = 'none');
+        if (status) status.textContent = '';
+        return;
+    }
+
+    // Trouver les composants qui matchent
+    const matchIds = new Set(
+        COMPONENTS.filter(c =>
+            (c.description          || '').toLowerCase().includes(q) ||
+            (c.lcsc_part_number     || '').toLowerCase().includes(q) ||
+            (c.mouser_part_number   || '').toLowerCase().includes(q) ||
+            (c.digikey_part_number  || '').toLowerCase().includes(q) ||
+            (c.manufacturer         || '').toLowerCase().includes(q) ||
+            (c.manufacture_part_number || '').toLowerCase().includes(q) ||
+            (c.package              || '').toLowerCase().includes(q) ||
+            (c.category             || '').toLowerCase().includes(q)
+        ).map(c => String(c.id))
+    );
+
+    // Trouver les cases qui matchent (composant assigné ET dans matchIds)
+    const matchCells = new Set();
+    Object.entries(assignments).forEach(([cellId, compId]) => {
+        if (compId && matchIds.has(String(compId))) {
+            matchCells.add(cellId);
+        }
+    });
+
+    // Appliquer sur toutes les cases visibles (non gf-hidden)
+    document.querySelectorAll('.gf-cell:not(.gf-hidden)').forEach(cell => {
+        const cellId = cell.dataset.cell;
+        const isMatch = matchCells.has(cellId);
+        const isEmpty = !assignments[cellId];
+        cell.classList.toggle('gf-search-match',  isMatch);
+        cell.classList.toggle('gf-search-dimmed', !isMatch && !isEmpty);
+    });
+
+    // Onglets avec résultats sur d'autres plateaux
+    const platsWithResults = new Set();
+    matchCells.forEach(cellId => {
+        const pid = cellId.match(/^([A-Z]+)/)?.[1];
+        if (pid) platsWithResults.add(pid);
+    });
+
+    document.querySelectorAll('.gf-find-dot').forEach(dot => {
+        const pid = dot.dataset.pid;
+        const show = platsWithResults.has(pid) && pid !== activePid;
+        dot.style.display = show ? 'block' : 'none';
+    });
+
+    // Statut
+    if (status) {
+        if (matchCells.size === 0) {
+            status.textContent = '{{ t.storage.find_no_result }}';
+            status.style.color = 'var(--danger)';
+        } else {
+            status.textContent = `${matchCells.size} {{ t.storage.find_results }} ${platsWithResults.size} {{ t.storage.find_plateaux }}`;
+            status.style.color = 'var(--accent)';
+        }
+    }
+
+    // Scroll vers la première case qui matche sur le plateau actif
+    const firstMatchOnCurrent = [...matchCells].find(k => k.startsWith(activePid));
+    if (firstMatchOnCurrent) {
+        const el = document.getElementById(`cell-${firstMatchOnCurrent}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function clearHighlight() {
+    const input = document.getElementById('gf-find-input');
+    if (input) { input.value = ''; input.focus(); }
+    highlightSearch('');
+}
+
+// Raccourci clavier : Échap efface la recherche
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        clearHighlight();
+        closePopup();
+        closeContextMenu();
+    }
+    // Ctrl+F ou / pour focaliser la recherche
+    if ((e.ctrlKey && e.key === 'f') || (e.key === '/' && document.activeElement.tagName !== 'INPUT')) {
+        e.preventDefault();
+        const input = document.getElementById('gf-find-input');
+        if (input) { input.focus(); input.select(); }
+    }
+});
+
+// ── Fermeture menus ───────────────────────────────────────────────
+// Ferme le menu au clic en dehors (mousedown pour ne pas interférer avec les boutons)
+document.addEventListener('mousedown', e => {
+    const menu = document.getElementById('ctx-menu');
+    if (menu.style.display !== 'none' && !menu.contains(e.target)) {
+        closeContextMenu();
+        _ctxCell = null;
+    }
+});
+document.addEventListener('click', e => {
+    if (!document.getElementById('cell-tooltip').contains(e.target)) {
+        hideTooltip();
+    }
+});
+
+// ── Init ─────────────────────────────────────────────────────────
+liveConfig.plateaux.forEach(p => {
+    for (let i = 1; i <= p.cols * p.rows; i++) {
+        refreshCell(p.id + i);
+    }
+    initGrid(p.id);
+    updateTabCount(p.id);
+});
+updateStats(activePid);
+updateTabsArrows();
+</script>
+<div id="led-toast" class="led-toast" role="status" aria-live="polite"></div>
+
+{% endblock %}

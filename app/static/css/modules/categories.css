@@ -1,0 +1,51 @@
+
+
+/* ════ Migré depuis templates ════ */
+/* ── components/categories.html ── */
+.catmgr-group { margin-bottom: .25rem; }
+
+.catmgr-group-header {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .65rem .75rem;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+}
+.catmgr-group-icon { font-size: 1rem; }
+.catmgr-group-name { font-weight: 700; font-size: .92rem; flex: 1; }
+.catmgr-count {
+    font-size: .72rem; color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 1rem; padding: .1rem .5rem;
+}
+.catmgr-del-form { display: inline-flex; }
+.catmgr-del-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: .8rem;
+    padding: .25rem .45rem; border-radius: 4px;
+    transition: background .12s, color .12s;
+    white-space: nowrap;
+}
+.catmgr-del-btn:hover { background: rgba(244,67,54,.12); color: #f44336; }
+.catmgr-del-group { font-size: .75rem; }
+
+.catmgr-children {
+    margin: .3rem 0 .3rem 1.5rem;
+    border-left: 2px solid var(--border);
+    padding-left: .75rem;
+    display: flex; flex-direction: column; gap: .2rem;
+}
+.catmgr-child {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .35rem .5rem;
+    border-radius: 4px;
+    font-size: .85rem;
+    transition: background .1s;
+}
+.catmgr-child:hover { background: var(--bg-surface); }
+.catmgr-child-name { font-weight: 500; min-width: 100px; }
+.catmgr-child-path { color: var(--text-muted); font-size: .72rem; flex: 1; font-family: monospace; }
+
+.catmgr-tip {
+    font-size: .75rem; color: var(--text-muted); line-height: 1.5;
+}

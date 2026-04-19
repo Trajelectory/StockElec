@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+{% block title %}{{ t.projects.title }} — StockElec{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ───────────────────────────────────────────────────── -->
+<div class="cd-header" style="margin-bottom:1.25rem">
+    <div class="cd-header-left">
+        <h1 class="cd-title">{{ t.projects.title }}
+            {% if projects %}<span class="page-count">{{ projects|length }}</span>{% endif %}
+        </h1>
+    </div>
+    <div class="cd-header-right" style="display:flex;gap:.5rem;align-items:center">
+        <!-- Toggle vue -->
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+            <button id="btn-view-kanban" onclick="setView('kanban')"
+                    class="kb-view-btn kb-view-active"
+                    title="Vue Kanban">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <rect x="1" y="2" width="4" height="12" rx="1" fill="currentColor" opacity=".9"/>
+                    <rect x="6" y="2" width="4" height="8"  rx="1" fill="currentColor" opacity=".9"/>
+                    <rect x="11" y="2" width="4" height="10" rx="1" fill="currentColor" opacity=".9"/>
+                </svg>
+            </button>
+            <button id="btn-view-grid" onclick="setView('grid')"
+                    class="kb-view-btn"
+                    title="Vue grille">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                    <rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                    <rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                    <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </button>
+        </div>
+        <a href="{{ url_for('projects.new') }}" class="btn btn-primary">{{ t.projects.btn_new }}</a>
+    </div>
+</div>
+
+{% if projects %}
+
+<!-- ══════════════════════════════════════════════════════════════
+     VUE KANBAN
+════════════════════════════════════════════════════════════════ -->
+<div id="view-kanban">
+
+    <!-- Colonnes statut -->
+    {% set columns = [
+        ('idée',          '💡', '#06b6d4',    'rgba(6,182,212,.12)'),
+        ('conception',    '✏️',  '#7c6cff',    'var(--accent-dim)'),
+        ('commandé',      '🛒', '#f97316',    'rgba(249,115,22,.12)'),
+        ('en production', '🏭', '#8b5cf6',    'rgba(139,92,246,.12)'),
+        ('assemblage',    '🔧', '#f59e0b',    'var(--warning-dim)'),
+        ('debug',         '🔬', '#ef4444',    'var(--danger-dim)'),
+        ('terminé',       '✅', 'var(--success)', 'var(--success-dim)'),
+        ('archivé',       '📦', 'var(--text-muted)', 'var(--bg-surface)'),
+    ] %}
+
+    <div class="kb-board">
+        {% for status, icon, color, bg in columns %}
+        {% set col_projects = projects | selectattr('status', 'equalto', status) | list %}
+        <div class="kb-col" data-status="{{ status }}">
+
+            <!-- Header colonne -->
+            <div class="kb-col-header" style="border-top:3px solid {{ color }}">
+                <span class="kb-col-title">{{ icon }} {{ status|capitalize }}</span>
+                <span class="kb-col-count" style="background:{{ bg }};color:{{ color }}">
+                    {{ col_projects|length }}
+                </span>
+            </div>
+
+            <!-- Drop zone -->
+            <div class="kb-col-body" data-status="{{ status }}"
+                 ondragover="onDragOver(event)"
+                 ondrop="onDrop(event, '{{ status }}')"
+                 ondragleave="onDragLeave(event)">
+
+                {% for p in col_projects %}
+                {% set a = avail[p.id] %}
+                <div class="kb-card" draggable="true"
+                     data-id="{{ p.id }}"
+                     data-status="{{ p.status }}"
+                     ondragstart="onDragStart(event, {{ p.id }}, '{{ p.status }}')"
+                     ondragend="onDragEnd(event)">
+
+                    <!-- Image bannière -->
+                    {% if p.image_path %}
+                    <div class="kb-card-img"
+                         style="background-image:url('{{ url_for('projects.project_image', filename=p.image_path) }}')">
+                    </div>
+                    {% endif %}
+
+                    <div class="kb-card-body">
+                        <!-- Tags -->
+                        {% if p.tags %}
+                        <div style="display:flex;gap:.2rem;flex-wrap:wrap;margin-bottom:.3rem">
+                            {% for tag in p.tags %}
+                            {% for slug, label, emoji, color in [('pcb','PCB','🔌','#7c6cff'),('code','Code','💻','#06b6d4'),('3d','3D','🖨️','#f97316'),('mecanique','Méca','⚙️','#8b5cf6'),('design','Design','🎨','#ec4899'),('recherche','Rech.','🔬','#f59e0b'),('autre','Autre','📌','#6b7280')] %}
+                            {% if slug == tag %}
+                            <span style="font-size:.6rem;padding:.1rem .35rem;border-radius:99px;background:color-mix(in srgb,{{ color }} 15%,transparent);color:{{ color }};border:1px solid color-mix(in srgb,{{ color }} 30%,transparent)">{{ emoji }}</span>
+                            {% endif %}
+                            {% endfor %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Titre -->
+                        <div class="kb-card-title">
+                            <a href="{{ url_for('projects.detail', project_id=p.id) }}"
+                               class="kb-card-link">{{ p.name }}</a>
+                        </div>
+
+                        <!-- Description -->
+                        {% if p.description %}
+                        <p class="kb-card-desc">{{ p.description[:80] }}{% if p.description|length > 80 %}…{% endif %}</p>
+                        {% endif %}
+
+                        <!-- Barre dispo composants -->
+                        {% if a.n_total > 0 %}
+                        <div class="kb-card-avail">
+                            <div class="kb-avail-bar">
+                                <div class="kb-avail-fill {% if a.pct == 100 %}fill-ok{% elif a.pct == 0 %}fill-err{% else %}fill-warn{% endif %}"
+                                     style="width:{{ a.pct }}%"></div>
+                            </div>
+                            <span class="kb-avail-label {% if a.pct == 100 %}avail-ok{% elif a.pct == 0 %}avail-ko{% else %}avail-partial{% endif %}">
+                                {% if a.pct == 100 %}✓ Prêt
+                                {% elif a.pct == 0 %}✗ Manquants
+                                {% else %}⚡ {{ a.pct }}%{% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+
+                        <!-- Footer stats -->
+                        <div class="kb-card-footer">
+                            {% if p.component_count > 0 %}
+                            <span class="kb-stat">🔩 {{ p.component_count }}</span>
+                            {% endif %}
+                            {% if a.n_total > 0 %}
+                            <span class="kb-stat">{{ a.n_ok }}/{{ a.n_total }}</span>
+                            {% endif %}
+                            {% if p.total_value %}
+                            <span class="kb-stat">{{ "%.0f"|format(p.total_value) }} €</span>
+                            {% endif %}
+                            <span class="kb-stat kb-date">{{ p.updated_at[:10] }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Drag handle -->
+                    <div class="kb-drag-handle" title="Glisser pour changer le statut">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" opacity=".4">
+                            <circle cx="5" cy="4"  r="1.5"/><circle cx="11" cy="4"  r="1.5"/>
+                            <circle cx="5" cy="8"  r="1.5"/><circle cx="11" cy="8"  r="1.5"/>
+                            <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+                        </svg>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Placeholder drop vide -->
+                <div class="kb-drop-placeholder">
+                    Déposer ici
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     VUE GRILLE (ancienne vue conservée)
+════════════════════════════════════════════════════════════════ -->
+<div id="view-grid" style="display:none">
+    <div class="proj-toolbar">
+        <div class="proj-filters" id="proj-filters">
+            <button class="proj-filter-btn active" data-status="">{{ t.projects.filter_all }}</button>
+            <button class="proj-filter-btn" data-status="idée">💡 Idée</button>
+            <button class="proj-filter-btn" data-status="conception">✏️ Conception</button>
+            <button class="proj-filter-btn" data-status="commandé">🛒 Commandé</button>
+            <button class="proj-filter-btn" data-status="en production">🏭 Production</button>
+            <button class="proj-filter-btn" data-status="assemblage">🔧 Assemblage</button>
+            <button class="proj-filter-btn" data-status="debug">🔬 Debug</button>
+            <button class="proj-filter-btn" data-status="terminé">✅ Terminé</button>
+            <button class="proj-filter-btn" data-status="archivé">📦 Archivé</button>
+        </div>
+    </div>
+    <div class="project-grid" id="project-grid">
+        {% for p in projects %}
+        {% set a = avail[p.id] %}
+        <div class="project-card-wrap"
+             data-status="{{ p.status }}"
+             data-name="{{ p.name|lower }}"
+             data-components="{{ p.component_count }}"
+             data-date="{{ p.updated_at }}">
+            <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="project-card">
+                {% if p.image_path %}
+                <div class="project-card-img"
+                     style="background-image:url('{{ url_for('projects.project_image', filename=p.image_path) }}')">
+                {% else %}
+                <div class="project-card-img project-card-img-empty">
+                    <span class="project-card-empty-icon">🔌</span>
+                {% endif %}
+                    <span class="project-card-badge badge-status-{{ p.status|replace(' ','-') }}">{{ p.status }}</span>
+                    {% if a.n_total > 0 %}
+                    <span class="proj-avail-badge {% if a.pct == 100 %}avail-ok{% elif a.pct == 0 %}avail-ko{% else %}avail-partial{% endif %}">
+                        {% if a.pct == 100 %}✓ {{ t.projects.card_ready }}
+                        {% elif a.pct == 0 %}✗ {{ t.projects.card_missing }}
+                        {% else %}⚡ {{ a.pct }}%{% endif %}
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="project-card-body">
+                    <div class="project-card-name">{{ p.name }}</div>
+                    {% if p.description %}<p class="project-card-desc">{{ p.description[:80] }}{% if p.description|length > 80 %}…{% endif %}</p>{% endif %}
+                    {% if a.n_total > 0 %}
+                    <div class="proj-mini-bar">
+                        <div class="proj-mini-fill {% if a.pct == 100 %}fill-ok{% elif a.pct == 0 %}fill-err{% else %}fill-warn{% endif %}" style="width:{{ a.pct }}%"></div>
+                    </div>
+                    {% endif %}
+                    <div class="project-card-footer">
+                        {% if p.component_count > 0 %}<span class="pcf-stat">🔩 {{ p.component_count }} {{ t.projects.refs_label }}</span>{% endif %}
+                        {% if a.n_total > 0 %}<span class="pcf-stat">{{ a.n_ok }}/{{ a.n_total }} {{ t.projects.dispo_label }}</span>{% endif %}
+                        {% if p.total_value %}<span class="pcf-stat">💶 {{ "%.2f"|format(p.total_value) }} €</span>{% endif %}
+                        <span class="pcf-date">{{ p.updated_at[:10] }}</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+    <p class="empty-icon">🗂️</p>
+    <p>{{ t.projects.empty }}</p>
+    <a href="{{ url_for('projects.new') }}" class="btn btn-primary">{{ t.projects.btn_first }}</a>
+</div>
+{% endif %}
+
+<!-- Toast -->
+<div id="kb-toast" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;
+     background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+     padding:.6rem 1rem;font-size:.8rem;box-shadow:0 4px 16px rgba(0,0,0,.2);
+     opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none">
+</div>
+
+<script>
+// ── Vue toggle ───────────────────────────────────────────────────
+const VIEW_KEY = 'kb_view';
+function setView(v) {
+    document.getElementById('view-kanban').style.display = v === 'kanban' ? 'block' : 'none';
+    document.getElementById('view-grid').style.display   = v === 'grid'   ? 'block' : 'none';
+    document.getElementById('btn-view-kanban').classList.toggle('kb-view-active', v === 'kanban');
+    document.getElementById('btn-view-grid').classList.toggle('kb-view-active',   v === 'grid');
+    localStorage.setItem(VIEW_KEY, v);
+}
+// Restaurer la vue préférée
+setView(localStorage.getItem(VIEW_KEY) || 'kanban');
+
+// ── Filtres vue grille ───────────────────────────────────────────
+const cards = [...document.querySelectorAll('.project-card-wrap')];
+document.querySelectorAll('.proj-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.proj-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const status = btn.dataset.status;
+        cards.forEach(c => c.classList.toggle('hidden', !!(status && c.dataset.status !== status)));
+    });
+});
+
+// ── Drag & Drop Kanban ───────────────────────────────────────────
+let dragId     = null;
+let dragOrigin = null;
+
+function onDragStart(e, id, status) {
+    dragId     = id;
+    dragOrigin = status;
+    e.currentTarget.classList.add('kb-card-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragEnd(e) {
+    e.currentTarget.classList.remove('kb-card-dragging');
+    document.querySelectorAll('.kb-col-body').forEach(z => z.classList.remove('kb-drop-over'));
+}
+
+function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    e.currentTarget.classList.add('kb-drop-over');
+}
+
+function onDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget))
+        e.currentTarget.classList.remove('kb-drop-over');
+}
+
+function onDrop(e, newStatus) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('kb-drop-over');
+    if (!dragId || newStatus === dragOrigin) return;
+
+    fetch(`/projects/${dragId}/status`, {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({status: newStatus}),
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.ok) {
+            // Déplacer la carte dans la bonne colonne sans rechargement
+            const card = document.querySelector(`.kb-card[data-id="${dragId}"]`);
+            const dest = document.querySelector(`.kb-col-body[data-status="${newStatus}"]`);
+            if (card && dest) {
+                card.dataset.status = newStatus;
+                dest.insertBefore(card, dest.querySelector('.kb-drop-placeholder'));
+            }
+            updateColCounts();
+            showToast(`✓ Déplacé vers "${newStatus}"`);
+        } else {
+            showToast('❌ ' + (d.error || 'Erreur'), true);
+        }
+        dragId = dragOrigin = null;
+    })
+    .catch(() => { showToast('❌ Erreur réseau', true); dragId = dragOrigin = null; });
+}
+
+function updateColCounts() {
+    document.querySelectorAll('.kb-col').forEach(col => {
+        const status = col.dataset.status;
+        const count  = col.querySelectorAll('.kb-card').length;
+        const badge  = col.querySelector('.kb-col-count');
+        if (badge) badge.textContent = count;
+    });
+}
+
+function showToast(msg, isErr) {
+    const t = document.getElementById('kb-toast');
+    t.textContent = msg;
+    t.style.borderColor = isErr ? 'var(--danger)' : 'var(--success)';
+    t.style.opacity = '1';
+    t.style.transform = 'translateY(0)';
+    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(8px)'; }, 2500);
+}
+</script>
+{% endblock %}

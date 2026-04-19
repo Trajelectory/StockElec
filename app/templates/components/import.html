@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Importer CSV — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('components.stock') }}" class="btn-back">{{ t.import_csv.back }}</a>
+    <h1>{{ t.import_csv.title }}</h1>
+</div>
+
+<div class="imp-layout">
+
+    <!-- ══ Zone de drop ═══════════════════════════════════════════ -->
+    <div class="imp-main">
+        <form method="post" action="{{ url_for('components.import_csv') }}"
+              enctype="multipart/form-data" id="import-form">
+
+            <div class="drop-zone" id="drop-zone">
+                <div id="drop-idle" class="drop-state">
+                    <div class="drop-icon-wrap">
+                        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                            <rect width="48" height="48" rx="12" fill="rgba(124,108,255,.1)"/>
+                            <path d="M24 14v14M24 14l-5 5M24 14l5 5" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M14 32h20" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+                            <path d="M10 36h28" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" opacity=".2"/>
+                        </svg>
+                    </div>
+                    <p class="drop-title">{{ t.import_csv.drop_hint }}</p>
+                    <p class="drop-sub">{{ t.import_csv.or_browse }}</p>
+                    <label class="btn btn-primary btn-file">
+                        Choisir un fichier
+                        <input type="file" name="csv_file" id="csv_file" accept=".csv" hidden required/>
+                    </label>
+                </div>
+                <div id="drop-selected" class="drop-state" style="display:none">
+                    <div class="drop-file-badge">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 2h8l4 4v12a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#4caf50" stroke-width="1.5" fill="rgba(76,175,80,.1)"/>
+                            <path d="M12 2v4h4" stroke="#4caf50" stroke-width="1.5"/>
+                        </svg>
+                        <span id="file-name"></span>
+                    </div>
+                    <p class="drop-ready">{{ t.import_csv.ready }}</p>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearFile()">{{ t.import_csv.btn_change }}</button>
+                </div>
+            </div>
+
+            <div class="imp-actions">
+                <button type="submit" class="btn btn-primary btn-import" id="submit-btn" disabled>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 2v8M8 10l-3-3M8 10l3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M2 13h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".5"/>
+                    </svg>
+                    {{ t.import_csv.import_btn }}
+                </button>
+                <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">{{ t.import_csv.btn_cancel }}</a>
+                <span class="imp-hint" id="import-hint">{{ t.import_csv.select_hint }}</span>
+            </div>
+        </form>
+    </div>
+
+    <!-- ══ Panneau sources ════════════════════════════════════════ -->
+    <div class="imp-side">
+
+        <div class="imp-side-label">{{ t.import_csv.formats_title }}</div>
+
+        <!-- BOM KiCad -->
+        <div class="src-card src-card-bom">
+            <div class="src-card-header">
+                <div class="src-card-icon bom-icon">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M4 5h6M4 7h6M4 9h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="src-card-title">{{ t.import_csv.bom_card }}</div>
+                    <div class="src-card-sub">{{ t.import_csv.auto_cols }}</div>
+                </div>
+            </div>
+            <div class="src-tags">
+                <span class="src-tag tag-lcsc">
+                    <img src="{{ url_for('static', filename='img/lcsc.png') }}" width="10" height="10" style="object-fit:contain"> LCSC
+                </span>
+                <span class="src-tag tag-mouser">
+                    <img src="{{ url_for('static', filename='img/mouser.png') }}" width="10" height="10" style="object-fit:contain"> Mouser
+                </span>
+                <span class="src-tag tag-digikey">
+                    <img src="{{ url_for('static', filename='img/digikey.png') }}" width="10" height="10" style="object-fit:contain"> DigiKey
+                </span>
+                <span class="src-tag tag-neutral">Quantity</span>
+                <span class="src-tag tag-neutral">Value</span>
+                <span class="src-tag tag-neutral">Reference</span>
+            </div>
+        </div>
+
+        <!-- Export commande LCSC -->
+        <div class="src-card">
+            <div class="src-card-header">
+                <img src="{{ url_for('static', filename='img/lcsc.png') }}" width="22" height="22" style="object-fit:contain;border-radius:4px">
+                <div>
+                    <div class="src-card-title">{{ t.import_csv.card_lcsc_order }}</div>
+                    <div class="src-card-sub">lcsc.com → Mes commandes → Exporter</div>
+                </div>
+            </div>
+            <div class="src-tags">
+                <span class="src-tag tag-lcsc">LCSC Part Number</span>
+                <span class="src-tag tag-neutral">Manufacture Part Number</span>
+                <span class="src-tag tag-neutral">Quantity</span>
+                <span class="src-tag tag-neutral">Unit Price(€)</span>
+            </div>
+        </div>
+
+        <!-- Export panier LCSC -->
+        <div class="src-card">
+            <div class="src-card-header">
+                <img src="{{ url_for('static', filename='img/lcsc.png') }}" width="22" height="22" style="object-fit:contain;border-radius:4px">
+                <div>
+                    <div class="src-card-title">{{ t.import_csv.card_lcsc_cart }}</div>
+                    <div class="src-card-sub"><code>export_cart_*.csv</code> {{ t.import_csv.from_cart }}</div>
+                </div>
+            </div>
+            <div class="src-tags">
+                <span class="src-tag tag-lcsc">LCSC#</span>
+                <span class="src-tag tag-neutral">MPN</span>
+                <span class="src-tag tag-neutral">Quantity</span>
+                <span class="src-tag tag-neutral">Unit Price(€)</span>
+            </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="imp-notes">
+            <div class="imp-note">
+                <span class="imp-note-dot"></span>
+                {{ t.import_csv.multi_source_note }}
+            </div>
+            <div class="imp-note">
+                <span class="imp-note-dot"></span>
+                {{ t.import_csv.auto_created }}
+            </div>
+            <div class="imp-note">
+                <span class="imp-note-dot"></span>
+                {{ t.import_csv.no_duplicates }}
+            </div>
+        </div>
+
+        <a href="{{ url_for('components.add') }}" class="btn btn-secondary imp-manual">
+            {{ t.import_csv.add_manual }}
+        </a>
+
+    </div>
+</div>
+
+
+<script>
+/* Variables injectées par Jinja */
+const t_import_csv_ready_file = {{ t.import_csv.ready_file | tojson }};
+const t_import_csv_select_hint = {{ t.import_csv.select_hint | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/import.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

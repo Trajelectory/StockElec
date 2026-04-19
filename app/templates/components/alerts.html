@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Alertes stock — StockElec{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ t.alerts.title }}</h1>
+    <a href="{{ url_for('components.stock') }}" class="btn-back">{{ t.alerts.back }}</a>
+</div>
+
+{% if components %}
+<p class="result-count" style="margin-bottom:1rem">
+    {{ components|length }} {{ t.alerts.summary }}
+</p>
+<div class="table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th class="th-img"></th>
+                <th>{{ t.alerts.col_description }}</th>
+                <th>{{ t.alerts.col_lcsc }}</th>
+                <th>{{ t.alerts.col_category }}</th>
+                <th>{{ t.alerts.col_stock }}</th>
+                <th>{{ t.alerts.col_threshold }}</th>
+                <th>{{ t.alerts.col_missing }}</th>
+                <th>{{ t.alerts.col_location }}</th>
+                <th>{{ t.alerts.col_actions }}</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in components %}
+        <tr id="row-{{ c.id }}">
+            <td class="td-thumb">
+                {% if c.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                         class="thumb" loading="lazy" alt=""/>
+                {% else %}
+                    <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                {% endif %}
+            </td>
+            <td><a href="{{ url_for('components.detail', component_id=c.id) }}">{{ c.description or '—' }}</a></td>
+            <td class="td-mono td-secondary">{{ c.lcsc_part_number or '—' }}</td>
+            <td class="td-secondary">{{ c.category or '—' }}</td>
+            <td class="td-qty qty-{% if c.quantity == 0 %}zero{% else %}low{% endif %}" id="qty-{{ c.id }}">
+                {{ c.quantity }}
+            </td>
+            <td class="td-qty">{{ c.min_stock }}</td>
+            <td class="td-qty qty-low">{{ [c.min_stock - c.quantity, 0]|max }}</td>
+            <td class="td-secondary">{{ c.location or '—' }}</td>
+            <td class="td-actions">
+                <div class="qty-control">
+                    <button class="qty-btn" onclick="adjustQty({{ c.id }}, -1, this)">−</button>
+                    <button class="qty-btn" onclick="adjustQty({{ c.id }}, +1, this)">+</button>
+                </div>
+                <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon">✏️</a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p class="empty-icon">✅</p>
+    <p>{{ t.alerts.all_good }}</p>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">{{ t.alerts.btn_stock }}</a>
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/alerts.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

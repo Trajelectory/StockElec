@@ -1,0 +1,787 @@
+{% extends "base.html" %}
+{% block title %}Manuel d'utilisation — StockEleK{% endblock %}
+{% block content %}
+<style>
+.man-root { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 54px); }
+.man-sidebar { position: sticky; top: 54px; height: calc(100vh - 54px); overflow-y: auto;
+    background: var(--bg-card); border-right: 1px solid var(--border); padding: 1rem 0; scrollbar-width: thin; }
+.man-sidebar::-webkit-scrollbar { width: 3px; }
+.man-sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+.man-nav-section { padding: .5rem 1rem .2rem; font-size: .6rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .12em; color: var(--text-faint); margin-top: .75rem; }
+.man-nav-link { display: flex; align-items: center; gap: .5rem; padding: .3rem 1.1rem;
+    font-size: .78rem; color: var(--text-muted); text-decoration: none;
+    border-left: 2px solid transparent; transition: all .12s; }
+.man-nav-link:hover { color: var(--text); background: var(--bg-hover); }
+.man-nav-link.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-dim); }
+.man-body { padding: 2.5rem 3rem 8rem; max-width: 860px; }
+.man-cover { background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124,108,255,.1) 100%);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2.5rem;
+    margin-bottom: 3rem; position: relative; overflow: hidden; }
+.man-cover::before { content: ''; position: absolute; top: -40px; right: -40px; width: 200px; height: 200px;
+    border-radius: 50%; background: radial-gradient(circle, rgba(124,108,255,.15) 0%, transparent 70%); }
+.man-cover-label { font-size: .7rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .15em; color: var(--accent); margin-bottom: .5rem; }
+.man-cover-title { font-size: 2.5rem; font-weight: 900; letter-spacing: -.04em; color: var(--text); line-height: 1.1; margin-bottom: .75rem; }
+.man-cover-sub { font-size: .95rem; color: var(--text-muted); line-height: 1.7; max-width: 560px; }
+.man-cover-tags { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.25rem; }
+.man-cover-tag { font-size: .72rem; padding: .25rem .7rem; border-radius: 99px;
+    background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); }
+.man-section { margin-bottom: 3.5rem; scroll-margin-top: 1.5rem; }
+.man-section-header { display: flex; align-items: center; gap: .75rem;
+    padding-bottom: .75rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+.man-section-icon { font-size: 1.4rem; }
+.man-section-title { font-size: 1.4rem; font-weight: 800; color: var(--text); letter-spacing: -.02em; }
+.man-section-num { font-family: var(--mono); font-size: .7rem; color: var(--text-faint);
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 4px; padding: .1rem .4rem; margin-left: auto; }
+.man-sub { margin-bottom: 2rem; }
+.man-sub-title { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: .65rem;
+    display: flex; align-items: center; gap: .5rem; }
+.man-sub-title::before { content: ''; display: block; width: 3px; height: 1em;
+    background: var(--accent); border-radius: 2px; flex-shrink: 0; }
+.man-body p { font-size: .88rem; color: var(--text-muted); line-height: 1.8; margin-bottom: .75rem; }
+.man-body strong { color: var(--text); font-weight: 700; }
+.man-body code { font-family: var(--mono); font-size: .78rem; color: var(--accent);
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 3px; padding: .1rem .35rem; }
+.man-tip, .man-warn, .man-info, .man-danger { display: flex; gap: .75rem; padding: .85rem 1rem;
+    border-radius: var(--radius-sm); margin: .75rem 0; font-size: .83rem; line-height: 1.65; }
+.man-tip    { background: var(--success-dim); border-left: 3px solid var(--success); color: var(--text); }
+.man-warn   { background: var(--warning-dim); border-left: 3px solid var(--warning); color: var(--text); }
+.man-info   { background: var(--info-dim);    border-left: 3px solid var(--info);    color: var(--text); }
+.man-danger { background: var(--danger-dim);  border-left: 3px solid var(--danger);  color: var(--text); }
+.man-tip-icon { font-size: 1rem; flex-shrink: 0; margin-top: .1rem; }
+.man-steps { display: flex; flex-direction: column; gap: .75rem; margin: .75rem 0; }
+.man-step { display: grid; grid-template-columns: 28px 1fr; gap: .75rem; align-items: start; }
+.man-step-num { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent-dim); border: 1px solid rgba(124,108,255,.3);
+    color: var(--accent); font-size: .72rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; font-family: var(--mono); }
+.man-step-body { font-size: .85rem; color: var(--text-muted); line-height: 1.7; padding-top: .35rem; }
+.man-step-body strong { color: var(--text); }
+.man-table { width: 100%; border-collapse: collapse; font-size: .82rem; margin: .75rem 0; }
+.man-table th { text-align: left; padding: .5rem .75rem; font-size: .7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted);
+    background: var(--bg-surface); border: 1px solid var(--border); }
+.man-table td { padding: .45rem .75rem; border: 1px solid var(--border); color: var(--text-muted); vertical-align: top; }
+.man-table tr:hover td { background: var(--bg-hover); }
+.man-table td:first-child { font-family: var(--mono); font-size: .78rem; color: var(--accent); white-space: nowrap; }
+.man-pills { display: flex; gap: .4rem; flex-wrap: wrap; margin: .5rem 0; }
+.man-pill { font-size: .75rem; padding: .25rem .65rem; border-radius: 99px;
+    background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); }
+.man-pill-accent { background: var(--accent-dim); border-color: rgba(124,108,255,.3); color: var(--accent); }
+.man-pill-success { background: var(--success-dim); border-color: rgba(52,209,126,.3); color: var(--success); }
+.man-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: .75rem 0; }
+.man-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; }
+.man-card-title { font-size: .8rem; font-weight: 700; color: var(--text); margin-bottom: .5rem; }
+.man-card ul { list-style: none; padding: 0; margin: 0; }
+.man-card li { font-size: .8rem; color: var(--text-muted); padding: .2rem 0 .2rem .85rem; position: relative; }
+.man-card li::before { content: '→'; position: absolute; left: 0; color: var(--accent); font-size: .7rem; }
+.man-api { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin: .65rem 0; }
+.man-api-header { display: flex; align-items: center; gap: .65rem; padding: .5rem .85rem;
+    border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.man-method { font-family: var(--mono); font-size: .68rem; font-weight: 800;
+    padding: .15rem .45rem; border-radius: 3px; flex-shrink: 0; }
+.man-method-get  { background: rgba(52,209,126,.2);  color: var(--success); }
+.man-method-post { background: rgba(124,108,255,.2); color: var(--accent); }
+.man-api-path { font-family: var(--mono); font-size: .78rem; color: var(--text); }
+.man-api-desc { font-size: .75rem; color: var(--text-muted); margin-left: auto; }
+.man-api-body { padding: .65rem .85rem; font-size: .78rem; color: var(--text-muted); line-height: 1.65; }
+.man-new-badge { font-size: .6rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+    background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(124,108,255,.3);
+    border-radius: 99px; padding: .1rem .4rem; vertical-align: middle; margin-left: .35rem; }
+@media (max-width: 900px) {
+    .man-root { grid-template-columns: 1fr; }
+    .man-sidebar { position: static; height: auto; }
+    .man-body { padding: 1.25rem; }
+    .man-cols { grid-template-columns: 1fr; }
+    .man-cover-title { font-size: 1.75rem; }
+}
+</style>
+
+<div class="man-root">
+<nav class="man-sidebar">
+    <div style="padding:.5rem 1rem .85rem;border-bottom:1px solid var(--border);margin-bottom:.4rem">
+        <div style="font-size:.62rem;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.1em">StockEleK</div>
+        <div style="font-size:.9rem;font-weight:800;color:var(--text)">Manuel d'utilisation</div>
+    </div>
+    <div class="man-nav-section">Introduction</div>
+    <a class="man-nav-link" href="#intro"><span>👋</span>Présentation</a>
+    <a class="man-nav-link" href="#demarrage"><span>🚀</span>Démarrage rapide</a>
+    <a class="man-nav-link" href="#navigation"><span>🧭</span>Navigation</a>
+    <div class="man-nav-section">Gestion du stock</div>
+    <a class="man-nav-link" href="#composants"><span>🔩</span>Les composants</a>
+    <a class="man-nav-link" href="#ajout"><span>➕</span>Ajouter un composant</a>
+    <a class="man-nav-link" href="#enrichissement"><span>✨</span>Enrichissement auto</a>
+    <a class="man-nav-link" href="#stock"><span>📊</span>Page Stock</a>
+    <a class="man-nav-link" href="#categories"><span>🗂️</span>Catégories</a>
+    <a class="man-nav-link" href="#alertes"><span>🔔</span>Alertes de stock</a>
+    <a class="man-nav-link" href="#import-export"><span>📤</span>Import / Export</a>
+    <div class="man-nav-section">Projets</div>
+    <a class="man-nav-link" href="#projets"><span>📁</span>Gestion de projets</a>
+    <a class="man-nav-link" href="#bom"><span>📋</span>BOM</a>
+    <a class="man-nav-link" href="#notes"><span>📝</span>Notes & Markdown</a>
+    <a class="man-nav-link" href="#checklist"><span>✅</span>Checklist</a>
+    <a class="man-nav-link" href="#liens"><span>🔗</span>Liens</a>
+    <div class="man-nav-section">Hardware</div>
+    <a class="man-nav-link" href="#rangement"><span>📦</span>Rangement GridFinity</a>
+    <a class="man-nav-link" href="#leds"><span>💡</span>LEDs & Arduino</a>
+    <a class="man-nav-link" href="#afficheur"><span>🖥️</span>Afficheur HT16K33</a>
+    <a class="man-nav-link" href="#etiquettes"><span>🏷️</span>Étiquettes</a>
+    <div class="man-nav-section">Intégrations</div>
+    <a class="man-nav-link" href="#kicad"><span>⬡</span>KiCad</a>
+    <a class="man-nav-link" href="#api"><span>🔌</span>API REST ESP32</a>
+    <div class="man-nav-section">Paramètres</div>
+    <a class="man-nav-link" href="#settings"><span>⚙️</span>Paramètres</a>
+    <a class="man-nav-link" href="#tips"><span>💎</span>Tips & Astuces</a>
+</nav>
+
+<div class="man-body">
+
+<!-- Cover -->
+<div class="man-cover">
+    <div class="man-cover-label">Documentation complète</div>
+    <div class="man-cover-title">StockEleK</div>
+    <div class="man-cover-sub">Gestionnaire de stock électronique pour makers. Catalogue tes composants, suis tes projets, localise physiquement chaque pièce avec des LEDs, génère tes bibliothèques KiCad.</div>
+    <div class="man-cover-tags">
+        <span class="man-cover-tag">Flask + SQLite</span>
+        <span class="man-cover-tag">Dark theme</span>
+        <span class="man-cover-tag">ESP32-S3</span>
+        <span class="man-cover-tag">WS2812B</span>
+        <span class="man-cover-tag">HT16K33</span>
+        <span class="man-cover-tag">KiCad</span>
+        <span class="man-cover-tag">LCSC / Mouser / DigiKey</span>
+    </div>
+</div>
+
+<!-- 01 INTRO -->
+<div class="man-section" id="intro">
+    <div class="man-section-header">
+        <span class="man-section-icon">👋</span>
+        <div class="man-section-title">Présentation</div>
+        <span class="man-section-num">01</span>
+    </div>
+    <p><strong>StockEleK</strong> est une application web locale pour maker solo. Lance-la sur ton PC, accède-y depuis le navigateur, et gère l'intégralité de ton atelier électronique depuis un seul endroit.</p>
+    <div class="man-cols">
+        <div class="man-card">
+            <div class="man-card-title">Ce que tu peux faire</div>
+            <ul>
+                <li>Cataloguer tous tes composants électroniques</li>
+                <li>Suivre les quantités en stock en temps réel</li>
+                <li>Localiser physiquement chaque composant (tiroir + position)</li>
+                <li>Allumer des LEDs pour trouver un composant en 2 secondes</li>
+                <li>Gérer tes projets maker avec BOM, notes, checklist</li>
+                <li>Générer des bibliothèques KiCad automatiquement</li>
+                <li>Imprimer des étiquettes QR code pour tes tiroirs</li>
+            </ul>
+        </div>
+        <div class="man-card">
+            <div class="man-card-title">Architecture</div>
+            <ul>
+                <li>Backend : Python Flask + SQLite</li>
+                <li>Frontend : HTML/CSS/JS, dark theme natif</li>
+                <li>Données : <code>instance/stock.db</code> — un fichier</li>
+                <li>Images : <code>instance/images/</code></li>
+                <li>100% hors ligne — pas de cloud</li>
+                <li>Accessible depuis tout appareil du réseau local</li>
+            </ul>
+        </div>
+    </div>
+    <div class="man-tip"><span class="man-tip-icon">💡</span><div><strong>Sauvegarde :</strong> toutes tes données sont dans <code>instance/stock.db</code> et <code>instance/images/</code>. Copie ces deux dossiers régulièrement — c'est tout ce dont tu as besoin pour migrer ou restaurer StockEleK. Un bouton <strong>Télécharger la sauvegarde</strong> est disponible dans Paramètres → Backup.</div></div>
+</div>
+
+<!-- 02 DÉMARRAGE -->
+<div class="man-section" id="demarrage">
+    <div class="man-section-header">
+        <span class="man-section-icon">🚀</span>
+        <div class="man-section-title">Démarrage rapide</div>
+        <span class="man-section-num">02</span>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Lancer l'application</div>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body">Ouvre un terminal dans le dossier <code>StockElec/</code></div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body">Lance <code>python run.py</code> — le serveur démarre sur le port 5000</div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body">Ouvre <strong>http://127.0.0.1:5000</strong> dans ton navigateur</div></div>
+            <div class="man-step"><div class="man-step-num">4</div><div class="man-step-body">Accessible depuis tout appareil du réseau local via <strong>http://[ton-IP]:5000</strong></div></div>
+        </div>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Premier lancement — que faire en premier ?</div>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body"><strong>Paramètres → Application</strong> : nom de l'app, langue (FR/EN), seuil de stock minimum par défaut, URL de base (pour les QR codes)</div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body"><strong>Paramètres → Mouser / DigiKey</strong> : configure les clés API si tu veux enrichir les composants depuis ces sources (LCSC fonctionne sans clé)</div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body"><strong>Paramètres → ESP32</strong> : URL de l'ESP32, token d'auth, couleur et durée des LEDs — si tu as le hardware</div></div>
+            <div class="man-step"><div class="man-step-num">4</div><div class="man-step-body">Commence à ajouter tes composants via <strong>Ajouter</strong> ou importe un CSV depuis <code>/import</code></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- 03 NAVIGATION -->
+<div class="man-section" id="navigation">
+    <div class="man-section-header">
+        <span class="man-section-icon">🧭</span>
+        <div class="man-section-title">Navigation</div>
+        <span class="man-section-num">03</span>
+    </div>
+    <table class="man-table">
+        <tr><th>Lien navbar</th><th>URL</th><th>Description</th></tr>
+        <tr><td>Stock</td><td><code>/stock</code></td><td>Liste complète, filtres, recherche, ajustement rapide des quantités</td></tr>
+        <tr><td>Projets</td><td><code>/projects/</code></td><td>Vue Kanban des projets par statut, drag & drop</td></tr>
+        <tr><td>Historique</td><td><code>/history</code></td><td>Tous les mouvements de stock</td></tr>
+        <tr><td>Commandes</td><td><code>/reorder</code></td><td>Composants sous le seuil, export pour commander</td></tr>
+        <tr><td>Rangement</td><td><code>/rangement</code></td><td>Carte visuelle des emplacements physiques</td></tr>
+        <tr><td>⚙️</td><td><code>/settings</code></td><td>Tous les paramètres + accès au manuel et à la doc CSS</td></tr>
+        <tr><td>🌙/☀️</td><td>—</td><td>Basculer thème sombre / clair</td></tr>
+        <tr><td>+ Ajouter</td><td><code>/add</code></td><td>Toujours accessible — ajouter un composant rapidement</td></tr>
+    </table>
+    <div class="man-info"><span class="man-tip-icon">ℹ️</span><div>Le <strong>Manuel d'utilisation</strong> et la <strong>Documentation CSS</strong> sont accessibles via <strong>Paramètres → Ressources</strong> (bas de la sidebar).</div></div>
+</div>
+
+<!-- 04 COMPOSANTS -->
+<div class="man-section" id="composants">
+    <div class="man-section-header">
+        <span class="man-section-icon">🔩</span>
+        <div class="man-section-title">Les composants</div>
+        <span class="man-section-num">04</span>
+    </div>
+    <table class="man-table">
+        <tr><th>Champ</th><th>Description</th></tr>
+        <tr><td>Référence LCSC</td><td>Clé principale pour l'enrichissement auto (ex: <code>C49678</code>)</td></tr>
+        <tr><td>Référence fabricant</td><td>Référence constructeur (ex: <code>GCM155R71H104KE02D</code>)</td></tr>
+        <tr><td>Référence Mouser / DigiKey</td><td>Références alternatives pour d'autres fournisseurs</td></tr>
+        <tr><td>Quantité</td><td>Stock actuel</td></tr>
+        <tr><td>Stock minimum</td><td>Seuil d'alerte — déclenche une notification si en dessous</td></tr>
+        <tr><td>Catégorie</td><td>Hiérarchie LCSC (ex: <code>Resistors / Chip Resistors - SMD</code>)</td></tr>
+        <tr><td>Emplacement</td><td>Case physique format <code>A01</code> — lettre = tiroir, chiffre = position</td></tr>
+        <tr><td>Package</td><td>Format physique (0402, 0805, SOT-23…)</td></tr>
+        <tr><td>Prix unitaire</td><td>En euros, récupéré automatiquement via LCSC</td></tr>
+        <tr><td>Datasheet</td><td>Lien PDF récupéré automatiquement</td></tr>
+        <tr><td>Notes</td><td>Notes libres, remarques, variantes connues</td></tr>
+    </table>
+    <div class="man-info"><span class="man-tip-icon">ℹ️</span><div>L'<strong>emplacement</strong> est crucial pour les LEDs. Format : lettre majuscule (A-Z) + nombre sur 2 chiffres. Utilise <code>A01</code> plutôt que <code>A1</code> pour un tri correct.</div></div>
+</div>
+
+<!-- 05 AJOUT -->
+<div class="man-section" id="ajout">
+    <div class="man-section-header">
+        <span class="man-section-icon">➕</span>
+        <div class="man-section-title">Ajouter un composant</div>
+        <span class="man-section-num">05</span>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Méthode 1 — Par référence LCSC (recommandée)</div>
+        <p>Saisis la référence LCSC (ex: <code>C49678</code>) et StockEleK récupère automatiquement description, catégorie, package, prix, image et datasheet.</p>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body">Clique sur <strong>+ Ajouter</strong></div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body">Saisis la référence LCSC — un aperçu apparaît instantanément</div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body">Renseigne la <strong>quantité</strong> et l'<strong>emplacement</strong> physique (ex: <code>B03</code>)</div></div>
+            <div class="man-step"><div class="man-step-num">4</div><div class="man-step-body">Valide — le composant est créé avec toutes ses infos enrichies</div></div>
+        </div>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Méthode 2 — Manuel</div>
+        <p>Pour les composants sans référence LCSC (pièces maison, mécaniques…). Remplis les champs manuellement, ajoute une photo si besoin.</p>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Méthode 3 — Import CSV</div>
+        <p>Via <code>/import</code>. StockEleK propose un mapping interactif des colonnes et détecte les doublons (mise à jour plutôt que doublon si même référence LCSC).</p>
+    </div>
+    <div class="man-tip"><span class="man-tip-icon">💡</span><div>Si tu commandes sur LCSC, exporte ton panier en CSV et importe-le directement — les colonnes LCSC standard sont reconnues automatiquement.</div></div>
+</div>
+
+<!-- 06 ENRICHISSEMENT -->
+<div class="man-section" id="enrichissement">
+    <div class="man-section-header">
+        <span class="man-section-icon">✨</span>
+        <div class="man-section-title">Enrichissement automatique</div>
+        <span class="man-section-num">06</span>
+    </div>
+    <div class="man-cols">
+        <div class="man-card">
+            <div class="man-card-title">🟣 LCSC (recommandé)</div>
+            <ul>
+                <li>Gratuit, sans clé API</li>
+                <li>Description, catégorie, package, prix</li>
+                <li>Image du composant</li>
+                <li>Datasheet PDF</li>
+                <li>Symbole & footprint PNG (aperçu visuel)</li>
+            </ul>
+        </div>
+        <div class="man-card">
+            <div class="man-card-title">🔵 Mouser / DigiKey</div>
+            <ul>
+                <li>Nécessite une clé API (gratuite)</li>
+                <li>À configurer dans Paramètres</li>
+                <li>Description, prix, stock fournisseur</li>
+                <li>Image et datasheet</li>
+            </ul>
+        </div>
+    </div>
+    <p><strong>Enrichissement individuel :</strong> sur la fiche composant, bouton <strong>✨ Enrichir</strong>. Se fait en arrière-plan.</p>
+    <p><strong>Enrichissement en masse :</strong> dans <strong>Paramètres → LCSC & EasyEDA</strong>, bouton <strong>Enrichir tous</strong> — traite tous les composants sans image ou catégorie. Idéal après un import CSV massif.</p>
+    <div class="man-warn"><span class="man-tip-icon">⚠️</span><div>L'enrichissement en masse fait des requêtes réseau. Attends qu'un batch soit terminé avant d'en relancer un.</div></div>
+</div>
+
+<!-- 07 PAGE STOCK -->
+<div class="man-section" id="stock">
+    <div class="man-section-header">
+        <span class="man-section-icon">📊</span>
+        <div class="man-section-title">Page Stock</div>
+        <span class="man-section-num">07</span>
+    </div>
+    <p>La page <code>/stock</code> liste tous tes composants avec filtres, recherche et actions rapides.</p>
+    <table class="man-table">
+        <tr><th>Action</th><th>Comment</th></tr>
+        <tr><td>Cliquer sur la quantité</td><td>Édition inline directe sans recharger la page</td></tr>
+        <tr><td>Boutons + / −</td><td>Ajustement rapide ±1 avec log automatique dans l'historique</td></tr>
+        <tr><td>💡 (LED)</td><td>Allume la LED de l'emplacement — localise en 2 secondes. <span class="man-new-badge">nouveau</span> La couleur dépend de la catégorie du composant</td></tr>
+        <tr><td>Cliquer sur le nom</td><td>Ouvre la fiche complète</td></tr>
+        <tr><td>Cases à cocher</td><td>Sélection multiple pour actions groupées</td></tr>
+    </table>
+    <div class="man-tip"><span class="man-tip-icon">💡</span><div>La recherche filtre sur la description, référence LCSC, référence fabricant et emplacement. Tape <code>0805</code> pour tous les composants en 0805, <code>B0</code> pour tous ceux dans la rangée B.</div></div>
+</div>
+
+<!-- 08 CATÉGORIES -->
+<div class="man-section" id="categories">
+    <div class="man-section-header">
+        <span class="man-section-icon">🗂️</span>
+        <div class="man-section-title">Catégories</div>
+        <span class="man-section-num">08</span>
+    </div>
+    <p>Les catégories sont renseignées automatiquement via l'enrichissement LCSC (format <code>Famille / Sous-famille</code>). La page <code>/categories</code> liste toutes les catégories avec le nombre de composants, et permet de renommer ou fusionner.</p>
+</div>
+
+<!-- 09 ALERTES -->
+<div class="man-section" id="alertes">
+    <div class="man-section-header">
+        <span class="man-section-icon">🔔</span>
+        <div class="man-section-title">Alertes de stock</div>
+        <span class="man-section-num">09</span>
+    </div>
+    <p>La page <code>/alerts</code> (icône 🔔 dans la navbar) liste tous les composants dont la quantité est inférieure ou égale au stock minimum. Ce seuil se configure par composant ou globalement dans les paramètres.</p>
+    <p>La page <code>/reorder</code> est une version avancée : références fournisseurs, prix et liens directs LCSC/Mouser/DigiKey, export CSV pour commander.</p>
+</div>
+
+<!-- 10 IMPORT/EXPORT -->
+<div class="man-section" id="import-export">
+    <div class="man-section-header">
+        <span class="man-section-icon">📤</span>
+        <div class="man-section-title">Import / Export</div>
+        <span class="man-section-num">10</span>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Import CSV (<code>/import</code>)</div>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body">Dépose ton fichier CSV (drag & drop ou sélection)</div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body">Mapping interactif des colonnes — détection automatique du format LCSC</div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body">Les doublons (même référence LCSC) sont mis à jour, pas créés en double</div></div>
+        </div>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Export CSV (<code>/export/csv</code>)</div>
+        <p>Exporte tout ton stock — toutes colonnes, compatible LibreOffice Calc et Excel.</p>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Sauvegarde complète <span class="man-new-badge">nouveau</span></div>
+        <p>Dans <strong>Paramètres → Backup & Export</strong>, un panneau affiche les tailles de <code>stock.db</code>, <code>images/</code> et <code>project-images/</code> avant de cliquer. Le bouton génère un ZIP horodaté contenant tout.</p>
+    </div>
+</div>
+
+<!-- 11 PROJETS -->
+<div class="man-section" id="projets">
+    <div class="man-section-header">
+        <span class="man-section-icon">📁</span>
+        <div class="man-section-title">Gestion de projets</div>
+        <span class="man-section-num">11</span>
+    </div>
+    <p>La page projets (<code>/projects/</code>) est une vue Kanban avec 8 colonnes correspondant au cycle de vie :</p>
+    <div class="man-pills">
+        <span class="man-pill">💡 Idée</span>
+        <span class="man-pill">✏️ Conception</span>
+        <span class="man-pill">🛒 Commandé</span>
+        <span class="man-pill">🏭 En production</span>
+        <span class="man-pill">🔧 Assemblage</span>
+        <span class="man-pill">🔬 Debug</span>
+        <span class="man-pill">✅ Terminé</span>
+        <span class="man-pill">📦 Archivé</span>
+    </div>
+    <div class="man-sub" style="margin-top:1rem">
+        <div class="man-sub-title">Changer le statut <span class="man-new-badge">nouveau</span></div>
+        <p>Deux méthodes : <strong>drag & drop</strong> de la carte sur la vue Kanban, ou cliquer directement sur le <strong>badge de statut dans le hero</strong> de la fiche projet — un picker dropdown apparaît avec les 8 options, sauvegarde AJAX instantanée.</p>
+    </div>
+    <div class="man-tip"><span class="man-tip-icon">💡</span><div>Le dernier onglet ouvert dans une fiche projet est mémorisé par projet dans le navigateur. Tu retrouves automatiquement l'onglet où tu travaillais.</div></div>
+</div>
+
+<!-- 12 BOM -->
+<div class="man-section" id="bom">
+    <div class="man-section-header">
+        <span class="man-section-icon">📋</span>
+        <div class="man-section-title">BOM (Bill of Materials)</div>
+        <span class="man-section-num">12</span>
+    </div>
+    <p>L'onglet <strong>BOM</strong> de la fiche projet liste les composants nécessaires avec les quantités disponibles en stock.</p>
+    <div class="man-sub">
+        <div class="man-sub-title">Importer une BOM depuis KiCad</div>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body">Dans KiCad : Outils → Générer la nomenclature → export CSV</div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body">Dans la fiche projet → <strong>Importer BOM</strong></div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body">Mapping automatique des colonnes</div></div>
+            <div class="man-step"><div class="man-step-num">4</div><div class="man-step-body">Composants manquants identifiés — créables en un clic</div></div>
+        </div>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Préparer un kit</div>
+        <p>Le bouton <strong>Préparer le kit</strong> débite automatiquement tous les composants de la BOM depuis le stock. Chaque mouvement est tracé dans l'historique. Un rapport de disponibilité est affiché avant confirmation.</p>
+    </div>
+</div>
+
+<!-- 13 NOTES -->
+<div class="man-section" id="notes">
+    <div class="man-section-header">
+        <span class="man-section-icon">📝</span>
+        <div class="man-section-title">Notes & Markdown</div>
+        <span class="man-section-num">13</span>
+    </div>
+    <p>Éditeur Markdown libre par projet. Sauvegarde auto 1,2 secondes après chaque frappe, aperçu temps réel.</p>
+    <div class="man-sub">
+        <div class="man-sub-title">Syntaxe supportée</div>
+        <table class="man-table">
+            <tr><th>Syntaxe</th><th>Rendu</th></tr>
+            <tr><td># H1 / ## H2 / ### H3 / #### H4</td><td>Titres de niveaux</td></tr>
+            <tr><td>**gras** / *italique* / ***bold-italic***</td><td>Mise en forme inline</td></tr>
+            <tr><td>~~barré~~ / ++souligné++ / ==surligné==</td><td>Décorations</td></tr>
+            <tr><td>`code` / ``` bloc ```</td><td>Code mono / bloc coloré</td></tr>
+            <tr><td>- item / 1. item / - [ ] check</td><td>Listes, checkboxes</td></tr>
+            <tr><td>&gt; citation</td><td>Blockquote violet</td></tr>
+            <tr><td>---</td><td>Séparateur horizontal</td></tr>
+            <tr><td>| col | col |</td><td>Tableau</td></tr>
+            <tr><td>[texte](url) / ![alt](url)</td><td>Liens / images</td></tr>
+            <tr><td>^exposant^</td><td>Exposant</td></tr>
+            <tr><td>{% raw %}{red}texte{/red}{% endraw %}</td><td>Couleur custom (red/orange/yellow/green/blue/purple/pink/gray/white)</td></tr>
+        </table>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Insérer des images</div>
+        <div class="man-pills">
+            <span class="man-pill">📎 Bouton image dans la toolbar</span>
+            <span class="man-pill">🖱️ Drag & drop sur l'éditeur</span>
+            <span class="man-pill">📋 Ctrl+V (coller une capture)</span>
+        </div>
+    </div>
+    <div class="man-warn"><span class="man-tip-icon">⚠️</span><div>Les notes se sauvegardent automatiquement 1,2s après chaque frappe. Attends le message <strong>"✓ Sauvegardé"</strong> dans la toolbar avant de fermer l'onglet.</div></div>
+    <div class="man-tip"><span class="man-tip-icon">💡</span><div>Utilise les notes comme <strong>journal de debug</strong> : date, symptôme, cause, solution. Les couleurs <code>{% raw %}{red}{% endraw %}</code> pour les erreurs et <code>{% raw %}{green}{% endraw %}</code> pour les résolutions donnent un log lisible en un coup d'œil.</div></div>
+</div>
+
+<!-- 14 CHECKLIST -->
+<div class="man-section" id="checklist">
+    <div class="man-section-header">
+        <span class="man-section-icon">✅</span>
+        <div class="man-section-title">Checklist</div>
+        <span class="man-section-num">14</span>
+    </div>
+    <p>Liste d'étapes à cocher, barre de progression dynamique, sauvegarde AJAX instantanée.</p>
+    <table class="man-table">
+        <tr><th>Template</th><th>Étapes incluses</th></tr>
+        <tr><td>🔌 PCB</td><td>Schéma KiCad, routage, DRC, Gerbers, commande JLCPCB, réception, assemblage, soudure, tests, firmware</td></tr>
+        <tr><td>💻 Code</td><td>Architecture, environnement dev, code de base, tests, documentation, version taggée</td></tr>
+        <tr><td>🖨️ 3D</td><td>Modélisation CAO, vérification cotes, export STL, impression test, ajustements, impression finale, post-traitement</td></tr>
+    </table>
+</div>
+
+<!-- 15 LIENS -->
+<div class="man-section" id="liens">
+    <div class="man-section-header">
+        <span class="man-section-icon">🔗</span>
+        <div class="man-section-title">Liens & Ressources</div>
+        <span class="man-section-num">15</span>
+    </div>
+    <p>L'onglet <strong>Liens</strong> centralise les ressources externes d'un projet. Chaque lien reçoit automatiquement une icône selon son domaine (GitHub, KiCad, Thingiverse, JLCPCB, LCSC, etc.).</p>
+</div>
+
+<!-- 16 RANGEMENT -->
+<div class="man-section" id="rangement">
+    <div class="man-section-header">
+        <span class="man-section-icon">📦</span>
+        <div class="man-section-title">Rangement GridFinity</div>
+        <span class="man-section-num">16</span>
+    </div>
+    <p>La page <code>/rangement</code> est une représentation visuelle de tes tiroirs physiques. Chaque tiroir (lettre A-Z) est un onglet, chaque case affiche le composant qui y est rangé.</p>
+    <p><strong>Déplacer</strong> : drag & drop une case vers un autre emplacement — sauvegarde automatique. <strong>Allumer la LED</strong> : clic droit → "Allumer LED".</p>
+</div>
+
+<!-- 17 LEDs -->
+<div class="man-section" id="leds">
+    <div class="man-section-header">
+        <span class="man-section-icon">💡</span>
+        <div class="man-section-title">LEDs & Arduino</div>
+        <span class="man-section-num">17</span>
+    </div>
+    <p>L'ESP32-S3 pilote des rubans WS2812B et expose une API REST. StockEleK y envoie les commandes d'allumage depuis le navigateur.</p>
+    <div class="man-sub">
+        <div class="man-sub-title">Architecture hardware</div>
+        <table class="man-table">
+            <tr><th>Composant</th><th>Rôle</th></tr>
+            <tr><td>ESP32-S3 Wroom-1</td><td>Cerveau — WiFi, API REST, gestion LEDs</td></tr>
+            <tr><td>Ruban 1 (GPIO 5)</td><td>LEDs de position — une par case de tiroir (jusqu'à 500)</td></tr>
+            <tr><td>Ruban 2 (GPIO 18)</td><td>LEDs de tiroir — une par lettre A-Z (26 LEDs)</td></tr>
+            <tr><td>HT16K33 (I2C)</td><td>Afficheur 14 segments — affiche la case (ex: "A 16")</td></tr>
+        </table>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Couleurs LED par catégorie <span class="man-new-badge">nouveau</span></div>
+        <p>Les LEDs s'allument dans une <strong>couleur automatique selon la catégorie</strong> du composant — orange pour les résistances, bleu pour les condensateurs, vert pour les transistors, etc. Les couleurs sont entièrement personnalisables dans <strong>Paramètres → ESP32 → Couleurs LED par catégorie</strong> avec des color pickers.</p>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Paramètres firmware (<code>gridfinity_leds_Arduino.ino</code>)</div>
+        <table class="man-table">
+            <tr><th>Constante</th><th>Valeur</th><th>Description</th></tr>
+            <tr><td>SSID / PASSWORD</td><td>—</td><td>Identifiants WiFi</td></tr>
+            <tr><td>AUTH_TOKEN</td><td><code>stockelek-secret</code></td><td>Doit correspondre au token dans Paramètres</td></tr>
+            <tr><td>LED_PIN</td><td>5</td><td>GPIO ruban emplacements</td></tr>
+            <tr><td>NUM_LEDS</td><td>500</td><td>Nombre max de LEDs — ajuste à ta config réelle</td></tr>
+            <tr><td>DRAWER_PIN</td><td>18</td><td>GPIO ruban tiroirs</td></tr>
+            <tr><td>NUM_DRAWERS</td><td>26</td><td>Nombre de tiroirs</td></tr>
+            <tr><td>BRIGHTNESS</td><td>255</td><td>Luminosité 0-255</td></tr>
+            <tr><td>DEFAULT_SEC</td><td>5</td><td>Durée d'allumage par défaut</td></tr>
+            <tr><td>DISPLAY_SDA</td><td>8</td><td>GPIO I2C SDA (ESP32-S3)</td></tr>
+            <tr><td>DISPLAY_SCL</td><td>9</td><td>GPIO I2C SCL (ESP32-S3)</td></tr>
+            <tr><td>DISPLAY_SLEEP_SEC</td><td>33</td><td>Secondes avant veille de l'afficheur</td></tr>
+        </table>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Bibliothèques Arduino requises</div>
+        <div class="man-pills">
+            <span class="man-pill-accent">FastLED</span>
+            <span class="man-pill-accent">ArduinoJson</span>
+            <span class="man-pill-accent">WebSockets (Markus Sattler)</span>
+            <span class="man-pill-accent">Adafruit LED Backpack Library</span>
+            <span class="man-pill-accent">Adafruit GFX Library</span>
+        </div>
+    </div>
+    <div class="man-warn"><span class="man-tip-icon">⚠️</span><div><strong>Alimentation :</strong> les WS2812B consomment jusqu'à 60mA par LED à pleine luminosité blanche. Prévois une alimentation 5V dédiée pour les rubans — ne passe jamais par le 5V de l'ESP32.</div></div>
+</div>
+
+<!-- 18 AFFICHEUR -->
+<div class="man-section" id="afficheur">
+    <div class="man-section-header">
+        <span class="man-section-icon">🖥️</span>
+        <div class="man-section-title">Afficheur HT16K33</div>
+        <span class="man-section-num">18</span>
+    </div>
+    <p>Afficheur 14 segments optionnel — si non branché, le firmware continue normalement.</p>
+    <div class="man-cols">
+        <div class="man-card">
+            <div class="man-card-title">Câblage (ESP32-S3 Wroom-1)</div>
+            <ul>
+                <li>SDA → GPIO 8</li>
+                <li>SCL → GPIO 9</li>
+                <li>VCC → 3.3V</li>
+                <li>GND → GND</li>
+                <li>Adresse I2C : 0x70 (A0-A2 = GND)</li>
+            </ul>
+        </div>
+        <div class="man-card">
+            <div class="man-card-title">Comportement</div>
+            <ul>
+                <li>Composant trouvé → <code>A 16</code></li>
+                <li>Test (/test) → <code>TEST</code></li>
+                <li>Inactif 33s → <code>--</code> clignotants</li>
+                <li>Démarrage → <code>----</code> 800ms puis éteint</li>
+                <li>Absent → simulation Serial Monitor</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- 19 ÉTIQUETTES -->
+<div class="man-section" id="etiquettes">
+    <div class="man-section-header">
+        <span class="man-section-icon">🏷️</span>
+        <div class="man-section-title">Étiquettes imprimables</div>
+        <span class="man-section-num">19</span>
+    </div>
+    <p>La page <code>/labels</code> génère des étiquettes avec QR code pointant vers la fiche du composant. Configure les dimensions, police et informations affichées dans <strong>Paramètres → Étiquettes</strong> avec aperçu live.</p>
+    <div class="man-tip"><span class="man-tip-icon">💡</span><div>Configure l'<strong>URL de base</strong> dans les paramètres généraux (<code>http://192.168.x.x:5000</code>) — c'est cette URL qui sera encodée dans les QR codes pour un accès depuis smartphone.</div></div>
+</div>
+
+<!-- 20 KICAD -->
+<div class="man-section" id="kicad">
+    <div class="man-section-header">
+        <span class="man-section-icon">⬡</span>
+        <div class="man-section-title">Intégration KiCad</div>
+        <span class="man-section-num">20</span>
+    </div>
+    <p>StockEleK génère des fichiers KiCad (<code>.kicad_sym</code>, <code>.kicad_mod</code>, <code>.step</code>) pour tous tes composants LCSC via <strong>JLC2KiCadLib</strong>. Les fichiers sont organisés par catégorie dans <code>instance/kicad/</code>.</p>
+
+    <div class="man-sub">
+        <div class="man-sub-title">Prérequis</div>
+        <p>JLC2KiCadLib doit être installé sur ta machine :</p>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body"><code>pip install JLC2KiCadLib</code> dans ton environnement Python</div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body">Vérifie que la commande <code>JLC2KiCadLib</code> est accessible dans le PATH</div></div>
+        </div>
+    </div>
+
+    <div class="man-sub">
+        <div class="man-sub-title">Structure générée</div>
+        <p>Les fichiers sont organisés dans <code>instance/kicad/</code> selon la catégorie JLCPCB :</p>
+        <table class="man-table">
+            <tr><th>Dossier</th><th>Contenu</th></tr>
+            <tr><td><code>Resistors/</code></td><td>Tous les fichiers des résistances</td></tr>
+            <tr><td><code>Resistors/0805W8F_C149504/</code></td><td>Dossier par composant : <code>PartNumber_LCSC</code></td></tr>
+            <tr><td><code>Resistors/0805W8F_C149504/*.kicad_sym</code></td><td>Symbole KiCad individuel</td></tr>
+            <tr><td><code>Resistors/0805W8F_C149504/*.kicad_mod</code></td><td>Footprint KiCad</td></tr>
+            <tr><td><code>Resistors/0805W8F_C149504/*.step</code></td><td>Modèle 3D</td></tr>
+            <tr><td><code>Resistors/Resistors.kicad_sym</code></td><td>Librairie fusionnée (après fusion)</td></tr>
+        </table>
+    </div>
+
+    <div class="man-sub">
+        <div class="man-sub-title">Générer les fichiers</div>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body"><strong>Paramètres → KiCad Library</strong></div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body">Choisis le <strong>délai entre requêtes</strong> — 2s recommandé pour éviter le rate limit</div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body">Clique <strong>⚙️ Générer / Mettre à jour</strong> — le job tourne en arrière-plan avec une barre de progression</div></div>
+            <div class="man-step"><div class="man-step-num">4</div><div class="man-step-body">Les composants déjà générés sont ignorés — tu peux relancer sans risque</div></div>
+        </div>
+        <div class="man-info"><span class="man-tip-icon">ℹ️</span><div>Seuls les composants avec une référence LCSC valide sont traités. Les composants sans données KiCad disponibles sont skippés silencieusement.</div></div>
+    </div>
+
+    <div class="man-sub">
+        <div class="man-sub-title">Fusionner les symboles par catégorie</div>
+        <p>Une fois la génération terminée, clique <strong>📚 Fusionner les symboles</strong> pour créer un fichier <code>.kicad_sym</code> par catégorie regroupant tous les symboles. Exemple : <code>Resistors/Resistors.kicad_sym</code> contient tous les symboles de résistances.</p>
+        <div class="man-tip"><span class="man-tip-icon">💡</span><div>C'est la façon native de KiCad — tu importes une seule librairie par catégorie plutôt qu'un fichier par composant.</div></div>
+    </div>
+
+    <div class="man-sub">
+        <div class="man-sub-title">Importer dans KiCad</div>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body">Clique <strong>📥 Télécharger le ZIP</strong> — décompresse dans un dossier permanent sur ta machine</div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body"><strong>Symboles</strong> — KiCad → Préférences → Gérer les bibliothèques de symboles → ajoute chaque <code>Catégorie/Catégorie.kicad_sym</code></div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body"><strong>Footprints</strong> — KiCad → Préférences → Gérer les bibliothèques d'empreintes → ajoute les dossiers contenant les <code>.kicad_mod</code></div></div>
+            <div class="man-step"><div class="man-step-num">4</div><div class="man-step-body"><strong>Modèles 3D</strong> — les fichiers <code>.step</code> sont dans les mêmes dossiers que les footprints</div></div>
+        </div>
+    </div>
+
+    <div class="man-sub">
+        <div class="man-sub-title">Badges de statut sur la fiche composant</div>
+        <p>Chaque fiche composant affiche des badges indiquant si les fichiers KiCad ont été générés :</p>
+        <div class="man-pills">
+            <span class="man-pill-success">● sym</span>
+            <span class="man-pill-success">● fp</span>
+            <span class="man-pill-success">● 3D</span>
+        </div>
+        <p style="margin-top:.5rem">Vert = généré, gris = non généré. Les badges n'apparaissent que pour les composants avec une référence LCSC.</p>
+    </div>
+</div>
+
+<!-- 21 API REST -->
+<div class="man-section" id="api">
+    <div class="man-section-header">
+        <span class="man-section-icon">🔌</span>
+        <div class="man-section-title">API REST de l'ESP32</div>
+        <span class="man-section-num">21</span>
+    </div>
+    <p>Le firmware ESP32 expose une API REST sur le port 80. Toutes les routes sauf <code>/ping</code> nécessitent le header <code>X-Token: [token]</code>.</p>
+    <div class="man-api">
+        <div class="man-api-header"><span class="man-method man-method-post">POST</span><span class="man-api-path">/leds</span><span class="man-api-desc">Allumer des LEDs</span></div>
+        <div class="man-api-body">Body JSON : <code>{"leds": [0,1,2], "drawer": 0, "cell": "A01", "color": "#00CC44", "duration": 5}</code></div>
+    </div>
+    <div class="man-api">
+        <div class="man-api-header"><span class="man-method man-method-post">POST</span><span class="man-api-path">/off</span><span class="man-api-desc">Tout éteindre</span></div>
+        <div class="man-api-body">Pas de body. Éteint rubans 1 et 2, afficheur, vide la file d'attente.</div>
+    </div>
+    <div class="man-api">
+        <div class="man-api-header"><span class="man-method man-method-get">GET</span><span class="man-api-path">/status</span><span class="man-api-desc">État complet</span></div>
+        <div class="man-api-body">Retourne : <code>active</code>, <code>leds_on</code>, <code>cell</code>, <code>remaining_sec</code>, <code>display_ready</code>, <code>display_sleeping</code>, <code>uptime_sec</code></div>
+    </div>
+    <div class="man-api">
+        <div class="man-api-header"><span class="man-method man-method-get">GET</span><span class="man-api-path">/ping</span><span class="man-api-desc">Vérification (sans token)</span></div>
+        <div class="man-api-body">Retourne : <code>ok</code>, <code>leds</code>, <code>drawers</code>, <code>display</code>, <code>rssi</code>, <code>uptime</code></div>
+    </div>
+    <div class="man-api">
+        <div class="man-api-header"><span class="man-method man-method-post">POST</span><span class="man-api-path">/test</span><span class="man-api-desc">Chenillard de test</span></div>
+        <div class="man-api-body">Body optionnel : <code>{"offset": 0, "count": 500, "delay_ms": 80, "color": "green"}</code></div>
+    </div>
+</div>
+
+<!-- 22 PARAMÈTRES -->
+<div class="man-section" id="settings">
+    <div class="man-section-header">
+        <span class="man-section-icon">⚙️</span>
+        <div class="man-section-title">Paramètres</div>
+        <span class="man-section-num">22</span>
+    </div>
+    <table class="man-table">
+        <tr><th>Section</th><th>Contenu</th></tr>
+        <tr><td>Application</td><td>Nom de l'app, URL de base (QR codes), seuil stock min, langue FR/EN</td></tr>
+        <tr><td>Backup & Export</td><td>Sauvegarde ZIP horodatée + export CSV stock</td></tr>
+        <tr><td>LCSC & EasyEDA</td><td>Enrichissement en masse, aperçu symbole/footprint PNG dans les fiches</td></tr>
+        <tr><td>Mouser</td><td>Clé API Mouser (gratuite sur mouser.com)</td></tr>
+        <tr><td>DigiKey</td><td>Client ID + Client Secret (compte développeur DigiKey)</td></tr>
+        <tr><td>ESP32</td><td>URL, token, couleur LED, durée, offsets par tiroir, éditeur couleurs par catégorie</td></tr>
+        <tr><td>Statistiques</td><td>Vue d'ensemble du stock (valeur totale, comptages)</td></tr>
+        <tr><td>Maintenance</td><td>Vider l'historique, nettoyer les fichiers orphelins</td></tr>
+        <tr><td>Full Reset</td><td>Réinitialisation complète de la base de données</td></tr>
+        <tr><td>KiCad Library</td><td>Génération via JLC2KiCadLib, fusion des symboles par catégorie, téléchargement ZIP</td></tr>
+        <tr><td>Étiquettes</td><td>Dimensions, police, QR code, informations affichées</td></tr>
+        <tr><td>Ressources</td><td>Liens vers ce manuel et la documentation CSS</td></tr>
+    </table>
+    <div class="man-danger"><span class="man-tip-icon">🚨</span><div><strong>Full Reset</strong> supprime définitivement tous les composants, projets et historique. Pas de confirmation supplémentaire. Sauvegarde <code>instance/stock.db</code> avant toute opération de maintenance.</div></div>
+</div>
+
+<!-- 23 TIPS -->
+<div class="man-section" id="tips">
+    <div class="man-section-header">
+        <span class="man-section-icon">💎</span>
+        <div class="man-section-title">Tips & Astuces</div>
+        <span class="man-section-num">23</span>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Workflow recommandé à la réception d'une commande LCSC</div>
+        <div class="man-steps">
+            <div class="man-step"><div class="man-step-num">1</div><div class="man-step-body">Exporte l'historique de commande LCSC en CSV</div></div>
+            <div class="man-step"><div class="man-step-num">2</div><div class="man-step-body">Importe dans StockEleK — composants existants mis à jour, nouveaux créés</div></div>
+            <div class="man-step"><div class="man-step-num">3</div><div class="man-step-body">Lance "Enrichir tous" pour récupérer images et catégories manquantes</div></div>
+            <div class="man-step"><div class="man-step-num">4</div><div class="man-step-body">Renseigne les emplacements physiques au fur et à mesure que tu ranges</div></div>
+            <div class="man-step"><div class="man-step-num">5</div><div class="man-step-body">Imprime les étiquettes QR code et colle-les sur les tiroirs</div></div>
+        </div>
+    </div>
+    <div class="man-sub">
+        <div class="man-sub-title">Tricks utiles</div>
+        <table class="man-table">
+            <tr><th>Astuce</th><th>Comment</th></tr>
+            <tr><td>Trouver un composant en 2s</td><td>Recherche sur /stock → icône 💡 → LED s'allume + afficheur montre la case</td></tr>
+            <tr><td>Couleur LED par catégorie</td><td>Automatique — personnalisable dans Paramètres → ESP32 → Couleurs LED</td></tr>
+            <tr><td>Accès depuis smartphone</td><td>Utilise <code>http://192.168.x.x:5000</code> sur le même WiFi</td></tr>
+            <tr><td>Sauvegarde rapide</td><td>Paramètres → Backup → Télécharger la sauvegarde (ZIP horodaté)</td></tr>
+            <tr><td>Changer statut projet</td><td>Clic sur le badge de statut dans le hero → picker dropdown</td></tr>
+            <tr><td>Débugger le firmware</td><td>Serial Monitor Arduino à 115200 bauds — events loggés avec <code>[DBG]</code>, <code>[DISP]</code>, <code>[WiFi]</code></td></tr>
+            <tr><td>File d'attente LED</td><td>Si une LED est allumée, la commande suivante est mise en file (max 4)</td></tr>
+            <tr><td>OTA firmware sans câble</td><td>Dans l'IDE Arduino, sélectionne le port réseau <code>stockelek-leds</code>, mot de passe : <code>stockelek-ota</code></td></tr>
+            <tr><td>Thème clair/sombre</td><td>Mémorisé par appareil (localStorage) — bouton 🌙/☀️ dans la navbar</td></tr>
+            <tr><td>Trouver une classe CSS</td><td>Paramètres → Ressources → Documentation CSS — recherche live par nom de classe</td></tr>
+        </table>
+    </div>
+    <div class="man-info"><span class="man-tip-icon">ℹ️</span><div><strong>Images dans les notes :</strong> tu peux coller directement une capture d'écran (<kbd>Ctrl+V</kbd>) dans l'éditeur de notes — elle est uploadée automatiquement et insérée en Markdown.</div></div>
+    <div class="man-tip"><span class="man-tip-icon">💡</span><div><strong>Documentation CSS :</strong> si tu veux personnaliser l'interface ou ajouter des pages, <code>/docs</code> liste tous les composants visuels disponibles avec leur syntaxe et des exemples de rendu.</div></div>
+</div>
+
+</div><!-- /man-body -->
+</div><!-- /man-root -->
+
+<script>
+const sections = document.querySelectorAll('.man-section[id]');
+const navLinks  = document.querySelectorAll('.man-nav-link[href^="#"]');
+const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+        if (e.isIntersecting) {
+            navLinks.forEach(l => l.classList.remove('active'));
+            const a = document.querySelector('.man-nav-link[href="#' + e.target.id + '"]');
+            if (a) { a.classList.add('active'); a.scrollIntoView({block:'nearest'}); }
+        }
+    });
+}, { threshold: 0.15 });
+sections.forEach(s => io.observe(s));
+</script>
+{% endblock %}

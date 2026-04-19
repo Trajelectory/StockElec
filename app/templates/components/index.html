@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}{{ t.stock.title }} — StockElec{% endblock %}
+
+{% block content %}
+{%- macro sort_url(col) -%}
+{%- set new_order = 'asc' if (sort_by == col and order == 'desc') else ('desc' if sort_by == col else 'asc') -%}
+{{ url_for('components.stock', search=search, category=selected_category, sort_by=col, order=new_order, per_page=per_page, page=1, low_stock='1' if low_only else '') }}
+{%- endmacro -%}
+
+{%- macro sort_icon(col) -%}
+{% if sort_by == col %}<span class="sk-sort-icon">{{ '↑' if order == 'asc' else '↓' }}</span>{% endif %}
+{%- endmacro -%}
+
+<!-- ══ LAYOUT PRINCIPAL ══════════════════════════════════════════ -->
+<div class="sk-layout">
+
+    <!-- ── Sidebar gauche ────────────────────────────────────────── -->
+    <aside class="sk-sidebar">
+
+        <!-- Stats -->
+        <div class="sk-stats">
+            <div class="sk-stat">
+                <span class="sk-stat-val">{{ stats.total_references }}</span>
+                <span class="sk-stat-lbl">{{ t.stock.stats_refs }}</span>
+            </div>
+            <div class="sk-stat">
+                <span class="sk-stat-val">{{ stats.total_quantity }}</span>
+                <span class="sk-stat-lbl">{{ t.stock.stats_parts }}</span>
+            </div>
+            <div class="sk-stat">
+                <span class="sk-stat-val">{{ "%.0f"|format(stats.total_value) }} €</span>
+                <span class="sk-stat-lbl">{{ t.stock.stats_value }}</span>
+            </div>
+        </div>
+
+        <!-- Filtres rapides -->
+        <div class="sk-quick-filters">
+            <div class="sk-section-title">{{ t.stock.filter }}</div>
+            <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
+               class="sk-qf-btn {% if not low_only and not selected_category %}sk-qf-active{% endif %}">
+                {{ t.stock.all_categories }}
+                <span class="sk-qf-count">{{ stats.total_references }}</span>
+            </a>
+            {% if low_count > 0 %}
+            <a href="{{ url_for('components.stock', low_stock='1', sort_by=sort_by, order=order, per_page=per_page) }}"
+               class="sk-qf-btn sk-qf-warn {% if low_only %}sk-qf-active{% endif %}">
+                🔔 {{ t.stock.alert_banner if low_count == 1 else t.stock.alert_banner_plural }}
+                <span class="sk-qf-count">{{ low_count }}</span>
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Catégories -->
+        <!-- Filtre par tiroir / emplacement -->
+        {% if drawer_letters %}
+        <div style="margin-bottom:.75rem">
+            <div class="sk-section-title">Tiroir</div>
+            <div style="display:flex;flex-wrap:wrap;gap:.25rem">
+                <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
+                   class="sk-qf-btn {% if not location_filter %}sk-qf-active{% endif %}"
+                   style="font-family:var(--mono);font-size:.72rem;padding:.2rem .45rem">Tout</a>
+                {% for letter in drawer_letters %}
+                <a href="{{ url_for('components.stock', location=letter, sort_by=sort_by, order=order, per_page=per_page) }}"
+                   class="sk-qf-btn {% if location_filter == letter %}sk-qf-active{% endif %}"
+                   style="font-family:var(--mono);font-size:.72rem;padding:.2rem .45rem">{{ letter }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if category_groups %}
+        <div class="sk-cat-nav">
+            <div class="sk-section-title">{{ t.stock.sort_category }}</div>
+            <!-- Filtre rapide catégories -->
+            <div style="position:relative;margin-bottom:.5rem">
+                <input type="text" id="cat-search"
+                       placeholder="Filtrer…"
+                       oninput="filterCats(this.value)"
+                       style="width:100%;padding:.3rem .5rem .3rem 1.6rem;font-size:.75rem;
+                              background:var(--bg-surface);border:1px solid var(--border);
+                              border-radius:var(--radius-sm);color:var(--text);outline:none"/>
+                <span style="position:absolute;left:.45rem;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--text-muted);pointer-events:none">🔍</span>
+            </div>
+            {% for group in category_groups %}
+            <div class="sk-cat-group">
+                {% if group.group %}
+                <div class="sk-cat-group-label">{{ group.group }}</div>
+                {% endif %}
+                {% for cat in group.options %}
+                <a href="{{ url_for('components.stock', category=cat.value, sort_by=sort_by, order=order, per_page=per_page, page=1) }}"
+                   class="sk-cat-btn {% if selected_category == cat.value %}sk-cat-active{% endif %}"
+                   title="{{ cat.label }}">
+                    {{ cat.label }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </aside>
+
+    <!-- ── Colonne principale ─────────────────────────────────────── -->
+    <div class="sk-main">
+
+        <!-- Barre de recherche + tri -->
+        <form method="get" id="filter-form" class="sk-searchbar">
+            <input type="hidden" name="page" value="1"/>
+            {% if selected_category %}
+            <input type="hidden" name="category" value="{{ selected_category }}"/>
+            {% endif %}
+            {% if low_only %}
+            <input type="hidden" name="low_stock" value="1"/>
+            {% endif %}
+            <div class="sk-search-wrap">
+                <span class="sk-search-icon">🔍</span>
+                <input type="text" name="search" class="sk-search-input"
+                       placeholder="{{ t.stock.search_placeholder }}" value="{{ search }}"
+                       autofocus/>
+                {% if search %}
+                <a href="{{ url_for('components.stock', category=selected_category, sort_by=sort_by, order=order, per_page=per_page, low_stock='1' if low_only else '') }}"
+                   class="sk-search-clear" title="{{ t.stock.reset }}">✕</a>
+                {% endif %}
+            </div>
+            <select name="sort_by" class="input-select sk-sort-select">
+                <option value="description" {% if sort_by=='description' %}selected{% endif %}>{{ t.stock.sort_description }}</option>
+                <option value="category"    {% if sort_by=='category'    %}selected{% endif %}>{{ t.stock.sort_category }}</option>
+                <option value="manufacturer"{% if sort_by=='manufacturer'%}selected{% endif %}>{{ t.stock.sort_manufacturer }}</option>
+                <option value="quantity"    {% if sort_by=='quantity'    %}selected{% endif %}>{{ t.stock.sort_quantity }}</option>
+                <option value="unit_price"  {% if sort_by=='unit_price'  %}selected{% endif %}>{{ t.stock.sort_price }}</option>
+                <option value="created_at"  {% if sort_by=='created_at'  %}selected{% endif %}>{{ t.stock.sort_date }}</option>
+            </select>
+            <select name="order" class="input-select sk-order-select">
+                <option value="asc"  {% if order=='asc'  %}selected{% endif %}>{{ t.stock.order_asc }}</option>
+                <option value="desc" {% if order=='desc' %}selected{% endif %}>{{ t.stock.order_desc }}</option>
+            </select>
+            <button type="submit" class="btn btn-primary sk-search-btn">{{ t.stock.filter }}</button>
+            <a href="{{ url_for('components.export_csv') }}" class="btn btn-secondary sk-export-btn"
+               title="{{ t.stock.export_csv_title }}">{{ t.stock.export_csv }}</a>
+        </form>
+
+        {% if components %}
+
+        <!-- Toolbar résultat + per-page -->
+        <div class="sk-toolbar">
+            <span class="sk-result-count">
+                {{ total }} {{ t.stock.stats_refs }}
+                {% if search %} — <em>{{ search }}</em>{% endif %}
+                {% if selected_category %} — <span class="sk-active-cat">{{ selected_category.split(' / ')|last }}</span>{% endif %}
+                — {{ t.stock.show }} {{ page }}/{{ total_pages }}
+            </span>
+            <div class="sk-perpage">
+                {% for n in [5, 25, 50, 100] %}
+                <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, page=1, per_page=n, low_stock='1' if low_only else '') }}"
+                   class="sk-perpage-btn {% if per_page == n %}active{% endif %}">{{ n }}</a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tableau -->
+        <div class="table-wrapper">
+        <table class="data-table sk-table">
+            <thead>
+                <tr>
+                    <th class="th-check">
+                        <input type="checkbox" id="check-all" title="{{ t.stock.select_all }}"
+                               onchange="toggleAll(this.checked)"/>
+                    </th>
+                    <th class="th-img"></th>
+                    <th><a href="{{ sort_url('description') }}" class="sk-sort-link">{{ t.stock.sort_description }}{{ sort_icon('description') }}</a></th>
+                    <th>{{ t.stock.col_reference }}</th>
+                    <th class="th-center col-hide-sm"><a href="{{ sort_url('package') }}" class="sk-sort-link">{{ t.stock.sort_package }}{{ sort_icon('package') }}</a></th>
+                    <th class="th-center"><a href="{{ sort_url('quantity') }}" class="sk-sort-link">{{ t.stock.sort_quantity }}{{ sort_icon('quantity') }}</a></th>
+                    <th class="th-right col-hide-sm"><a href="{{ sort_url('unit_price') }}" class="sk-sort-link">{{ t.stock.sort_price }}{{ sort_icon('unit_price') }}</a></th>
+                    <th class="col-hide-md"><a href="{{ sort_url('location') }}" class="sk-sort-link">{{ t.stock.sort_date }}{{ sort_icon('location') }}</a></th>
+                    <th class="th-center">{{ t.stock.col_actions }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in components %}
+                <tr class="{% if c.quantity == 0 %}row-empty{% elif c.is_low_stock %}row-low{% endif %}" id="row-{{ c.id }}">
+                    <td class="td-check">
+                        <input type="checkbox" class="row-check" value="{{ c.id }}" onchange="onCheckChange()"/>
+                    </td>
+                    <td class="td-thumb">
+                        {% if c.image_path %}
+                        <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                             alt="{{ c.description }}" class="thumb" loading="lazy"
+                             onclick="openLightbox(this.src, '{{ c.description|e }}')"/>
+                        {% else %}
+                        <div class="thumb-placeholder">
+                            {% if c.lcsc_part_number or c.mouser_part_number %}
+                            <button type="button" class="btn-fetch-img" title="{{ t.stock.btn_fetch }}"
+                                    onclick="enrichComponent({{ c.id }}, this)">📷</button>
+                            {% else %}
+                            <span class="thumb-na">—</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="td-description">
+                        <div class="td-desc-line">
+                            <a href="{{ url_for('components.detail', component_id=c.id) }}" class="td-desc-link">{{ c.description or '—' }}</a>
+                            {% if c.rohs == 'YES' %}<span class="badge badge-green badge-xs">{{ t.stock.badge_rohs }}</span>{% endif %}
+                            {% if c.datasheet_url %}<a href="{{ c.datasheet_url }}" target="_blank" rel="noopener" class="badge badge-blue badge-xs">{{ t.stock.badge_ds }}</a>{% endif %}
+                        </div>
+                        {% if c.category %}<div class="sk-td-cat">{{ c.category.split(' / ')|last }}</div>{% endif %}
+                    </td>
+                    <td class="td-mono td-secondary" style="font-size:.78rem;white-space:nowrap">
+                        {% if c.lcsc_part_number %}
+                        <a href="https://www.lcsc.com/product-detail/{{ c.lcsc_part_number }}.html" target="_blank" rel="noopener" style="text-decoration:none">
+                            <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ c.lcsc_part_number }}</span>
+                        </a>
+                        {% elif c.mouser_part_number %}
+                        <a href="{{ 'https://www.mouser.fr/ProductDetail/' ~ c.mouser_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+                            <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ c.mouser_part_number }}</span>
+                        </a>
+                        {% elif c.digikey_part_number %}
+                        <a href="{{ c.product_url if c.product_url and 'digikey' in (('' ~ (c.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ c.digikey_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+                            <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ c.digikey_part_number }}</span>
+                        </a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="col-hide-sm td-center"><span class="badge badge-gray">{{ c.package or '—' }}</span></td>
+                    <td class="td-qty-wrap">
+                        <div class="sk-qty">
+                            <button class="qty-btn" onclick="adjustQty({{ c.id }}, -1, this)" title="{{ t.stock.qty_remove }}">−</button>
+                            <span class="qty-value {% if c.quantity == 0 %}qty-zero{% elif c.is_low_stock %}qty-low{% endif %}"
+                                  id="qty-{{ c.id }}">{{ c.quantity }}</span>
+                            <button class="qty-btn" onclick="adjustQty({{ c.id }}, +1, this)" title="{{ t.stock.qty_add }}">+</button>
+                            {% if c.min_stock > 0 %}
+                            <span class="min-stock-pip" id="ms-{{ c.id }}" title="{{ c.min_stock }}">⚡{{ c.min_stock }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="td-price col-hide-sm" style="white-space:nowrap;text-align:right">
+                        {% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}
+                    </td>
+                    <td class="td-secondary col-hide-md" style="white-space:nowrap">{{ c.location or '—' }}</td>
+                    <td class="td-actions" style="white-space:nowrap;text-align:right">
+                        <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon" title="{{ t.stock.btn_edit }}">✏️</a>
+                        <form method="post" action="{{ url_for('components.delete', component_id=c.id) }}"
+                              style="display:inline"
+                              onsubmit="return confirm('{{ t.stock.confirm_delete }}'.replace('{name}', '{{ c.description or c.lcsc_part_number }}')+'')">
+                            <input type="hidden" name="confirm_delete" value="yes"/>
+                            <button type="submit" class="btn-icon" title="{{ t.stock.btn_delete }}">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <nav class="pagination sk-pagination">
+            {% if page > 1 %}
+            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=1) }}" class="page-btn">«</a>
+            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page-1) }}" class="page-btn">‹</a>
+            {% else %}
+            <span class="page-btn disabled">«</span>
+            <span class="page-btn disabled">‹</span>
+            {% endif %}
+            {% set win = 2 %}
+            {% for p in range(1, total_pages + 1) %}
+                {% if p == 1 or p == total_pages or (p >= page - win and p <= page + win) %}
+                    {% if loop.index > 1 and range(1, total_pages+1)|list|select("lt", p)|list|last < p - 1 %}
+                    <span class="page-ellipsis">…</span>
+                    {% endif %}
+                    <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=p) }}"
+                       class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page < total_pages %}
+            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page+1) }}" class="page-btn">›</a>
+            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=total_pages) }}" class="page-btn">»</a>
+            {% else %}
+            <span class="page-btn disabled">›</span>
+            <span class="page-btn disabled">»</span>
+            {% endif %}
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state sk-empty">
+            <p class="empty-icon">📭</p>
+            <p>{{ t.stock.empty }}</p>
+            <a href="{{ url_for('components.import_csv') }}" class="btn btn-primary">{{ t.stock.import_csv }}</a>
+            <a href="{{ url_for('components.add') }}" class="btn btn-secondary">{{ t.stock.add_manual }}</a>
+        </div>
+        {% endif %}
+
+    </div>{# /sk-main #}
+</div>{# /sk-layout #}
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+    <div class="lightbox-inner" onclick="event.stopPropagation()">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <img id="lightbox-img" src="" alt=""/>
+        <p id="lightbox-caption"></p>
+    </div>
+</div>
+
+<!-- Barre sélection flottante -->
+<div id="selection-bar" class="selection-bar" style="display:none">
+    <span id="selection-count" class="selection-count"></span>
+    <button class="btn btn-primary" onclick="printSelected()">{{ t.stock.print_labels }}</button>
+    <button class="btn btn-secondary" onclick="clearSelection()">{{ t.stock.deselect }}</button>
+</div>
+
+<script>
+const t_stock_error_generic = {{ t.stock.error_generic | tojson }};
+const t_stock_error_network = {{ t.stock.error_network | tojson }};
+const t_stock_stats_parts   = {{ t.stock.stats_parts | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/stock.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

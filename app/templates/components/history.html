@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}{{ t.history.title }} — StockElec{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ───────────────────────────────────────────────────── -->
+<div class="cd-header" style="margin-bottom:1.25rem">
+    <div class="cd-header-left">
+        {% if component %}
+        <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← {{ t.detail.back_stock }}</a>
+        <h1 class="cd-title">📋 {{ t.history.title }} — {{ component.description }}</h1>
+        {% else %}
+        <h1 class="cd-title">📋 {{ t.history.title }}</h1>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── Layout 2 colonnes ─────────────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:220px 1fr;gap:1.25rem;align-items:start">
+
+    <!-- Sidebar filtres -->
+    <div style="position:sticky;top:4.5rem;display:flex;flex-direction:column;gap:.75rem">
+
+        <div class="sk-sidebar" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
+            <div class="stg-panel-label" style="margin-bottom:.6rem">{{ t.history.filter_all }}</div>
+            <form method="get" id="hist-form">
+                {% if component %}
+                <input type="hidden" name="component_id" value="{{ component.id }}"/>
+                {% endif %}
+
+                <div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.75rem">
+                    {% for key, val in movement_types.items() %}
+                    {% set mv_parts = val[1].split('.') %}
+                    {% set mv_label = t[mv_parts[0]][mv_parts[1]] if mv_parts|length == 2 else val[1] %}
+                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer;padding:.25rem .4rem;border-radius:var(--radius-sm);{% if type_filter == key %}background:var(--accent-dim);color:var(--accent);{% endif %}">
+                        <input type="radio" name="type" value="{{ key }}"
+                               {% if type_filter == key %}checked{% endif %}
+                               onchange="this.form.submit()" style="accent-color:var(--accent)">
+                        {{ val[0] }} {{ mv_label }}
+                    </label>
+                    {% endfor %}
+                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer;padding:.25rem .4rem;border-radius:var(--radius-sm);{% if not type_filter %}background:var(--accent-dim);color:var(--accent);{% endif %}">
+                        <input type="radio" name="type" value=""
+                               {% if not type_filter %}checked{% endif %}
+                               onchange="this.form.submit()" style="accent-color:var(--accent)">
+                        {{ t.history.filter_all }}
+                    </label>
+                </div>
+
+                <div class="stg-panel-label" style="margin-bottom:.4rem">{{ t.history.last_n }}</div>
+                <select name="limit" class="form-input" style="width:100%;font-size:.8rem" onchange="this.form.submit()">
+                    {% for l in [50, 100, 200, 500] %}
+                    <option value="{{ l }}" {% if limit == l %}selected{% endif %}>{{ l }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+
+            {% if type_filter or component %}
+            <a href="{{ url_for('components.history') }}" class="btn btn-secondary" style="width:100%;text-align:center;margin-top:.6rem;font-size:.78rem">
+                {{ t.history.btn_reset }}
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Stats rapides -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem">
+            <div class="stg-panel-label" style="margin-bottom:.5rem">Résumé</div>
+            {% set ins  = movements|selectattr('type','eq','in')|list %}
+            {% set outs = movements|selectattr('type','eq','out')|list %}
+            <div style="font-size:.78rem;display:flex;flex-direction:column;gap:.3rem">
+                <div style="display:flex;justify-content:space-between">
+                    <span style="color:var(--text-muted)">Total</span>
+                    <strong>{{ movements|length }}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span style="color:var(--success)">↑ Entrées</span>
+                    <strong style="color:var(--success)">{{ ins|length }}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                    <span style="color:var(--danger)">↓ Sorties</span>
+                    <strong style="color:var(--danger)">{{ outs|length }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau principal -->
+    <div>
+        {% if movements %}
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead><tr>
+                    <th style="width:110px">{{ t.history.col_type }}</th>
+                    <th class="th-img"></th>
+                    <th>{{ t.history.col_component }}</th>
+                    <th class="th-center" style="width:70px">{{ t.history.col_qty }}</th>
+                    <th>{{ t.history.col_note }}</th>
+                    <th style="width:120px">{{ t.history.col_project }}</th>
+                    <th style="width:130px">{{ t.history.col_date }}</th>
+                </tr></thead>
+                <tbody>
+                {% for m in movements %}
+                {% set mv = movement_types.get(m.type, ('?','history.mv_in','')) %}
+                {% set mv_parts = mv[1].split('.') %}
+                {% set mv_label = t[mv_parts[0]][mv_parts[1]] if mv_parts|length == 2 else mv[1] %}
+                <tr>
+                    <td><span class="badge {{ mv[2] }}">{{ mv[0] }} {{ mv_label }}</span></td>
+                    <td class="td-thumb">
+                        {% if m.image_path %}
+                        <img src="{{ url_for('components.component_image', filename=m.image_path.split('images/')|last) }}"
+                             class="thumb" loading="lazy"/>
+                        {% else %}
+                        <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('components.detail', component_id=m.component_id) }}" class="td-link">
+                            {{ m.description or m.lcsc_part_number or '—' }}
+                        </a>
+                        <div style="margin-top:.15rem">
+                        {% if m.lcsc_part_number %}
+                        <span class="src-badge src-badge-lcsc" style="font-size:.65rem">
+                            <img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ m.lcsc_part_number }}
+                        </span>
+                        {% elif m.mouser_part_number %}
+                        <span class="src-badge src-badge-mouser" style="font-size:.65rem">
+                            <img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ m.mouser_part_number }}
+                        </span>
+                        {% elif m.digikey_part_number %}
+                        <span class="src-badge src-badge-digikey" style="font-size:.65rem">
+                            <img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ m.digikey_part_number }}
+                        </span>
+                        {% endif %}
+                        </div>
+                    </td>
+                    <td class="td-center">
+                        <span style="font-size:1rem;font-weight:700;color:{{ 'var(--success)' if m.type == 'in' else 'var(--danger)' if m.type == 'out' else 'var(--accent)' }}">
+                            {{ '+' if m.type == 'in' else '-' if m.type == 'out' else '~' }}{{ m.quantity }}
+                        </span>
+                    </td>
+                    <td class="td-secondary" style="font-size:.78rem">{{ m.note or '—' }}</td>
+                    <td>
+                        {% if m.project_name %}
+                        <span class="badge badge-blue">{{ m.project_name }}</span>
+                        {% else %}<span class="td-secondary">—</span>{% endif %}
+                    </td>
+                    <td class="td-secondary" style="font-size:.72rem;white-space:nowrap">{{ m.created_at[:16] }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if total_pages > 1 %}
+        <nav class="pagination" style="margin-top:1rem">
+            {% macro page_url(p) %}?{% for k, v in request.args.items() %}{% if k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}page={{ p }}{% endmacro %}
+            {% if page > 1 %}<a href="{{ page_url(page-1) }}" class="page-btn">←</a>{% endif %}
+            {% for p in range(1, total_pages+1) %}
+                {% if p == page %}<span class="page-btn active">{{ p }}</span>
+                {% elif p == 1 or p == total_pages or (p >= page-2 and p <= page+2) %}<a href="{{ page_url(p) }}" class="page-btn">{{ p }}</a>
+                {% elif p == page-3 or p == page+3 %}<span class="page-btn" style="border:none;cursor:default">…</span>
+                {% endif %}
+            {% endfor %}
+            {% if page < total_pages %}<a href="{{ page_url(page+1) }}" class="page-btn">→</a>{% endif %}
+            <span class="page-info">Page {{ page }}/{{ total_pages }} — {{ total }} {{ t.history.title|lower }}</span>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state" style="padding:4rem">
+            <div class="empty-state-icon">📋</div>
+            <div class="empty-state-title">{{ t.history.empty }}</div>
+            <div class="empty-state-hint">{{ t.history.empty_hint }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

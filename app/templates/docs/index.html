@@ -1,0 +1,509 @@
+{% extends "base.html" %}
+{% block title %}CSS Framework — StockEleK{% endblock %}
+{% block content %}
+<style>
+.doc-root { display: grid; grid-template-columns: 250px 1fr; min-height: calc(100vh - 54px); }
+.doc-sidebar { position: sticky; top: 54px; height: calc(100vh - 54px); overflow-y: auto;
+    background: var(--bg-card); border-right: 1px solid var(--border); padding: 1rem 0; scrollbar-width: thin; }
+.doc-sidebar::-webkit-scrollbar { width: 3px; }
+.doc-sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+.doc-nav-section { padding: .5rem 1rem .15rem; font-size: .6rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .12em; color: var(--text-faint); margin-top: .5rem; }
+.doc-nav-link { display: flex; align-items: center; justify-content: space-between;
+    padding: .3rem 1.1rem; font-size: .78rem; color: var(--text-muted);
+    text-decoration: none; border-left: 2px solid transparent; transition: all .12s; }
+.doc-nav-link:hover { color: var(--text); background: var(--bg-hover); }
+.doc-nav-link.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-dim); }
+.doc-nav-badge { font-size: .62rem; font-weight: 700; padding: .1rem .35rem;
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 99px; color: var(--text-faint); }
+.doc-body { padding: 2rem 2.5rem 8rem; max-width: 1000px; }
+.doc-cover { background: linear-gradient(135deg, var(--bg-card) 0%, rgba(124,108,255,.08) 100%);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 2.5rem; }
+.doc-cover-title { font-size: 2rem; font-weight: 900; letter-spacing: -.04em; color: var(--text); }
+.doc-cover-sub { font-size: .88rem; color: var(--text-muted); margin-top: .4rem; line-height: 1.7; }
+.doc-cover-stats { display: flex; gap: 2rem; margin-top: 1.25rem; }
+.doc-cover-stat-val { font-size: 1.75rem; font-weight: 900; color: var(--accent); line-height: 1; }
+.doc-cover-stat-lbl { font-size: .68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.doc-section { margin-bottom: 3rem; scroll-margin-top: 1rem; }
+.doc-section-header { display: flex; align-items: center; gap: .65rem;
+    border-bottom: 1px solid var(--border); padding-bottom: .75rem; margin-bottom: 1.25rem; }
+.doc-section-title { font-size: 1.35rem; font-weight: 800; color: var(--text); letter-spacing: -.02em; }
+.doc-section-prefix { font-family: var(--mono); font-size: .85rem; background: var(--accent-dim);
+    color: var(--accent); border: 1px solid rgba(124,108,255,.3); padding: .2rem .55rem; border-radius: var(--radius-sm); }
+.doc-section-file { font-size: .68rem; font-family: var(--mono); color: var(--text-faint);
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 4px;
+    padding: .15rem .4rem; margin-left: auto; }
+.doc-section-desc { font-size: .85rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 1rem; }
+.doc-search-wrap { position: relative; margin-bottom: 1.5rem; }
+.doc-search { width: 100%; padding: .65rem 1rem .65rem 2.5rem; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--radius); color: var(--text);
+    font-size: .85rem; outline: none; transition: border-color .15s; }
+.doc-search:focus { border-color: var(--accent); }
+.doc-search-icon { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--text-faint); }
+.doc-classes { display: flex; flex-direction: column; gap: .3rem; margin-bottom: 1rem; }
+.doc-class { background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); overflow: hidden; transition: border-color .15s; }
+.doc-class:hover { border-color: var(--accent); }
+.doc-class-header { display: grid; grid-template-columns: 200px 1fr;
+    gap: 1rem; align-items: center; padding: .5rem .85rem; }
+.doc-class-name { font-family: var(--mono); font-size: .78rem; color: var(--accent); font-weight: 600; cursor: pointer; user-select: all; }
+.doc-class-props { font-family: var(--mono); font-size: .7rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-tokens { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: .5rem; margin: .75rem 0; }
+.doc-token { display: flex; align-items: center; gap: .65rem; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .75rem; }
+.doc-token-swatch { width: 28px; height: 28px; border-radius: 5px; flex-shrink: 0; border: 1px solid rgba(255,255,255,.08); }
+.doc-token-name { font-family: var(--mono); font-size: .72rem; color: var(--accent); }
+.doc-token-val { font-family: var(--mono); font-size: .68rem; color: var(--text-muted); margin-top: .1rem; }
+.doc-example { background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); margin: .75rem 0 1.25rem; overflow: hidden; }
+.doc-example-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--text-faint); padding: .4rem .85rem; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.doc-example-body { padding: 1rem 1.25rem; }
+.doc-code { font-family: var(--mono); font-size: .75rem; color: var(--text-muted); line-height: 1.9; }
+.dc-tag { color: var(--text-faint); }
+.dc-cls { color: var(--accent); }
+.dc-attr { color: var(--warning); }
+.dc-str { color: var(--success); }
+@media (max-width: 900px) {
+    .doc-root { grid-template-columns: 1fr; }
+    .doc-sidebar { position: static; height: auto; }
+    .doc-body { padding: 1.25rem; }
+}
+</style>
+
+<div class="doc-root">
+<nav class="doc-sidebar">
+    <div style="padding:.5rem 1rem .85rem;border-bottom:1px solid var(--border);margin-bottom:.4rem">
+        <div style="font-size:.62rem;color:var(--text-faint);font-weight:700;text-transform:uppercase;letter-spacing:.1em">StockEleK</div>
+        <div style="font-size:.9rem;font-weight:800;color:var(--text)">CSS Framework</div>
+    </div>
+    <div class="doc-nav-section">Documentation</div>
+    <a class="doc-nav-link" href="/docs/manuel">📖 Manuel d'utilisation</a>
+    <div class="doc-nav-section">Fondations</div>
+    <a class="doc-nav-link" href="#tokens">Tokens de design</a>
+    <a class="doc-nav-link" href="#alerts">Alertes <span class="doc-nav-badge">{{ alert_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#badges">Badges statut <span class="doc-nav-badge">{{ badge_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#buttons">Boutons <span class="doc-nav-badge">{{ btn_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#src">Sources fournisseurs <span class="doc-nav-badge">{{ src_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#qty">Quantités <span class="doc-nav-badge">{{ qty_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#tables">Tableaux <span class="doc-nav-badge">{{ td_classes|length }}</span></a>
+    <div class="doc-nav-section">Pages Projets</div>
+    <a class="doc-nav-link" href="#pf">pf-* Project Form <span class="doc-nav-badge">{{ pf_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#pd">pd-* Project Detail <span class="doc-nav-badge">{{ pd_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#kb">kb-* Kanban <span class="doc-nav-badge">{{ kb_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#proj">proj-* BOM Table <span class="doc-nav-badge">{{ proj_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#bom">bom-* BOM Report <span class="doc-nav-badge">{{ bom_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#md">md-* Markdown <span class="doc-nav-badge">{{ md_classes|length }}</span></a>
+    <div class="doc-nav-section">Pages Stock</div>
+    <a class="doc-nav-link" href="#sk">sk-* Stock <span class="doc-nav-badge">{{ sk_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#cd">cd-* Composant Detail <span class="doc-nav-badge">{{ cd_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#imp">imp-* Import <span class="doc-nav-badge">{{ imp_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#dash">dash-* Dashboard <span class="doc-nav-badge">{{ dash_classes|length }}</span></a>
+    <div class="doc-nav-section">Config</div>
+    <a class="doc-nav-link" href="#stg">stg-* Settings <span class="doc-nav-badge">{{ stg_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#ls">ls-* Label Settings <span class="doc-nav-badge">{{ ls_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#lbl">lbl-* Étiquettes <span class="doc-nav-badge">{{ lbl_classes|length }}</span></a>
+    <a class="doc-nav-link" href="#gf">gf-* Rangement <span class="doc-nav-badge">{{ gf_classes|length }}</span></a>
+</nav>
+
+<div class="doc-body">
+<!-- Cover -->
+<div class="doc-cover">
+    <div class="doc-cover-title">StockEleK CSS Framework</div>
+    <div class="doc-cover-sub">Système de namespaces par page, dark-first, tokens cohérents.<br>Classes extraites dynamiquement — cette page se met à jour automatiquement dès que le CSS change.</div>
+    <div class="doc-cover-stats">
+        <div><div class="doc-cover-stat-val">20</div><div class="doc-cover-stat-lbl">Namespaces</div></div>
+        <div><div class="doc-cover-stat-val">750+</div><div class="doc-cover-stat-lbl">Classes CSS</div></div>
+        <div><div class="doc-cover-stat-val">39</div><div class="doc-cover-stat-lbl">Tokens</div></div>
+    </div>
+</div>
+
+<!-- Recherche -->
+<div class="doc-search-wrap">
+    <svg class="doc-search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+        <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <input type="text" class="doc-search" id="doc-search" placeholder="Rechercher une classe (.pd-tab, .btn-primary, --accent…)"/>
+</div>
+
+<!-- TOKENS -->
+<div class="doc-section" id="tokens">
+    <div class="doc-section-header">
+        <div class="doc-section-title">Tokens de design</div>
+        <span class="doc-section-file">variables.css</span>
+    </div>
+    <div class="doc-section-desc">Variables CSS globales sur <code>:root</code>. Toujours utiliser ces tokens plutôt que des valeurs brutes. Thème clair via <code>[data-theme="light"]</code> sur <code>&lt;html&gt;</code>.</div>
+    <p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:.75rem 0 .4rem">Fonds</p>
+    <div class="doc-tokens">
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#0b0e18"></div><div><div class="doc-token-name">--bg</div><div class="doc-token-val">#0b0e18 — fond page</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#111520"></div><div><div class="doc-token-name">--bg-surface</div><div class="doc-token-val">#111520 — surface secondaire</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#161b2e"></div><div><div class="doc-token-name">--bg-card</div><div class="doc-token-val">#161b2e — cartes, panels</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#1c2340"></div><div><div class="doc-token-name">--bg-hover</div><div class="doc-token-val">#1c2340 — état hover</div></div></div>
+    </div>
+    <p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:.75rem 0 .4rem">Accent & Sémantiques</p>
+    <div class="doc-tokens">
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#7c6cff"></div><div><div class="doc-token-name">--accent</div><div class="doc-token-val">#7c6cff — violet principal</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:rgba(124,108,255,.12)"></div><div><div class="doc-token-name">--accent-dim</div><div class="doc-token-val">rgba(124,108,255,.12)</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#34d17e"></div><div><div class="doc-token-name">--success</div><div class="doc-token-val">#34d17e</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#f59e0b"></div><div><div class="doc-token-name">--warning</div><div class="doc-token-val">#f59e0b</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#f43f5e"></div><div><div class="doc-token-name">--danger</div><div class="doc-token-val">#f43f5e</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#38bdf8"></div><div><div class="doc-token-name">--info</div><div class="doc-token-val">#38bdf8</div></div></div>
+    </div>
+    <p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:.75rem 0 .4rem">Texte, Typo & Géométrie</p>
+    <div class="doc-tokens">
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#e8eaf6"></div><div><div class="doc-token-name">--text</div><div class="doc-token-val">#e8eaf6 — principal</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#6b74a0"></div><div><div class="doc-token-name">--text-muted</div><div class="doc-token-val">#6b74a0 — secondaire</div></div></div>
+        <div class="doc-token"><div class="doc-token-swatch" style="background:#3d4566"></div><div><div class="doc-token-name">--text-faint</div><div class="doc-token-val">#3d4566 — discret</div></div></div>
+        <div class="doc-token"><div style="width:28px;height:28px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.62rem;flex-shrink:0">Aa</div><div><div class="doc-token-name">--font</div><div class="doc-token-val">Inter, system-ui</div></div></div>
+        <div class="doc-token"><div style="width:28px;height:28px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.62rem;font-family:var(--mono);flex-shrink:0">01</div><div><div class="doc-token-name">--mono</div><div class="doc-token-val">JetBrains Mono</div></div></div>
+        <div class="doc-token"><div style="width:28px;height:28px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--accent);flex-shrink:0"></div><div><div class="doc-token-name">--radius-sm</div><div class="doc-token-val">6px</div></div></div>
+        <div class="doc-token"><div style="width:28px;height:28px;border-radius:10px;background:var(--bg-surface);border:1px solid var(--accent);flex-shrink:0"></div><div><div class="doc-token-name">--radius</div><div class="doc-token-val">10px — standard</div></div></div>
+        <div class="doc-token"><div style="width:28px;height:28px;border-radius:14px;background:var(--bg-surface);border:1px solid var(--accent);flex-shrink:0"></div><div><div class="doc-token-name">--radius-lg</div><div class="doc-token-val">14px — large</div></div></div>
+    </div>
+</div>
+
+<!-- ALERTES -->
+<div class="doc-section" id="alerts">
+    <div class="doc-section-header">
+        <span class="doc-section-prefix">alert-*</span>
+        <div class="doc-section-title">Alertes flash</div>
+        <span class="doc-section-file">components.css</span>
+    </div>
+    <div class="doc-section-desc">Bandeaux de notification Flask <code>flash()</code>. Toujours combinés avec <code>.alert</code> de base.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">Rendu</div>
+        <div class="doc-example-body" style="display:flex;flex-direction:column;gap:.5rem">
+            <div class="alert alert-success">✓ Stock mis à jour avec succès.</div>
+            <div class="alert alert-info">ℹ Enrichissement en cours en arrière-plan.</div>
+            <div class="alert alert-warning">⚠ 3 composants sous le seuil minimum.</div>
+            <div class="alert alert-danger">✗ Erreur lors de la sauvegarde.</div>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in alert_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- BADGES -->
+<div class="doc-section" id="badges">
+    <div class="doc-section-header">
+        <span class="doc-section-prefix">badge-status-*</span>
+        <div class="doc-section-title">Badges de statut projet</div>
+        <span class="doc-section-file">projects.css</span>
+    </div>
+    <div class="doc-section-desc">Générés via Jinja : <code>{% raw %}badge-status-{{ project.status | replace(' ','-') }}{% endraw %}</code>. Combinés avec <code>.badge</code>.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">Les 8 statuts</div>
+        <div class="doc-example-body" style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <span class="badge badge-status-idée">💡 Idée</span>
+            <span class="badge badge-status-conception">✏️ Conception</span>
+            <span class="badge badge-status-commandé">🛒 Commandé</span>
+            <span class="badge badge-status-en-production">🏭 En production</span>
+            <span class="badge badge-status-assemblage">🔧 Assemblage</span>
+            <span class="badge badge-status-debug">🔬 Debug</span>
+            <span class="badge badge-status-terminé">✅ Terminé</span>
+            <span class="badge badge-status-archivé">📦 Archivé</span>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in badge_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- BOUTONS -->
+<div class="doc-section" id="buttons">
+    <div class="doc-section-header">
+        <span class="doc-section-prefix">btn-*</span>
+        <div class="doc-section-title">Boutons</div>
+        <span class="doc-section-file">components.css</span>
+    </div>
+    <div class="doc-example">
+        <div class="doc-example-label">Rendu</div>
+        <div class="doc-example-body" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-primary">btn-primary</button>
+            <button class="btn btn-secondary">btn-secondary</button>
+            <button class="btn btn-primary btn-sm">btn-sm</button>
+            <button class="btn btn-secondary btn-sm">secondary sm</button>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in btn_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- SOURCES -->
+<div class="doc-section" id="src">
+    <div class="doc-section-header">
+        <span class="doc-section-prefix">src-*</span>
+        <div class="doc-section-title">Badges fournisseurs</div>
+        <span class="doc-section-file">variables.css</span>
+    </div>
+    <div class="doc-example">
+        <div class="doc-example-label">Rendu</div>
+        <div class="doc-example-body" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt=""/>C49678</span>
+            <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt=""/>763-GRM155R71H104KE14</span>
+            <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt=""/>311-1.00KCRCT-ND</span>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in src_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- QUANTITES -->
+<div class="doc-section" id="qty">
+    <div class="doc-section-header">
+        <span class="doc-section-prefix">qty-*</span>
+        <div class="doc-section-title">Contrôles de quantité</div>
+        <span class="doc-section-file">detail.css</span>
+    </div>
+    <div class="doc-example">
+        <div class="doc-example-label">Rendu</div>
+        <div class="doc-example-body" style="display:flex;gap:1.5rem;align-items:center">
+            <div class="qty-control"><button class="qty-btn">−</button><span class="qty-val">42</span><button class="qty-btn">+</button></div>
+            <span style="font-size:.82rem;color:var(--text-muted)">qty-low →</span><span class="qty-val qty-low">3</span>
+            <span style="font-size:.82rem;color:var(--text-muted)">qty-zero →</span><span class="qty-val qty-zero">0</span>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in qty_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- MARKDOWN -->
+<div class="doc-section" id="md">
+    <div class="doc-section-header">
+        <span class="doc-section-prefix">md-*</span>
+        <div class="doc-section-title">Rendu Markdown</div>
+        <span class="doc-section-file">projects/detail.html (inline)</span>
+    </div>
+    <div class="doc-section-desc">Parser JS maison dans l'éditeur de notes. Supporte H1-H4, gras/italique/barré/souligné/surligné, listes+checkboxes, tableaux, blocs de code, citations, couleurs <code>{% raw %}{red}texte{/red}{% endraw %}</code>, images, liens.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">Rendu de toutes les syntaxes</div>
+        <div class="doc-example-body">
+            <h1 class="md-h1">Titre H1</h1>
+            <h2 class="md-h2">Titre H2</h2>
+            <h3 class="md-h3">Titre H3</h3>
+            <h4 class="md-h4">Titre H4</h4>
+            <p class="md-p">
+                <strong>Gras</strong> —
+                <em>italique</em> —
+                <del class="md-del">barré</del> —
+                <u>souligné</u> —
+                <mark class="md-mark">surligné</mark> —
+                <code class="md-code">code inline</code>
+            </p>
+            <ul class="md-ul">
+                <li class="md-li">Item liste à puces</li>
+                <li class="md-li"><input type="checkbox" class="md-checkbox" checked disabled> Checkbox cochée</li>
+                <li class="md-li"><input type="checkbox" class="md-checkbox" disabled> Checkbox vide</li>
+            </ul>
+            <ol class="md-ol"><li class="md-li">Premier</li><li class="md-li">Deuxième</li></ol>
+            <blockquote class="md-blockquote">Une citation mise en valeur avec la bordure accent</blockquote>
+            <pre class="md-code-block"><code>// Bloc de code
+function hello(name) {
+    return `Hello, ${name}!`;
+}</code></pre>
+            <div class="md-table-wrap">
+                <table class="md-table">
+                    <thead><tr><th class="md-th">Composant</th><th class="md-th">Package</th><th class="md-th">Qté</th></tr></thead>
+                    <tbody>
+                        <tr><td class="md-td">CAP 100nF</td><td class="md-td">0805</td><td class="md-td">10</td></tr>
+                        <tr><td class="md-td">RES 10kΩ</td><td class="md-td">0402</td><td class="md-td">50</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <hr class="md-hr">
+            <p class="md-p">
+                <span style="color:#ef4444">rouge</span>
+                <span style="color:#3b82f6">bleu</span>
+                <span style="color:#22c55e">vert</span>
+                <span style="color:#a855f7">violet</span>
+                <span style="color:#f97316">orange</span>
+                <span style="color:#f0abfc">rose</span>
+            </p>
+            <p class="md-p"><img class="md-img" src="{{ url_for('static', filename='img/Logo_c.png') }}" alt="exemple image" style="max-width:120px"></p>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in md_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- PF -->
+<div class="doc-section" id="pf">
+    <div class="doc-section-header"><span class="doc-section-prefix">pf-*</span><div class="doc-section-title">Project Form</div><span class="doc-section-file">projects.css</span></div>
+    <div class="doc-section-desc">Création et édition de projet (<code>/projects/new</code>, <code>/projects/&lt;id&gt;/edit</code>). Hero pleine largeur avec image de bannière, formulaire structuré, sélecteurs de statut et tags.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">Structure</div>
+        <div class="doc-example-body doc-code">
+            <span class="dc-tag">&lt;</span><span class="dc-cls">div</span> <span class="dc-attr">class</span>=<span class="dc-str">"pf-root"</span><span class="dc-tag">&gt;</span><br>
+            &nbsp;&nbsp;<span class="dc-tag">&lt;</span><span class="dc-cls">div</span> <span class="dc-attr">class</span>=<span class="dc-str">"pf-hero pf-hero-has-img"</span><span class="dc-tag">&gt;</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="dc-tag">&lt;</span><span class="dc-cls">div</span> <span class="dc-attr">class</span>=<span class="dc-str">"pf-hero-bg"</span><span class="dc-tag">&gt;&lt;/div&gt;</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="dc-tag">&lt;</span><span class="dc-cls">div</span> <span class="dc-attr">class</span>=<span class="dc-str">"pf-hero-content"</span><span class="dc-tag">&gt;...&lt;/div&gt;</span><br>
+            &nbsp;&nbsp;<span class="dc-tag">&lt;/div&gt;</span><br>
+            &nbsp;&nbsp;<span class="dc-tag">&lt;</span><span class="dc-cls">div</span> <span class="dc-attr">class</span>=<span class="dc-str">"pf-body"</span><span class="dc-tag">&gt;</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="dc-tag">&lt;</span><span class="dc-cls">div</span> <span class="dc-attr">class</span>=<span class="dc-str">"pf-grid"</span><span class="dc-tag">&gt;...&lt;/div&gt;</span><br>
+            &nbsp;&nbsp;<span class="dc-tag">&lt;/div&gt;</span><br>
+            <span class="dc-tag">&lt;/div&gt;</span>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in pf_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- PD -->
+<div class="doc-section" id="pd">
+    <div class="doc-section-header"><span class="doc-section-prefix">pd-*</span><div class="doc-section-title">Project Detail</div><span class="doc-section-file">projects.css + detail.html</span></div>
+    <div class="doc-section-desc">Le plus grand namespace ({{ pd_classes|length }} classes). Fiche projet : hero, sélecteur de statut rapide, barre d'onglets, layout 2 colonnes BOM, sidebar filtres, notes, checklist, liens, journal.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">Barre d'onglets + pills actions</div>
+        <div class="doc-example-body">
+            <div class="pd-tabs-bar" style="margin:-1rem -1.25rem 1rem;border-radius:0">
+                <button class="pd-tab pd-tab-active"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> BOM <span class="pd-tab-count">11</span></button>
+                <button class="pd-tab">Notes</button>
+                <button class="pd-tab">Checklist <span class="pd-tab-count pd-tab-count-ok">9/9</span></button>
+                <button class="pd-tab">Liens <span class="pd-tab-count">3</span></button>
+                <button class="pd-tab">Journal <span class="pd-tab-count">12</span></button>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+                <button class="pd-action-pill pd-action-primary">⬇ Importer BOM</button>
+                <button class="pd-action-pill">+ Ajouter</button>
+                <button class="pd-action-pill">✓ Préparer le kit</button>
+                <button class="pd-action-pill">⬆ Exporter</button>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:center">
+                <span style="font-size:.78rem;color:var(--text-muted)">Sélecteur statut :</span>
+                <div class="pd-status-selector" style="display:inline-block">
+                    <button class="pd-status-current" style="--status-color:#f43f5e"><span>🔬</span><span>debug</span><svg class="pd-status-chevron" width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="doc-example">
+        <div class="doc-example-label">Sidebar BOM — filtres catégories</div>
+        <div class="doc-example-body">
+            <div class="pd-sidebar-card" style="max-width:200px">
+                <div class="pf-label" style="margin-bottom:.5rem">Catégories</div>
+                <button class="pd-cat-filter-btn pd-cat-active"><span>Tout</span><span class="pd-cat-badge">11</span></button>
+                <button class="pd-cat-filter-btn"><span>Resistors</span><span class="pd-cat-badge">5</span></button>
+                <button class="pd-cat-filter-btn"><span>Capacitors</span><span class="pd-cat-badge">3</span></button>
+                <button class="pd-cat-filter-btn"><span>Diodes</span><span class="pd-cat-badge">2</span></button>
+            </div>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in pd_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- KB -->
+<div class="doc-section" id="kb">
+    <div class="doc-section-header"><span class="doc-section-prefix">kb-*</span><div class="doc-section-title">Kanban Board</div><span class="doc-section-file">projects.css</span></div>
+    <div class="doc-section-desc">Vue Kanban (<code>/projects/</code>). 8 colonnes de statut, drag & drop AJAX.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">Colonne + carte</div>
+        <div class="doc-example-body" style="display:grid;grid-template-columns:200px;gap:.5rem">
+            <div class="kb-col">
+                <div class="kb-col-header">
+                    <span class="kb-col-title">Debug</span>
+                    <span class="kb-col-count">2</span>
+                </div>
+                <div class="kb-col-body">
+                    <div class="kb-card">
+                        <div class="kb-card-header">
+                            <div class="kb-card-title">Equalizer Front</div>
+                            <span class="badge badge-status-debug" style="font-size:.65rem">🔬 debug</span>
+                        </div>
+                        <div class="kb-card-meta"><span class="kb-card-count">11 compos.</span><span class="kb-card-price">6.24 €</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in kb_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- PROJ -->
+<div class="doc-section" id="proj">
+    <div class="doc-section-header"><span class="doc-section-prefix">proj-*</span><div class="doc-section-title">BOM Table</div><span class="doc-section-file">projects.css</span></div>
+    <div class="doc-section-desc">Tableau BOM dans la fiche projet. Rangées par catégorie avec titre de groupe.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">Rangée de catégorie</div>
+        <div class="doc-example-body">
+            <table style="width:100%"><tbody>
+                <tr class="proj-cat-row"><td colspan="3"><span class="proj-cat-title">RESISTORS / CHIP RESISTORS</span><span class="proj-cat-count">4 composants</span></td></tr>
+                <tr><td style="font-size:.82rem;color:var(--text)">RES 10kΩ 0805</td><td><span class="src-badge src-badge-lcsc" style="font-size:.68rem">C25804</span></td><td class="td-center td-qty-bold">5</td></tr>
+            </tbody></table>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in proj_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- BOM -->
+<div class="doc-section" id="bom">
+    <div class="doc-section-header"><span class="doc-section-prefix">bom-*</span><div class="doc-section-title">BOM Report</div><span class="doc-section-file">projects.css</span></div>
+    <div class="doc-section-desc">Rapport de disponibilité (<code>/projects/&lt;id&gt;/kit</code>). Sections par statut avec indicateurs colorés.</div>
+    <div class="doc-example">
+        <div class="doc-example-label">En-têtes de section</div>
+        <div class="doc-example-body" style="display:flex;flex-direction:column;gap:.5rem">
+            <div class="bom-section-header bom-header-ok"><span>✓ Disponibles</span><span class="bom-section-count">8</span></div>
+            <div class="bom-section-header bom-header-low"><span>⚠ Stock insuffisant</span><span class="bom-section-count">2</span></div>
+            <div class="bom-section-header bom-header-missing"><span>✗ Manquants</span><span class="bom-section-count">1</span></div>
+        </div>
+    </div>
+    <div class="doc-classes">{% for cls, props in bom_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+<!-- SK, CD, IMP, DASH, STG, LS, LBL, GF - liste de classes sans exemples -->
+{% for ns, title, file, classes, desc in [
+    ('sk', 'Stock', 'stock.css', sk_classes, 'Page stock (/stock). Sidebar filtres, stats rapides, recherche, sélection multiple, pagination.'),
+    ('cd', 'Component Detail', 'detail.css', cd_classes, 'Fiche composant (/component/<id>). Layout galerie/infos, contrôles stock, sources fournisseurs.'),
+    ('imp', 'Import CSV', 'import.css', imp_classes, 'Page import (/import). Zone de drop, mapping colonnes, notes d\'aide.'),
+    ('dash', 'Dashboard', 'dashboard.css', dash_classes, 'Cartes de statistiques et sections du tableau de bord.'),
+    ('stg', 'Settings', 'settings.css + inline', stg_classes, 'Page paramètres (/settings). Navigation sidebar, sections config, éditeur couleurs LED (stg-led-*), panneau backup (stg-backup-*).'),
+    ('ls', 'Label Settings', 'labels.css', ls_classes, 'Configurateur d\'étiquettes (/label-settings). Layout config + aperçu live.'),
+    ('lbl', 'Étiquettes', 'labels.css', lbl_classes, 'Rendu des étiquettes QR code (/labels). Optimisé impression.'),
+    ('gf', 'Rangement GridFinity', 'rangement.css', gf_classes, 'Page rangement physique (/rangement). Onglets casiers, grille drag & drop.'),
+] %}
+<div class="doc-section" id="{{ ns }}">
+    <div class="doc-section-header"><span class="doc-section-prefix">{{ ns }}-*</span><div class="doc-section-title">{{ title }}</div><span class="doc-section-file">{{ file }}</span></div>
+    <div class="doc-section-desc">{{ desc }}</div>
+    <div class="doc-classes">{% for cls, props in classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+{% endfor %}
+
+<!-- TABLES, NAV -->
+<div class="doc-section" id="tables">
+    <div class="doc-section-header"><span class="doc-section-prefix">td-* / th-*</span><div class="doc-section-title">Cellules de tableau</div><span class="doc-section-file">tables.css</span></div>
+    <div class="doc-section-desc">Classes utilitaires alignement, largeurs réservées et styles spéciaux pour cellules et en-têtes.</div>
+    <div class="doc-classes">{% for cls, props in td_classes.items() %}<div class="doc-class"><div class="doc-class-header"><div class="doc-class-name">.{{ cls }}</div><div class="doc-class-props">{{ props }}</div></div></div>{% endfor %}</div>
+</div>
+
+</div><!-- /doc-body -->
+</div><!-- /doc-root -->
+
+<script>
+const searchInput = document.getElementById('doc-search');
+searchInput.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    document.querySelectorAll('.doc-class').forEach(card => {
+        const name  = card.querySelector('.doc-class-name').textContent.toLowerCase();
+        const props = card.querySelector('.doc-class-props').textContent.toLowerCase();
+        card.style.display = (!q || name.includes(q) || props.includes(q)) ? '' : 'none';
+    });
+    document.querySelectorAll('.doc-section').forEach(sec => {
+        if (!q) { sec.style.display = ''; return; }
+        const visible = [...sec.querySelectorAll('.doc-class')].some(c => c.style.display !== 'none');
+        sec.style.display = visible ? '' : 'none';
+    });
+});
+const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+        if (e.isIntersecting) {
+            document.querySelectorAll('.doc-nav-link[href^="#"]').forEach(l => l.classList.remove('active'));
+            const a = document.querySelector('.doc-nav-link[href="#' + e.target.id + '"]');
+            if (a) a.classList.add('active');
+        }
+    });
+}, { threshold: 0.15 });
+document.querySelectorAll('.doc-section[id]').forEach(s => io.observe(s));
+document.querySelectorAll('.doc-class-name').forEach(el => {
+    el.addEventListener('click', () => {
+        navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+            const orig = el.textContent;
+            el.textContent = '✓ copié';
+            setTimeout(() => { el.textContent = orig; }, 1000);
+        });
+    });
+    el.title = 'Cliquer pour copier';
+});
+</script>
+{% endblock %}

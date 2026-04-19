@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name or 'StockEleK' }}{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero + recherche ──────────────────────────────────────────── -->
+<div style="max-width:700px;margin:0 auto 2.5rem;text-align:center;padding:0 1rem">
+    <div class="home-logo"></div>
+    <h1 style="font-size:1.8rem;font-weight:900;letter-spacing:-.03em;margin-bottom:.3rem">
+        {{ app_name or 'StockEleK' }}
+    </h1>
+    <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:1.5rem">
+        {{ stats.n_components or 0 }} {{ t.home.stats_refs }}
+        · {{ stats.n_total_qty or 0 }} {{ t.home.stats_parts }}
+        {% if stats.total_value %} · <strong>{{ "%.2f"|format(stats.total_value) }} €</strong>{% endif %}
+        {% if (stats.n_alerts or 0) > 0 %}
+        · <a href="{{ url_for('components.alerts') }}" style="color:var(--danger)">⚠️ {{ stats.n_alerts }} alerte(s)</a>
+        {% endif %}
+    </p>
+    <form method="get" action="{{ url_for('components.stock') }}">
+        <div style="position:relative">
+            <span style="position:absolute;left:1rem;top:50%;transform:translateY(-50%);font-size:1.1rem;pointer-events:none">🔍</span>
+            <input type="text" name="search" autofocus autocomplete="off"
+                   placeholder="{{ t.home.search_placeholder }}"
+                   class="form-input"
+                   style="padding:.85rem 1rem .85rem 2.8rem;font-size:1rem;border-radius:var(--radius-lg);border:2px solid var(--border)"/>
+        </div>
+    </form>
+</div>
+
+<!-- ── Dashboard grid ────────────────────────────────────────────── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;max-width:1200px;margin:0 auto">
+
+    <!-- Stats rapides -->
+    <div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:800;color:var(--accent)">{{ stats.n_components or 0 }}</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">{{ t.home.stats_refs }}</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:800">{{ stats.n_total_qty or 0 }}</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">{{ t.home.stats_parts }}</div>
+        </div>
+        {% if stats.total_value %}
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:800;color:var(--success)">{{ "%.0f"|format(stats.total_value) }} €</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">Valeur totale</div>
+        </div>
+        {% endif %}
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:800;color:{{ 'var(--danger)' if (stats.n_alerts or 0) > 0 else 'var(--success)' }}">{{ stats.n_alerts or 0 }}</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">{{ t.home.stats_alerts_plural }}</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+            <div style="font-size:1.6rem;font-weight:800;color:{{ 'var(--danger)' if (stats.n_zero or 0) > 0 else 'var(--success)' }}">{{ stats.n_zero or 0 }}</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">Stock zéro</div>
+        </div>
+    </div>
+
+    <!-- Alertes stock -->
+    {% if alerts %}
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+            <div style="font-size:.75rem;font-weight:600;color:var(--danger);text-transform:uppercase;letter-spacing:.06em">⚠️ Alertes stock</div>
+            <a href="{{ url_for('components.alerts') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
+        </div>
+        {% for c in alerts %}
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
+            {% if c.image_path %}
+            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                 style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0"/>
+            {% else %}
+            <div style="width:28px;height:28px;border-radius:4px;background:var(--bg-surface);flex-shrink:0"></div>
+            {% endif %}
+            <a href="{{ url_for('components.detail', component_id=c.id) }}"
+               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ c.description or c.lcsc_part_number or '—' }}
+            </a>
+            <span style="font-size:.75rem;font-weight:700;color:{{ 'var(--danger)' if c.quantity == 0 else 'var(--warning)' }};flex-shrink:0">
+                {{ c.quantity }}/{{ c.min_stock }}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Derniers mouvements -->
+    {% if movements %}
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+            <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">📋 Mouvements récents</div>
+            <a href="{{ url_for('components.history') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
+        </div>
+        {% for m in movements %}
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
+            <span style="font-size:.85rem;flex-shrink:0">{{ '↑' if m.type == 'in' else '↓' if m.type == 'out' else '~' }}</span>
+            <a href="{{ url_for('components.detail', component_id=m.component_id) }}"
+               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ m.description or m.lcsc_part_number or '—' }}
+            </a>
+            <span style="font-size:.75rem;font-weight:700;color:{{ 'var(--success)' if m.type == 'in' else 'var(--danger)' if m.type == 'out' else 'var(--accent)' }};flex-shrink:0">
+                {{ '+' if m.type == 'in' else '-' if m.type == 'out' else '~' }}{{ m.quantity }}
+            </span>
+            <span style="font-size:.65rem;color:var(--text-muted);flex-shrink:0">{{ m.created_at[5:16] }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Ajouts récents -->
+    {% if recent %}
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+            <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">🆕 {{ t.home.recent_title }}</div>
+            <a href="{{ url_for('components.stock') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
+        </div>
+        {% for c in recent %}
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
+            {% if c.image_path %}
+            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                 style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0"/>
+            {% else %}
+            <div style="width:28px;height:28px;border-radius:4px;background:var(--bg-surface);flex-shrink:0"></div>
+            {% endif %}
+            <a href="{{ url_for('components.detail', component_id=c.id) }}"
+               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                {{ c.description or c.lcsc_part_number or '—' }}
+            </a>
+            <span style="font-size:.72rem;color:var(--text-muted);flex-shrink:0">{{ c.package or '' }}</span>
+            <span style="font-size:.75rem;font-weight:600;flex-shrink:0">{{ c.quantity }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Projets actifs -->
+    {% if projects %}
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+            <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">📁 Projets actifs</div>
+            <a href="{{ url_for('projects.index') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
+        </div>
+        {% for p in projects %}
+        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
+            <span class="badge badge-status-{{ p.status|replace(' ','-') }}" style="flex-shrink:0;font-size:.65rem">{{ p.status }}</span>
+            <a href="{{ url_for('projects.detail', project_id=p.id) }}"
+               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none">{{ p.name }}</a>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="text-align:center;padding:4rem 1rem">
+    <div style="font-size:4rem;font-weight:800;color:var(--text-muted)">404</div>
+    <h1 style="font-size:1.5rem;margin:.5rem 0">Page introuvable</h1>
+    <p style="color:var(--text-muted);margin:0 0 1.5rem">
+        La ressource demandée n'existe pas ou a été déplacée.
+    </p>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-primary">
+        ← Retour au stock
+    </a>
+</div>
+{% endblock %}

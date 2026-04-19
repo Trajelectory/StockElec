@@ -1,0 +1,38 @@
+{#
+  Macro : menu déroulant de catégories avec optgroup hiérarchiques.
+
+  Paramètres :
+    name             — attribut name du <select>
+    selected         — valeur sélectionnée (full_path)
+    category_groups  — liste [{group, options:[{value, label}]}]
+    extra_class      — classes CSS supplémentaires (optionnel)
+    all_label        — texte de l'option "tout" (défaut : "Toutes catégories")
+#}
+{% macro category_select(name, selected, category_groups,
+                          extra_class="", all_label="Toutes catégories") %}
+<select name="{{ name }}" class="input-select {{ extra_class }}">
+    <option value="">{{ all_label }}</option>
+    {% if category_groups %}
+        {% for group in category_groups %}
+            {% if group.group %}
+                <optgroup label="{{ group.group }}">
+                    {% for opt in group.options %}
+                        <option value="{{ opt.value }}"
+                            {% if selected == opt.value %}selected{% endif %}>
+                            {{ opt.label }}
+                        </option>
+                    {% endfor %}
+                </optgroup>
+            {% else %}
+                {# Options sans groupe parent #}
+                {% for opt in group.options %}
+                    <option value="{{ opt.value }}"
+                        {% if selected == opt.value %}selected{% endif %}>
+                        {{ opt.label }}
+                    </option>
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+</select>
+{% endmacro %}

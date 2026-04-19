@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% from "partials/category_select.html" import category_select %}
+{% block title %}{{ t.form.title_edit }} — {{ component.description or '' }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:.85rem">
+    <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">{{ t.form.back }}</a>
+</div>
+
+<form method="post" action="{{ url_for('components.edit', component_id=component.id) }}" id="edit-form" enctype="multipart/form-data">
+
+<div class="add-layout">
+
+    <!-- ── Colonne principale ──────────────────────────────────────── -->
+    <div class="add-col-main">
+
+        <!-- Identification -->
+        <div class="add-section">
+            <div class="add-section-title"><span class="add-section-icon">🔖</span> {{ t.form.section_id }}</div>
+
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_description }} <span class="add-required">*</span></label>
+                <input type="text" name="description" class="form-input" required
+                       value="{{ component.description or '' }}"/>
+            </div>
+
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_desc_long }} <span class="add-hint-inline">{{ t.form.hint_optional }}</span></label>
+                <input type="text" name="description_long" class="form-input"
+                       value="{{ component.description_long or '' }}"
+                       placeholder="ex: Resistors - Chip Resistor - Surface Mount RoHS"/>
+            </div>
+
+            <div class="add-row-3">
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_lcsc }}</label>
+                    <input type="text" name="lcsc_part_number" class="form-input mono-input"
+                           value="{{ component.lcsc_part_number or '' }}" placeholder="C149504"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_mouser }}</label>
+                    <input type="text" name="mouser_part_number" class="form-input mono-input"
+                           value="{{ component.mouser_part_number or '' }}" placeholder="{{ t.form.ph_mouser }}"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_digikey }}</label>
+                    <input type="text" name="digikey_part_number" class="form-input mono-input"
+                           value="{{ component.digikey_part_number or '' }}" placeholder="{{ t.form.ph_digikey }}"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_mpn }}</label>
+                    <input type="text" name="manufacture_part_number" class="form-input mono-input"
+                           value="{{ component.manufacture_part_number or '' }}"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_manufacturer }}</label>
+                    <input type="text" name="manufacturer" class="form-input"
+                           value="{{ component.manufacturer or '' }}"/>
+                </div>
+            </div>
+
+            <div class="add-row-2">
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_package }}</label>
+                    <input type="text" name="package" class="form-input mono-input"
+                           value="{{ component.package or '' }}" placeholder="{{ t.form.ph_package_short }}"/>
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_rohs }}</label>
+                    <select name="rohs" class="form-input">
+                        <option value="">{{ t.form.rohs_none }}</option>
+                        <option value="YES" {% if component.rohs == 'YES' %}selected{% endif %}>{{ t.form.rohs_yes }}</option>
+                        <option value="NO"  {% if component.rohs == 'NO'  %}selected{% endif %}>{{ t.form.rohs_no }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Image manuelle -->
+            <div class="add-inner-sep"></div>
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_image_edit }}</label>
+                <div class="img-upload-wrap">
+                    {% if component.image_path %}
+                    <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
+                         class="img-upload-preview" id="img-preview" alt=""/>
+                    {% else %}
+                    <div class="img-upload-placeholder" id="img-preview-empty">
+                        <span>📷</span><span style="font-size:.75rem;color:var(--text-muted)">{{ t.form.no_image }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="img-upload-controls">
+                        <label class="btn btn-secondary btn-sm img-upload-btn">
+                            📂 Choisir une image
+                            <input type="file" name="image_file" id="image_file"
+                                   accept=".jpg,.jpeg,.png,.webp" hidden
+                                   onchange="previewImage(this)"/>
+                        </label>
+                        <span class="img-upload-hint">{{ t.form.hint_image_edit }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Organisation -->
+        <div class="add-section">
+            <div class="add-section-title"><span class="add-section-icon">🗂️</span> {{ t.form.section_org }}</div>
+
+            <div class="add-row-2">
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_category }}</label>
+                    {{ category_select("category", component.category or "", category_groups) }}
+                </div>
+                <div class="add-field">
+                    <label class="add-label">{{ t.form.label_location }}</label>
+                    <input type="text" name="location" class="form-input"
+                           value="{{ component.location or '' }}" placeholder="{{ t.form.ph_location }}"/>
+                </div>
+            </div>
+
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_notes }}</label>
+                <textarea name="notes" class="form-input" rows="3"
+                          placeholder="{{ t.form.ph_notes_short }}">{{ component.notes or '' }}</textarea>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Colonne latérale : Stock & Prix ────────────────────────── -->
+    <div class="add-col-side">
+        <div class="add-section add-section-sticky">
+            <div class="add-section-title"><span class="add-section-icon">📦</span> {{ t.form.section_stock }}</div>
+
+            <div class="add-field">
+                <label class="add-label">{{ t.form.label_qty }} <span class="add-required">*</span></label>
+                <div style="display:flex;align-items:stretch;width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+                    <button type="button" onclick="stepField('f-quantity',-1)"
+                            style="width:40px;flex-shrink:0;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1.3rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" name="quantity" id="f-quantity"
+                           value="{{ component.quantity }}" min="0" required
+                           style="flex:1;min-width:0;border:none;background:transparent;color:var(--accent);font-size:1.6rem;font-weight:800;text-align:center;padding:.5rem 0"/>
+                    <button type="button" onclick="stepField('f-quantity',+1)"
+                            style="width:40px;flex-shrink:0;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1.3rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
+            </div>
+
+            <div class="add-field">
+                <label class="add-label">{{ t.form.label_min_stock }}</label>
+                <div style="display:flex;align-items:stretch;width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+                    <button type="button" onclick="stepField('f-min-stock',-1)"
+                            style="width:36px;flex-shrink:0;border:none;border-right:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">−</button>
+                    <input type="number" name="min_stock" id="f-min-stock"
+                           value="{{ component.min_stock or 0 }}" min="0"
+                           style="flex:1;min-width:0;border:none;background:transparent;color:var(--text);font-size:.95rem;font-weight:700;text-align:center;padding:.4rem 0"/>
+                    <button type="button" onclick="stepField('f-min-stock',+1)"
+                            style="width:36px;flex-shrink:0;border:none;border-left:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:1rem;font-weight:700;transition:background .1s"
+                            onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">+</button>
+                </div>
+                <span class="add-hint">{{ t.form.hint_0_alert }}</span>
+            </div>
+
+            <div class="add-separator"></div>
+
+            <div class="add-field">
+                <label class="add-label">{{ t.form.label_unit_price }}</label>
+                <input type="number" name="unit_price" id="f-unit-price" class="form-input"
+                       step="0.0001" min="0"
+                       value="{{ component.unit_price or '' }}" placeholder="0.0000"
+                       oninput="autoCalcTotal()"/>
+            </div>
+
+            <div class="add-field">
+                <label class="add-label">Prix total (€)
+                    <span class="add-hint-inline" id="total-auto-hint"> = <strong id="total-display">{{ '%.2f'|format(component.ext_price or 0) }} €</strong></span>
+                </label>
+                <input type="number" name="ext_price" id="f-ext-price" class="form-input"
+                       step="0.01" min="0"
+                       value="{{ component.ext_price or '' }}" placeholder="0.00"/>
+            </div>
+
+            <div class="add-separator"></div>
+
+            <button type="submit" class="btn btn-primary btn-full">{{ t.form.btn_save }}</button>
+            <a href="{{ url_for('components.detail', component_id=component.id) }}"
+               class="btn btn-secondary btn-full" style="margin-top:.4rem">{{ t.form.btn_cancel }}</a>
+        </div>
+    </div>
+
+</div>
+</form>
+
+
+<script src="{{ url_for('static', filename='js/edit.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

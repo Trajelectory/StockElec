@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Étiquettes ({{ components_data|length }} composant{{ 's' if components_data|length > 1 }})</title>
+
+    {# ── Calculs de dimensions écran depuis les mm ────────────────── #}
+    {# Aperçu légèrement agrandi pour meilleure lisibilité #}
+    {% set w_px = (lbl.lbl_width_mm|float * 4.8)|int %}
+    {% set h_px = (lbl.lbl_height_mm|float * 4.8)|int %}
+
+    
+<style>
+    /* ── Interface ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        background: #1a1d27; color: #e2e4ec;
+        display: flex; flex-direction: column;
+        align-items: center; padding: 1.25rem 1rem; gap: 1rem;
+    }
+
+    /* Barre unique compacte */
+    .toolbar {
+        display: flex; gap: .6rem; align-items: center; flex-wrap: wrap;
+        background: #20232f; border: 1px solid #2e3140;
+        border-radius: 8px; padding: .6rem 1rem;
+        width: 100%; max-width: 1100px;
+    }
+    .toolbar-title {
+        flex: 1; font-size: .95rem; font-weight: 700;
+        color: #4f8ef7; min-width: 180px;
+    }
+    .toolbar-dims {
+        font-size: .75rem; color: #7c82a0;
+        background: #1a1d27; border: 1px solid #2e3140;
+        border-radius: 4px; padding: .2rem .55rem;
+    }
+    .toolbar-copies {
+        display: flex; align-items: center; gap: .4rem;
+        font-size: .8rem; color: #7c82a0;
+    }
+    .toolbar-copies input {
+        width: 48px; padding: .25rem .4rem;
+        background: #1a1d27; border: 1px solid #2e3140;
+        border-radius: 4px; color: #e2e4ec;
+        font-size: .85rem; text-align: center;
+    }
+    .btn {
+        padding: .4rem .9rem; border-radius: 6px; border: none;
+        font-size: .85rem; cursor: pointer; font-weight: 500;
+        text-decoration: none; display: inline-flex; align-items: center; gap: .35rem;
+        white-space: nowrap;
+    }
+    .btn-print { background: #4f8ef7; color: #fff; }
+    .btn-back  { background: #20232f; color: #7c82a0; border: 1px solid #2e3140; }
+    .btn-print:hover, .btn-back:hover { filter: brightness(1.15); }
+
+    /* Note discrète */
+    .print-hint {
+        width: 100%; max-width: 1100px;
+        font-size: .72rem; color: #555e7a;
+        padding: 0 .25rem;
+    }
+    .print-hint a { color: #4f8ef7; text-decoration: none; }
+
+    /* Grille d'étiquettes */
+    .preview-area { width: 100%; max-width: 1100px; }
+    .labels-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax({{ w_px }}px, max-content));
+        gap: 10px;
+        justify-content: start;
+    }
+
+    /* ══ ÉTIQUETTE — valeurs issues de la config ═══════════════════ */
+    .label {
+        width:  {{ w_px }}px;
+        height: {{ h_px }}px;
+        background: {{ lbl.lbl_bg_color }};
+        color:      {{ lbl.lbl_text_color }};
+        display: flex; overflow: hidden; border-radius: 4px;
+        box-shadow: 0 3px 12px rgba(0,0,0,.4);
+        border: 1px solid #ddd;
+    }
+
+    .lbl-img {
+        width: {{ (h_px * 0.67)|int }}px; flex-shrink: 0;
+        background: #f8f8f8; border-right: 1px solid #e8e8e8;
+        display: {{ 'flex' if lbl.lbl_show_image == '1' else 'none' }};
+        align-items: center; justify-content: center;
+        overflow: hidden; padding: 4px;
+    }
+    .lbl-img img { width: {{ (h_px * 0.55)|int }}px; height: {{ (h_px * 0.55)|int }}px; object-fit: contain; display: block; }
+    .lbl-img-empty { font-size: 1.8rem; opacity: .2; }
+
+    .lbl-body {
+        flex: 1; padding: 5px 4px 5px 7px;
+        display: flex; flex-direction: column; gap: 2px;
+        overflow: hidden; color: {{ lbl.lbl_text_color }}; min-width: 0;
+    }
+    .lbl-desc {
+        font-size: {{ (lbl.lbl_desc_size_mm|float * 2.83)|round(1) }}px;
+        font-weight: 700; line-height: 1.3;
+        display: -webkit-box; -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .lbl-refs { display: flex; flex-direction: column; gap: 1px; margin-top: 1px; }
+    .lbl-ref {
+        font-size: {{ (lbl.lbl_ref_size_mm|float * 2.83)|round(1) }}px;
+        color: #333; font-family: 'Courier New', monospace;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lbl-ref-label { color: #999; font-size: {{ (lbl.lbl_ref_size_mm|float * 2.3)|round(1) }}px; }
+    .lbl-lcsc   { display: {{ 'block' if lbl.lbl_show_lcsc     == '1' else 'none' }}; }
+    .lbl-mfr    { display: {{ 'block' if lbl.lbl_show_mfr_part == '1' else 'none' }}; }
+    .lbl-mfg    { display: {{ 'block' if lbl.lbl_show_mfg      == '1' else 'none' }}; }
+
+    .lbl-badges { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; }
+    .lbl-badge {
+        font-size: {{ (lbl.lbl_badge_size_mm|float * 2.83)|round(1) }}px;
+        padding: 1px 3px; border-radius: 2px; font-weight: 600; white-space: nowrap;
+    }
+    .b-pkg  { background: {{ lbl.lbl_color_pkg }};  display: {{ 'inline' if lbl.lbl_show_package  == '1' else 'none' }}; }
+    .b-rohs { background: {{ lbl.lbl_color_rohs }}; display: {{ 'inline' if lbl.lbl_show_rohs     == '1' else 'none' }}; }
+    .b-qty  { background: {{ lbl.lbl_color_qty }};  display: {{ 'inline' if lbl.lbl_show_qty      == '1' else 'none' }}; }
+    .b-loc  { background: {{ lbl.lbl_color_loc }};  display: {{ 'inline' if lbl.lbl_show_location == '1' else 'none' }}; }
+    .b-cat  { background: {{ lbl.lbl_color_cat }};  display: {{ 'inline' if lbl.lbl_show_category == '1' else 'none' }}; }
+    .lbl-price {
+        font-size: {{ (lbl.lbl_ref_size_mm|float * 2.83)|round(1) }}px;
+        color: #777; margin-top: 1px;
+        display: {{ 'block' if lbl.lbl_show_price == '1' else 'none' }};
+    }
+
+    .lbl-qr {
+        width: {{ (h_px * 0.42)|int }}px; flex-shrink: 0;
+        display: {{ 'flex' if lbl.lbl_show_qr == '1' else 'none' }};
+        flex-direction: column; align-items: center; justify-content: center;
+        gap: 2px; padding: 3px; border-left: 1px solid #ebebeb; background: #fff;
+    }
+    .lbl-qr img {
+        width: {{ (h_px * 0.34)|int }}px; height: {{ (h_px * 0.34)|int }}px;
+        display: block; image-rendering: pixelated;
+    }
+    .lbl-qr-ref { font-size: 4.5px; color: #999; text-align: center; word-break: break-all; line-height: 1.2; }
+
+    /* ── Impression ──────────────────────────────────────────────── */
+    @media print {
+        @page { size: A4 portrait; margin: 8mm; }
+        body, .preview-area { background: white !important; padding: 0 !important; }
+        .toolbar, .print-hint { display: none !important; }
+        .labels-grid { display: flex; flex-wrap: wrap; gap: 2mm; justify-content: flex-start; }
+
+        .label {
+            width:  {{ lbl.lbl_width_mm }}mm  !important;
+            height: {{ lbl.lbl_height_mm }}mm !important;
+            background: {{ lbl.lbl_bg_color }} !important;
+            box-shadow: none !important; border: 0.3mm solid #ccc !important;
+            border-radius: 0.5mm !important;
+            page-break-inside: avoid; break-inside: avoid;
+        }
+        .lbl-img     { width: {{ (lbl.lbl_height_mm|float * 0.67)|round(1) }}mm !important; padding: 1mm !important;
+                       display: {{ 'flex' if lbl.lbl_show_image == '1' else 'none' }} !important; }
+        .lbl-img img { width:  {{ (lbl.lbl_height_mm|float * 0.55)|round(1) }}mm !important;
+                       height: {{ (lbl.lbl_height_mm|float * 0.55)|round(1) }}mm !important; }
+        .lbl-body    { padding: 1.5mm 1mm 1.5mm 2mm !important; color: {{ lbl.lbl_text_color }} !important; }
+        .lbl-desc    { font-size: {{ lbl.lbl_desc_size_mm }}mm !important; }
+        .lbl-ref     { font-size: {{ lbl.lbl_ref_size_mm }}mm !important; }
+        .lbl-ref-label { font-size: {{ (lbl.lbl_ref_size_mm|float * 0.85)|round(2) }}mm !important; }
+        .lbl-badge   { font-size: {{ lbl.lbl_badge_size_mm }}mm !important; padding: 0.3mm 0.8mm !important; }
+        .lbl-price   { font-size: {{ lbl.lbl_ref_size_mm }}mm !important; }
+        .lbl-qr      { width: {{ (lbl.lbl_height_mm|float * 0.42)|round(1) }}mm !important; padding: 1mm !important;
+                       display: {{ 'flex' if lbl.lbl_show_qr == '1' else 'none' }} !important; }
+        .lbl-qr img  { width:  {{ (lbl.lbl_height_mm|float * 0.34)|round(1) }}mm !important;
+                       height: {{ (lbl.lbl_height_mm|float * 0.34)|round(1) }}mm !important; }
+        .b-pkg  { background: {{ lbl.lbl_color_pkg }}  !important; display: {{ 'inline' if lbl.lbl_show_package  == '1' else 'none' }} !important; }
+        .b-rohs { background: {{ lbl.lbl_color_rohs }} !important; display: {{ 'inline' if lbl.lbl_show_rohs     == '1' else 'none' }} !important; }
+        .b-qty  { background: {{ lbl.lbl_color_qty }}  !important; display: {{ 'inline' if lbl.lbl_show_qty      == '1' else 'none' }} !important; }
+        .b-loc  { background: {{ lbl.lbl_color_loc }}  !important; display: {{ 'inline' if lbl.lbl_show_location == '1' else 'none' }} !important; }
+        .b-cat  { background: {{ lbl.lbl_color_cat }}  !important; display: {{ 'inline' if lbl.lbl_show_category == '1' else 'none' }} !important; }
+        .lbl-lcsc  { display: {{ 'block' if lbl.lbl_show_lcsc     == '1' else 'none' }} !important; }
+        .lbl-mfr   { display: {{ 'block' if lbl.lbl_show_mfr_part == '1' else 'none' }} !important; }
+        .lbl-mfg   { display: {{ 'block' if lbl.lbl_show_mfg      == '1' else 'none' }} !important; }
+        .lbl-price { display: {{ 'block' if lbl.lbl_show_price == '1' else 'none' }} !important; }
+    }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <span class="toolbar-title">
+        🏷️ {{ components_data|length }} étiquette{{ 's' if components_data|length > 1 }}
+    </span>
+    <span class="toolbar-dims">{{ lbl.lbl_width_mm }} × {{ lbl.lbl_height_mm }} mm</span>
+    <div class="toolbar-copies">
+        <label for="copies">{{ t.labels.print_copies }}</label>
+        <input type="number" id="copies" value="1" min="1" max="20" onchange="buildLabels()"/>
+    </div>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-back">{{ t.labels.print_back }}</a>
+    <a href="{{ url_for('components.label_settings') }}" class="btn btn-back" title="{{ t.labels.title_configure }}">⚙️</a>
+    <button class="btn btn-print" onclick="window.print()">{{ t.labels.print_btn }}</button>
+</div>
+
+<p class="print-hint">
+    💡 Dans le dialogue d'impression : désactive les <strong>{{ t.labels.print_headers }}</strong>,
+    marges à <strong>{{ t.labels.print_minimum }}</strong>, {{ t.labels.print_format }} <strong>{{ t.labels.print_a4 }}</strong>.
+    Config appliquée depuis <a href="{{ url_for('components.label_settings') }}">{{ t.labels.print_settings }}</a>.
+</p>
+
+<div class="preview-area">
+    <div class="labels-grid" id="labels-grid"></div>
+</div>
+
+
+<script src="{{ url_for('static', filename='js/labels_print.js') }}?v={{ cache_buster }}"></script>
+<script>
+const COMPONENTS = [
+    {% for item in components_data %}
+    {
+        description:  {{ (item.comp.description or '')|tojson }},
+        lcsc:         {{ (item.comp.lcsc_part_number or '')|tojson }},
+        mfr_part:     {{ (item.comp.manufacture_part_number or '')|tojson }},
+        manufacturer: {{ (item.comp.manufacturer or '')|tojson }},
+        package:      {{ (item.comp.package or '')|tojson }},
+        rohs:         {{ (item.comp.rohs or '')|tojson }},
+        quantity:     {{ item.comp.quantity }},
+        unit_price:   {{ item.comp.unit_price or 'null' }},
+        location:     {{ (item.comp.location or '')|tojson }},
+        category:     {{ (item.comp.category or '')|tojson }},
+        qr_data_url:  {{ item.qr_data_url|tojson }},
+        {% if item.comp.image_path %}
+        image_url: {{ url_for('components.component_image', filename=item.comp.image_path.split('images/')|last)|tojson }},
+        {% else %}
+        image_url: null,
+        {% endif %}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Config chargée depuis les paramètres (déjà appliquée via CSS Jinja)
+// On garde juste les flags de visibilité pour le JS qui construit le DOM
+const CFG = {
+    show_image:   {{ (lbl.lbl_show_image == '1') | tojson }},
+    show_qr:      {{ (lbl.lbl_show_qr == '1') | tojson }},
+    show_lcsc:    {{ (lbl.lbl_show_lcsc == '1') | tojson }},
+    show_mfr:     {{ (lbl.lbl_show_mfr_part == '1') | tojson }},
+    show_mfg:     {{ (lbl.lbl_show_mfg == '1') | tojson }},
+    show_package: {{ (lbl.lbl_show_package == '1') | tojson }},
+    show_rohs:    {{ (lbl.lbl_show_rohs == '1') | tojson }},
+    show_qty:     {{ (lbl.lbl_show_qty == '1') | tojson }},
+    show_location:{{ (lbl.lbl_show_location == '1') | tojson }},
+    show_category:{{ (lbl.lbl_show_category == '1') | tojson }},
+    show_price:   {{ (lbl.lbl_show_price == '1') | tojson }},
+    color_pkg:    {{ lbl.lbl_color_pkg|tojson }},
+    color_rohs:   {{ lbl.lbl_color_rohs|tojson }},
+    color_qty:    {{ lbl.lbl_color_qty|tojson }},
+    color_loc:    {{ lbl.lbl_color_loc|tojson }},
+    color_cat:    {{ lbl.lbl_color_cat|tojson }},
+};
+
+function buildLabels() {
+    const copies = Math.max(1, Math.min(20, parseInt(document.getElementById('copies').value) || 1));
+    const grid   = document.getElementById('labels-grid');
+    grid.innerHTML = '';
+    for (const data of COMPONENTS) {
+        for (let c = 0; c < copies; c++) {
+            grid.appendChild(makeLabel(data));
+        }
+    }
+}
+
+function makeLabel(DATA) {
+    const label = el('div', 'label');
+
+    // Image
+    if (CFG.show_image) {
+        const imgWrap = el('div', 'lbl-img');
+        if (DATA.image_url) {
+            const img = el('img');
+            img.src = DATA.image_url; img.alt = DATA.description;
+            img.onerror = () => { imgWrap.innerHTML = '<span class="lbl-img-empty">⚡</span>'; };
+            imgWrap.appendChild(img);
+        } else {
+            imgWrap.innerHTML = '<span class="lbl-img-empty">⚡</span>';
+        }
+        label.appendChild(imgWrap);
+    }
+
+    // Corps
+    const body = el('div', 'lbl-body');
+    const desc = el('div', 'lbl-desc');
+    desc.textContent = DATA.description || DATA.mfr_part || DATA.lcsc || '—';
+    body.appendChild(desc);
+
+    const refs = el('div', 'lbl-refs');
+    if (CFG.show_lcsc && DATA.lcsc)        refs.appendChild(ref('LCSC', DATA.lcsc, 'lbl-lcsc'));
+    if (CFG.show_mfr  && DATA.mfr_part)   refs.appendChild(ref('MFR ', DATA.mfr_part, 'lbl-mfr'));
+    if (CFG.show_mfg  && DATA.manufacturer) refs.appendChild(ref('MFG ', DATA.manufacturer, 'lbl-mfg'));
+    body.appendChild(refs);
+
+    const badges = el('div', 'lbl-badges');
+    if (DATA.package)       badges.appendChild(badge(DATA.package, 'b-pkg', CFG.color_pkg));
+    if (DATA.rohs==='YES')  badges.appendChild(badge('RoHS', 'b-rohs', CFG.color_rohs));
+    badges.appendChild(badge('Qté: '+DATA.quantity, 'b-qty', CFG.color_qty));
+    if (DATA.location)      badges.appendChild(badge('📍 '+DATA.location, 'b-loc', CFG.color_loc));
+    if (DATA.category) {
+        const cat = DATA.category.includes(' / ') ? DATA.category.split(' / ').pop() : DATA.category;
+        badges.appendChild(badge(cat, 'b-cat', CFG.color_cat));
+    }
+    body.appendChild(badges);
+
+    if (CFG.show_price && DATA.unit_price) {
+        const price = el('div', 'lbl-price');
+        price.textContent = parseFloat(DATA.unit_price).toFixed(4) + ' € / pièce';
+        body.appendChild(price);
+    }
+    label.appendChild(body);
+
+    // QR
+    if (CFG.show_qr) {
+        const qrWrap = el('div', 'lbl-qr');
+        const qrImg = el('img'); qrImg.src = DATA.qr_data_url; qrImg.alt = 'QR';
+        const qrRef = el('div', 'lbl-qr-ref'); qrRef.textContent = DATA.lcsc || '';
+        qrWrap.appendChild(qrImg); qrWrap.appendChild(qrRef);
+        label.appendChild(qrWrap);
+    }
+
+    return label;
+}
+
+function el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function ref(l, v, cls) {
+    const d = el('div', 'lbl-ref' + (cls ? ' ' + cls : ''));
+    d.innerHTML = '<span class="lbl-ref-label">'+l+' </span>'+esc(v);
+    return d;
+}
+function badge(t, cls, bg) {
+    const s = el('span', 'lbl-badge ' + cls);
+    s.textContent = t;
+    if (bg) s.style.background = bg;
+    return s;
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+buildLabels();
+</script>
+</body>
+</html>

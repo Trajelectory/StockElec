@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}{{ t.reorder.title }} — StockElec{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ───────────────────────────────────────────────────── -->
+<div class="cd-header" style="margin-bottom:1.25rem">
+    <div class="cd-header-left">
+        <h1 class="cd-title">🛒 {{ t.reorder.title }}</h1>
+    </div>
+    <div class="cd-header-right" style="display:flex;gap:.5rem;flex-wrap:wrap">
+        {% if show_all_zero %}
+        <a href="{{ url_for('components.reorder') }}" class="btn btn-secondary btn-sm">{{ t.reorder.btn_hide_zero }}</a>
+        {% else %}
+        <a href="{{ url_for('components.reorder', show_zero=1) }}" class="btn btn-secondary btn-sm">{{ t.reorder.btn_all_zero }}</a>
+        {% endif %}
+        {% if items %}
+        <a href="{{ url_for('components.reorder_export', dist='lcsc') }}"   class="btn btn-secondary btn-sm">{{ t.reorder.btn_export_lcsc }}</a>
+        <a href="{{ url_for('components.reorder_export', dist='mouser') }}" class="btn btn-secondary btn-sm">{{ t.reorder.btn_export_mouser }}</a>
+        <a href="{{ url_for('components.reorder_export', dist='all') }}"    class="btn btn-secondary btn-sm">{{ t.reorder.btn_export_all }}</a>
+        {% endif %}
+        <a href="https://www.lcsc.com/cart" target="_blank" rel="noopener" class="btn btn-primary btn-sm">{{ t.reorder.btn_open_lcsc }}</a>
+    </div>
+</div>
+
+{% if items %}
+
+<!-- ── Stats ─────────────────────────────────────────────────────── -->
+{% set ruptures = items|selectattr('stock_status','eq','rupture')|list %}
+{% set bas      = items|selectattr('stock_status','eq','bas')|list %}
+{% set total_val = namespace(v=0) %}
+{% for i in items %}{% if i.unit_price and i.suggested_qty %}{% set total_val.v = total_val.v + i.unit_price * i.suggested_qty %}{% endif %}{% endfor %}
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem">
+    <div class="sk-stat" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--danger)">{{ ruptures|length }}</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">{{ t.reorder.status_rupture }}</div>
+    </div>
+    <div class="sk-stat" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--warning)">{{ bas|length }}</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">{{ t.reorder.status_low }}</div>
+    </div>
+    <div class="sk-stat" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+        <div style="font-size:1.6rem;font-weight:700">{{ items|length }}</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">{{ t.reorder.total_label }}</div>
+    </div>
+    {% if total_val.v > 0 %}
+    <div class="sk-stat" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
+        <div style="font-size:1.6rem;font-weight:700;color:var(--accent)">{{ "%.2f"|format(total_val.v) }} €</div>
+        <div style="font-size:.75rem;color:var(--text-muted)">{{ t.reorder.estimation }}</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Tableau ───────────────────────────────────────────────────── -->
+<div class="table-wrapper">
+    <table class="data-table">
+        <thead><tr>
+            <th style="width:90px">Statut</th>
+            <th class="th-img"></th>
+            <th>{{ t.reorder.col_component }}</th>
+            <th>{{ t.reorder.col_ref }}</th>
+            <th class="th-center" style="width:70px">{{ t.reorder.col_stock }}</th>
+            <th class="th-center" style="width:80px">{{ t.reorder.col_threshold }}</th>
+            <th class="th-center" style="width:80px">{{ t.reorder.col_suggested }}</th>
+            <th class="th-right" style="width:90px">{{ t.reorder.col_price }}</th>
+            <th style="width:90px">{{ t.reorder.col_order }}</th>
+        </tr></thead>
+        <tbody>
+        {% for item in items %}
+        <tr class="{{ 'order-row-urgent' if item.stock_status == 'rupture' }}">
+            <td>
+                {% if item.stock_status == 'rupture' %}
+                <span class="badge badge-red">{{ t.reorder.badge_rupture }}</span>
+                {% else %}
+                <span class="badge badge-orange">{{ t.reorder.badge_low }}</span>
+                {% endif %}
+            </td>
+            <td class="td-thumb">
+                {% if item.image_path %}
+                <img src="{{ url_for('components.component_image', filename=item.image_path.split('images/')|last) }}"
+                     class="thumb" loading="lazy"/>
+                {% else %}
+                <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('components.detail', component_id=item.id) }}" class="td-link">
+                    {{ item.description or item.manufacture_part_number or '—' }}
+                </a>
+                {% if item.manufacturer %}
+                <div class="td-secondary" style="font-size:.72rem;margin-top:.1rem">{{ item.manufacturer }}</div>
+                {% endif %}
+            </td>
+            <td>
+                {% if item.lcsc_part_number %}
+                <a href="https://www.lcsc.com/product-detail/{{ item.lcsc_part_number }}.html" target="_blank" rel="noopener">
+                    <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ item.lcsc_part_number }}</span>
+                </a>
+                {% elif item.mouser_part_number %}
+                <a href="{{ 'https://www.mouser.fr/ProductDetail/' ~ item.mouser_part_number }}" target="_blank" rel="noopener">
+                    <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ item.mouser_part_number }}</span>
+                </a>
+                {% elif item.digikey_part_number %}
+                <a href="{{ item.product_url if item.product_url and 'digikey' in (('' ~ (item.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}" target="_blank" rel="noopener">
+                    <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ item.digikey_part_number }}</span>
+                </a>
+                {% else %}
+                <span class="td-secondary">—</span>
+                {% endif %}
+            </td>
+            <td class="td-center">
+                <span style="font-size:.95rem;font-weight:700;color:{{ 'var(--danger)' if item.stock_status == 'rupture' else 'var(--warning)' }}">
+                    {{ item.quantity }}
+                </span>
+            </td>
+            <td class="td-center td-secondary">{{ item.min_stock or '—' }}</td>
+            <td class="td-center">
+                <span style="font-weight:600;color:var(--accent)">
+                    {{ item.suggested_qty if item.suggested_qty > 0 else '?' }}
+                </span>
+            </td>
+            <td class="td-right td-secondary" style="font-family:var(--mono);font-size:.78rem">
+                {% if item.unit_price %}{{ "%.4f"|format(item.unit_price) }} €{% else %}—{% endif %}
+            </td>
+            <td>
+                {% if item.lcsc_part_number %}
+                <a href="https://www.lcsc.com/search?q={{ item.lcsc_part_number }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">{{ t.reorder.btn_lcsc }}</a>
+                {% elif item.mouser_part_number %}
+                <a href="{{ 'https://www.mouser.fr/ProductDetail/' ~ item.mouser_part_number }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">{{ t.reorder.btn_mouser }}</a>
+                {% elif item.digikey_part_number %}
+                <a href="{{ item.product_url if item.product_url and 'digikey' in (('' ~ (item.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ item.digikey_part_number }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">{{ t.reorder.btn_digikey }}</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="empty-state" style="padding:5rem">
+    <div class="empty-state-icon">🎉</div>
+    <div class="empty-state-title">{{ t.reorder.all_good }}</div>
+    <div class="empty-state-hint">{{ t.reorder.empty }}</div>
+</div>
+{% endif %}
+{% endblock %}

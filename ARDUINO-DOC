@@ -1,0 +1,298 @@
+# ⚡ StockEleK — Firmware LED ESP32
+
+Firmware Arduino pour le contrôle des rubans LED adressables **WS2812B** intégré à [StockEleK](https://github.com/Trajelectory/StockElec), le gestionnaire de stock de composants électroniques pour makers.
+
+Chaque case du plan de rangement peut allumer les LEDs physiques correspondantes dans tes tiroirs — retrouve un composant en un coup d'œil.
+
+---
+
+## Matériel requis
+
+| Composant | Détail |
+|---|---|
+| ESP32 | ESP32-S3 DevKitC-1 ou tout ESP32 compatible Arduino |
+| Ruban LED | WS2812B (NeoPixel), 1 LED par case de rangement |
+| Alimentation | 5V — prévoir 60mA par LED à pleine puissance |
+
+> **Exemple :** 10 tiroirs × 50 LEDs = 500 LEDs. À 30% de luminosité (valeur par défaut) ≈ 9A. Une alimentation 5V/10A est suffisante.
+
+---
+
+## Librairies Arduino requises
+
+À installer via le **Gestionnaire de bibliothèques** de l'IDE Arduino :
+
+| Librairie | Auteur | Usage |
+|---|---|---|
+| `FastLED` | Daniel Garcia | Contrôle WS2812B |
+| `ArduinoJson` | Benoit Blanchon | Parse des requêtes JSON |
+| `WebSockets` | Markus Sattler | Feedback temps réel |
+
+Support ESP32 (si pas déjà installé) :
+```
+https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+```
+
+---
+
+## Câblage
+
+```
+ESP32 (GPIO 5)
+      │
+      ▼  fil DATA
+  ┌───────┐     ┌───────┐     ┌───────┐
+  │LED  0 │────▶│LED  1 │────▶│  ...  │────▶ LED N
+  └───────┘     └───────┘     └───────┘
+  [Tiroir A — LEDs 0 à 49]  [Tiroir B — LEDs 50 à 99]  ...
+
+  5V ──────────────────────────────────── VCC ruban
+  GND ─────────────────────────────────── GND ruban
+```
+
+> Le ruban passe en **série** dans tous les tiroirs, bout à bout. La numérotation est linéaire de gauche à droite, rangée par rangée.
+
+---
+
+## Configuration
+
+Ouvre `gridfinity_leds_Arduino_v2.ino` et modifie le bloc de configuration en haut du fichier :
+
+```cpp
+// ── WiFi ──────────────────────────────────────────────────────────
+const char* SSID       = "ton_reseau";
+const char* PASSWORD   = "ton_mot_de_passe";
+
+// ── Sécurité ──────────────────────────────────────────────────────
+const char* AUTH_TOKEN = "stockelek-secret";   // doit correspondre à StockEleK
+
+// ── LED ───────────────────────────────────────────────────────────
+#define LED_PIN       5       // GPIO connecté au fil DATA du ruban
+#define NUM_LEDS      500     // total LEDs dans tous les tiroirs
+#define BRIGHTNESS    80      // 0–255 (80 ≈ 30% — économise l'alim)
+#define DEFAULT_SEC   5       // durée d'allumage par défaut (secondes)
+
+// ── Effets ────────────────────────────────────────────────────────
+#define FADE_STEPS    20      // pas de fondu (0 = allumage instantané)
+#define FADE_DELAY_MS 12      // ms entre chaque pas (~240ms total)
+#define QUEUE_SIZE    4       // commandes en file d'attente simultanées
+```
+
+### Trouver ton GPIO
+
+Sur un **ESP32-S3 DevKitC-1**, GPIO 5 correspond à la broche étiquetée `5` ou `IO5` sur le PCB, côté droit en partant du haut (côté USB).
+
+GPIOs recommandés pour WS2812B sur ESP32-S3 : `1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18`
+
+---
+
+## Calcul des offsets
+
+Chaque tiroir a un **offset** — l'index de sa première LED dans le ruban total.
+
+```
+Tiroir A (10×5 = 50 LEDs) → offset 0    → LEDs   0 à  49
+Tiroir B (10×5 = 50 LEDs) → offset 50   → LEDs  50 à  99
+Tiroir C (10×5 = 50 LEDs) → offset 100  → LEDs 100 à 149
+...
+```
+
+À configurer dans **StockEleK → Paramètres → ESP32** :
+```json
+{"A": 0, "B": 50, "C": 100, "D": 150, "E": 200, "F": 250, "G": 300, "H": 350, "I": 400, "J": 450}
+```
+
+---
+
+## API HTTP
+
+Toutes les routes sauf `/ping` requièrent le header `X-Token`.
+
+### `POST /leds` — Allumer des LEDs
+
+```bash
+curl -X POST http://192.168.1.x/leds \
+  -H "Content-Type: application/json" \
+  -H "X-Token: stockelek-secret" \
+  -d '{"leds": [3, 4, 13, 14], "color": "purple", "duration": 5}'
+```
+
+| Champ | Type | Défaut | Description |
+|---|---|---|---|
+| `leds` | `int[]` | requis | Indices des LEDs à allumer |
+| `color` | `string` ou `[r,g,b]` ou `"#RRGGBB"` | `"purple"` | Couleur |
+| `duration` | `int` | `5` | Durée en secondes |
+
+**Couleurs nommées :** `purple`, `blue`, `green`, `red`, `yellow`, `white`, `orange`, `cyan`, `pink`
+
+**Réponse :**
+```json
+{"ok": true, "queued": false}
+```
+Si une LED est déjà allumée, la commande est mise en file : `"queued": true` (HTTP 202).
+
+---
+
+### `POST /off` — Éteindre tout
+
+```bash
+curl -X POST http://192.168.1.x/off \
+  -H "X-Token: stockelek-secret"
+```
+
+Extinction immédiate avec fondu. Vide la file d'attente et arrête le chenillard.
+
+---
+
+### `POST /test` — Chenillard de validation
+
+```bash
+curl -X POST http://192.168.1.x/test \
+  -H "Content-Type: application/json" \
+  -H "X-Token: stockelek-secret" \
+  -d '{"offset": 50, "count": 50, "delay_ms": 80, "color": "green"}'
+```
+
+| Champ | Type | Défaut | Description |
+|---|---|---|---|
+| `offset` | `int` | `0` | Index de la première LED du plateau |
+| `count` | `int` | `NUM_LEDS` | Nombre de LEDs à tester |
+| `delay_ms` | `int` | `80` | Délai entre chaque LED en ms |
+| `color` | `string` | `"green"` | Couleur du chenillard |
+
+Depuis StockEleK, ce test se lance depuis **Paramètres → ESP32 → Tester le plateau**.
+
+---
+
+### `GET /status` — État courant
+
+```bash
+curl http://192.168.1.x/status
+```
+
+```json
+{
+  "ok": true,
+  "active": true,
+  "leds_on": 4,
+  "indices": [3, 4, 13, 14],
+  "remaining_sec": 3,
+  "queue_size": 1,
+  "num_leds": 500,
+  "uptime_sec": 142
+}
+```
+
+---
+
+### `GET /ping` — Vérifier la connexion
+
+```bash
+curl http://192.168.1.x/ping
+```
+
+```json
+{"ok": true, "leds": 500, "rssi": -62, "uptime": 142}
+```
+
+---
+
+## WebSocket (port 81)
+
+L'ESP32 envoie des événements en temps réel sur le port 81.
+
+| Événement | Déclencheur |
+|---|---|
+| `{"event":"welcome","leds":500}` | Connexion d'un client |
+| `{"event":"on","count":4,"duration":5}` | LEDs allumées |
+| `{"event":"off"}` | LEDs éteintes |
+| `{"event":"test_done"}` | Chenillard terminé |
+
+```javascript
+const ws = new WebSocket("ws://192.168.1.x:81");
+ws.onmessage = (e) => console.log(JSON.parse(e.data));
+```
+
+---
+
+## OTA — Mise à jour sans câble
+
+**Hostname :** `stockelek-leds`  
+**Mot de passe :** `stockelek-ota`
+
+Depuis Arduino IDE :
+1. **Outils → Port** → sélectionner `stockelek-leds` (réseau)
+2. Uploader normalement
+
+> L'ESP32 doit être alimenté et connecté au WiFi. Le clignotement violet au démarrage confirme que tout est prêt.
+
+---
+
+## Debug Serial
+
+**Baud rate :** 115200
+
+**Depuis Arduino IDE :** Outils → Moniteur série
+
+**Depuis PowerShell sans IDE :**
+```powershell
+$port = new-object System.IO.Ports.SerialPort COM7, 115200, None, 8, one
+$port.Open()
+try {
+    while ($true) {
+        $line = $port.ReadLine().TrimEnd()
+        $time = Get-Date -Format "HH:mm:ss"
+        if ($line -match "\[ERR\]") { Write-Host "[$time] $line" -ForegroundColor Red }
+        elseif ($line -match "LED")  { Write-Host "[$time] $line" -ForegroundColor Magenta }
+        else                         { Write-Host "[$time] $line" }
+    }
+} finally { $port.Close() }
+```
+
+*(Remplace `COM7` — utilise `[System.IO.Ports.SerialPort]::GetPortNames()` pour trouver ton port)*
+
+**Exemple de log lors d'un allumage :**
+```
+========================================
+[POST /leds]
+[JSON]   {"leds":[2,3,12,13],"color":"purple","duration":5}
+[Color]  string = purple
+[LEDs]   indices = [2, 3, 12, 13]
+[LEDs]   4 valide(s) — durée 5s
+[EXEC]   4 LED(s) allumée(s)
+========================================
+[Timer]  Extinction automatique
+```
+
+---
+
+## Intégration StockEleK
+
+| Paramètre | Valeur |
+|---|---|
+| IP / URL de l'ESP32 | `http://192.168.1.x` |
+| Couleur des LEDs | au choix |
+| Durée d'allumage | secondes |
+| Offsets par plateau (JSON) | `{"A": 0, "B": 50, ...}` |
+| Token d'authentification | même valeur que `AUTH_TOKEN` |
+
+Une fois configuré, chaque **clic droit sur une case → Allumer la LED** envoie automatiquement la commande avec les indices calculés depuis la position de la case et l'offset du plateau.
+
+---
+
+## Dépannage
+
+| Symptôme | Cause probable | Solution |
+|---|---|---|
+| Erreur 401 | Token incorrect | Vérifier que `AUTH_TOKEN` firmware = token dans StockEleK |
+| Mauvais tiroir s'allume | Offsets mal configurés | Vérifier le JSON des offsets dans StockEleK |
+| Pas de réponse au ping | ESP32 non connecté | Vérifier SSID/PASSWORD, relancer |
+| LEDs ne s'éteignent pas | Vieux firmware v1 | S'assurer d'utiliser le firmware v2 |
+| OTA ne trouve pas l'ESP32 | mDNS non résolu | Utiliser l'IP directe au lieu du hostname |
+| Chenillard teste le mauvais plateau | Offsets à 0 | Configurer les offsets dans StockEleK |
+
+---
+
+## Licence
+
+MIT — même licence que [StockEleK](https://github.com/Trajelectory/StockElec).

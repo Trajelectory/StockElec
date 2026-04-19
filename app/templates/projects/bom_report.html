@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Rapport BOM — {{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{{ url_for('projects.detail', project_id=project.id) }}" class="btn-back">
+        ← {{ project.name }}
+    </a>
+    <h1>📊 Rapport BOM
+        <span style="color:var(--text-muted);font-weight:400;font-size:.85rem">{{ filename }}</span>
+    </h1>
+</div>
+
+{# ── Barre de résumé compacte ───────────────────────────────────── #}
+<div class="stock-stats-bar" style="margin-bottom:1.25rem">
+    <div class="stock-stat">
+        <span class="stock-stat-val" style="color:#4caf50">{{ report.ok|length }}</span>
+        <span class="stock-stat-lbl">{{ t.bom.ok_badge }}</span>
+    </div>
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val" style="color:#ff9800">{{ report.low|length }}</span>
+        <span class="stock-stat-lbl">{{ t.bom.low_badge }}</span>
+    </div>
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val" style="color:#f44336">{{ report.missing|length }}</span>
+        <span class="stock-stat-lbl">{{ t.bom.absent }}</span>
+    </div>
+    {% if report.no_lcsc %}
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val" style="color:var(--text-muted)">{{ report.no_lcsc|length }}</span>
+        <span class="stock-stat-lbl">{{ t.bom.no_ref_badge }}</span>
+    </div>
+    {% endif %}
+    {% set total = report.ok|length + report.low|length + report.missing|length + report.no_lcsc|length %}
+    <div class="stock-stat-sep"></div>
+    <div class="stock-stat">
+        <span class="stock-stat-val">{{ total }}</span>
+        <span class="stock-stat-lbl">{{ t.bom.total_refs }}</span>
+    </div>
+</div>
+
+<form method="post" action="{{ url_for('projects.apply_bom', project_id=project.id) }}">
+
+{# ── ✅ En stock ─────────────────────────────────────────────────── #}
+{% if report.ok %}
+<div class="bom-section">
+    <div class="bom-section-header bom-header-ok">
+        <span>{{ t.bom.ok_stock }}</span>
+        <span class="bom-section-count">{{ report.ok|length }}</span>
+    </div>
+    <div class="table-wrapper">
+    <table class="data-table">
+        <thead><tr>
+            <th class="th-check"><input type="checkbox" id="check-all-ok" onchange="toggleAll('ok', this.checked)"/></th>
+            <th class="th-img"></th>
+            <th>{{ t.bom.col_component }}</th>
+            <th>{{ t.bom.col_ref }}</th>
+            <th class="th-center">{{ t.bom.col_qty_bom }}</th>
+            <th class="th-center">{{ t.bom.col_stock }}</th>
+            <th class="th-right">{{ t.bom.col_price }}</th>
+        </tr></thead>
+        <tbody>
+        {% for c in report.ok %}
+        <tr>
+            <td class="td-check">
+                {% if not c.already %}
+                <input type="checkbox" class="bom-check bom-check-ok" name="component_id"
+                       value="{{ c.component_id }}" checked
+                       onchange="syncQty(this, 'qty-ok-{{ loop.index }}')"/>
+                <input type="hidden" name="quantity" id="qty-ok-{{ loop.index }}" value="{{ c.bom_qty }}"/>
+                {% else %}
+                <span class="badge badge-gray" title="{{ t.bom.already_in }}">✓</span>
+                {% endif %}
+            </td>
+            <td class="td-thumb">
+                {% if c.image_path %}
+                <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                     class="thumb" loading="lazy" alt=""/>
+                {% else %}
+                <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('components.detail', component_id=c.component_id) }}" target="_blank">
+                    {{ c.description or c.lcsc }}
+                </a>
+                <span class="td-secondary mono" style="font-size:.72rem"> {{ c.lcsc }}</span>
+            </td>
+            <td class="td-secondary">{{ c.ref or '—' }}</td>
+            <td class="td-center td-qty">{{ c.bom_qty }}</td>
+            <td class="td-center td-qty" style="color:#4caf50">{{ c.stock_qty }}</td>
+            <td class="td-right td-price">
+                {% if c.unit_price %}{{ "%.2f"|format(c.unit_price * c.bom_qty) }} €{% else %}—{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── {{ t.bom.low_stock }} ────────────────────────────────────────── #}
+{% if report.low %}
+<div class="bom-section">
+    <div class="bom-section-header bom-header-low">
+        <span>{{ t.bom.low_stock2 }}</span>
+        <span class="bom-section-count">{{ report.low|length }}</span>
+    </div>
+    <div class="table-wrapper">
+    <table class="data-table">
+        <thead><tr>
+            <th class="th-check"><input type="checkbox" id="check-all-low" onchange="toggleAll('low', this.checked)"/></th>
+            <th class="th-img"></th>
+            <th>{{ t.bom.col_component2 }}</th>
+            <th>{{ t.bom.col_schema_ref }}</th>
+            <th class="th-center">{{ t.bom.col_qty_bom2 }}</th>
+            <th class="th-center">{{ t.bom.col_stock2 }}</th>
+            <th class="th-center">{{ t.bom.col_missing }}</th>
+        </tr></thead>
+        <tbody>
+        {% for c in report.low %}
+        <tr class="row-low">
+            <td class="td-check">
+                {% if not c.already %}
+                <input type="checkbox" class="bom-check bom-check-low" name="component_id"
+                       value="{{ c.component_id }}"
+                       onchange="syncQty(this, 'qty-low-{{ loop.index }}')"/>
+                <input type="hidden" name="quantity" id="qty-low-{{ loop.index }}" value="{{ c.bom_qty }}"/>
+                {% else %}
+                <span class="badge badge-gray" title="{{ t.bom.already_in_title }}">✓</span>
+                {% endif %}
+            </td>
+            <td class="td-thumb">
+                {% if c.image_path %}
+                <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                     class="thumb" loading="lazy" alt=""/>
+                {% else %}
+                <div class="thumb-placeholder"><span class="thumb-na">—</span></div>
+                {% endif %}
+            </td>
+            <td>
+                <a href="{{ url_for('components.detail', component_id=c.component_id) }}" target="_blank">
+                    {{ c.description or c.lcsc }}
+                </a>
+                <span class="td-secondary mono" style="font-size:.72rem"> {{ c.lcsc }}</span>
+            </td>
+            <td class="td-secondary">{{ c.ref or '—' }}</td>
+            <td class="td-center td-qty">{{ c.bom_qty }}</td>
+            <td class="td-center td-qty qty-low">{{ c.stock_qty }}</td>
+            <td class="td-center td-qty qty-zero">−{{ c.bom_qty - c.stock_qty }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── ❌ Absent du stock ──────────────────────────────────────────── #}
+{% if report.missing %}
+<div class="bom-section">
+    <div class="bom-section-header bom-header-missing">
+        <span>{{ t.bom.created_auto }}</span>
+        <span class="bom-section-count">{{ report.missing|length }}</span>
+    </div>
+    {% if report.new_count %}
+    <div style="padding:.6rem .85rem;background:var(--info-dim);border:1px solid rgba(56,189,248,.3);border-top:none;font-size:.82rem;color:var(--info)">
+        🔍 {{ report.new_count }} composant(s) créé(s) dans le stock — les infos LCSC (image, description, fabricant…) arrivent en arrière-plan
+    </div>
+    {% endif %}
+    <div class="table-wrapper">
+    <table class="data-table">
+        <thead><tr>
+            <th class="th-check"><input type="checkbox" id="check-all-missing" onchange="toggleAll('missing', this.checked)" checked/></th>
+            <th>{{ t.bom.col_lcsc }}</th>
+            <th>{{ t.bom.col_designator }}</th>
+            <th>{{ t.bom.col_value }}</th>
+            <th class="th-center">{{ t.bom.col_qty_needed }}</th>
+        </tr></thead>
+        <tbody>
+        {% for c in report.missing %}
+        <tr>
+            <td class="td-check">
+                <input type="checkbox" class="bom-check bom-check-missing" checked
+                       name="missing_id" value="{{ loop.index }}"
+                       onchange="syncMissingQty(this, 'qty-missing-{{ loop.index }}')"/>
+                <input type="hidden" name="missing_qty_{{ loop.index }}"     id="qty-missing-{{ loop.index }}" value="{{ c.bom_qty }}"/>
+                <input type="hidden" name="missing_desc_{{ loop.index }}"    value="{{ c.value or c.lcsc }}"/>
+                <input type="hidden" name="missing_lcsc_{{ loop.index }}"    value="{{ c.lcsc    if c.source == 'lcsc'    else '' }}"/>
+                <input type="hidden" name="missing_mouser_{{ loop.index }}"  value="{{ c.mouser  if c.mouser  is defined else '' }}"/>
+                <input type="hidden" name="missing_digikey_{{ loop.index }}" value="{{ c.digikey if c.digikey is defined else '' }}"/>
+            </td>
+            <td class="td-mono">
+                <a href="https://www.lcsc.com/product-detail/{{ c.lcsc }}.html"
+                   target="_blank" style="color:var(--accent)">{{ c.lcsc }}</a>
+            </td>
+            <td class="td-secondary">{{ c.ref or '—' }}</td>
+            <td>{{ c.value or '—' }}</td>
+            <td class="td-center td-qty">{{ c.bom_qty }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── Sans ref LCSC ───────────────────────────────────────────────── #}
+{% if report.no_lcsc %}
+<div class="bom-section">
+    <div class="bom-section-header" style="border-left-color:var(--border)">
+        <span style="color:var(--text-muted)">{{ t.bom.no_ref }}</span>
+        <span class="bom-section-count">{{ report.no_lcsc|length }}</span>
+    </div>
+    <div class="table-wrapper">
+    <table class="data-table">
+        <thead><tr>
+            <th>{{ t.bom.col_designator2 }}</th>
+            <th>{{ t.bom.col_value2 }}</th>
+            <th class="th-center">{{ t.bom.col_qty }}</th>
+        </tr></thead>
+        <tbody>
+        {% for c in report.no_lcsc %}
+        <tr>
+            <td class="td-secondary">{{ c.ref or '—' }}</td>
+            <td>{{ c.value or '—' }}</td>
+            <td class="td-center td-qty">{{ c.qty }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── Actions ─────────────────────────────────────────────────────── #}
+<div class="bom-actions">
+    {% if report.ok or report.low %}
+    <p class="bom-actions-hint">
+        Coche les composants à ajouter au projet, puis clique sur <strong>{{ t.bom.btn_add_project }}</strong>.
+        Les composants ❌ doivent d'abord être commandés sur LCSC.
+    </p>
+    <button type="submit" class="btn btn-primary">{{ t.bom.btn_add }}</button>
+    {% endif %}
+    <a href="{{ url_for('projects.detail', project_id=project.id) }}"
+       class="btn btn-secondary">{{ t.bom.back }}</a>
+</div>
+
+</form>
+
+
+<script src="{{ url_for('static', filename='js/bom_report.js') }}?v={{ cache_buster }}"></script>
+{% endblock %}

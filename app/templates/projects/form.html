@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if project else 'Nouveau projet' }} — StockElec{% endblock %}
+
+{% block content %}
+<div class="pf-root">
+
+    <!-- ── Bannière hero pleine largeur ────────────────────────── -->
+    <div class="pf-hero" id="pf-hero">
+        <div class="pf-hero-bg" id="pf-hero-bg"></div>
+        <div class="pf-hero-noise"></div>
+        <div class="pf-hero-content">
+            <a href="{{ url_for('projects.index') }}" class="pf-back">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Projets
+            </a>
+            <div class="pf-hero-label">{{ '✏️ Modifier' if project else '✨ Nouveau projet' }}</div>
+        </div>
+        <!-- Zone drop image directement sur le hero -->
+        <div class="pf-hero-drop" id="pf-hero-drop"
+             ondragover="event.preventDefault();event.currentTarget.classList.add('over')"
+             ondrop="heroImageDrop(event)"
+             ondragleave="event.currentTarget.classList.remove('over')">
+            <span class="pf-hero-drop-hint">Glisse une image ici pour la bannière</span>
+        </div>
+    </div>
+
+    <!-- ── Corps principal ─────────────────────────────────────── -->
+    <form method="post" enctype="multipart/form-data" id="proj-form" class="pf-body">
+        <input type="hidden" name="banner_color" id="banner-color-input" value=""/>
+        <input type="hidden" name="delete_image" id="delete-image" value="0"/>
+        <input type="file" name="image" id="image-input" accept=".jpg,.jpeg,.png,.gif,.webp" hidden
+               onchange="applyImageFile(this.files[0])"/>
+
+        <!-- ── Grid 2 col asymétrique ──────────────────────────── -->
+        <div class="pf-grid">
+
+            <!-- Colonne principale -->
+            <div class="pf-main">
+
+                <!-- Bloc titre -->
+                <div class="pf-block pf-block-title">
+                    <button type="button" class="pf-emoji-btn" id="pf-emoji-btn"
+                            onclick="toggleEmojiPicker()" title="Choisir un emoji">
+                        <span id="pf-emoji-display">{% if project and project.name and project.name[0:1] not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' %}{{ project.name[0] }}{% else %}📁{% endif %}</span>
+                    </button>
+                    <div class="pf-name-wrap">
+                        <input type="text" name="name" id="proj-name" required
+                               class="pf-name-input"
+                               placeholder="Nom du projet…"
+                               value="{{ project.name if project else '' }}"
+                               oninput="onNameInput(this.value)"
+                               autocomplete="off" spellcheck="false"/>
+                        <div class="pf-name-line" id="pf-name-line"></div>
+                        <div id="dupe-warning" class="pf-dupe-warn"></div>
+                    </div>
+                    <span class="pf-name-counter" id="name-counter">0/60</span>
+                </div>
+
+                <!-- Picker emoji -->
+                <div class="pf-emoji-picker" id="emoji-picker">
+                    {% for e in ['📁','🔌','💡','🤖','⚡','🔧','🛠','📡','🖥','📱','🎮','🚀','🔬','💎','🌡','📻','🔋','⚙️','🧪','🎛','🔩','🪛','💻','🏗','🧲'] %}
+                    <button type="button" class="pf-emoji-opt" onclick="pickEmoji('{{ e }}')">{{ e }}</button>
+                    {% endfor %}
+                </div>
+
+                <!-- Description -->
+                <div class="pf-block">
+                    <label class="pf-label">Description</label>
+                    <textarea name="description" id="proj-desc" class="pf-textarea"
+                              placeholder="Décris l'objectif, les composants clés, les contraintes…"
+                              oninput="onDescInput(this.value)">{{ project.description if project else '' }}</textarea>
+                    <div class="pf-textarea-footer">
+                        <span id="desc-counter" class="pf-char-count">0 caractères</span>
+                    </div>
+                </div>
+
+                <!-- Statut -->
+                <div class="pf-block">
+                    <label class="pf-label">Statut</label>
+                    <input type="hidden" name="status" id="status-input"
+                           value="{{ project.status if project else 'idée' }}"/>
+                    <div class="pf-status-grid" style="grid-template-columns:repeat(4,1fr)">
+                        {% set sdefs = [
+                            ('idée',          '💡','#06b6d4','Idée'),
+                            ('conception',    '✏️', '#7c6cff','Conception'),
+                            ('commandé',      '🛒','#f97316','Commandé'),
+                            ('en production', '🏭','#8b5cf6','Production'),
+                            ('assemblage',    '🔧','#f59e0b','Assemblage'),
+                            ('debug',         '🔬','#ef4444','Debug'),
+                            ('terminé',       '✅','#34d17e','Terminé'),
+                            ('archivé',       '📦','#6b7280','Archivé'),
+                        ] %}
+                        {% for val,icon,color,lbl in sdefs %}
+                        <button type="button" class="pf-status-btn {% if (project and project.status==val) or (not project and val=='idée') %}pf-status-active{% endif %}"
+                                data-val="{{ val }}" data-color="{{ color }}"
+                                style="--sc:{{ color }}"
+                                onclick="pickStatus('{{ val }}','{{ color }}')">
+                            <span class="pf-status-icon">{{ icon }}</span>
+                            <span class="pf-status-lbl">{{ lbl }}</span>
+                            <span class="pf-status-dot"></span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="pf-block">
+                    <label class="pf-label">Type de projet</label>
+                    <input type="hidden" name="tags" id="tags-input" value="{{ (project.tags | tojson) if project else '[]' }}"/>
+                    <div class="pf-tags-grid" id="tags-grid">
+                        {% for slug, label, emoji, color in tag_options %}
+                        <button type="button" class="pf-tag-btn {% if project and slug in project.tags %}pf-tag-active{% endif %}"
+                                data-slug="{{ slug }}" data-color="{{ color }}"
+                                style="--tc:{{ color }}"
+                                onclick="toggleTag('{{ slug }}', '{{ color }}')">
+                            <span>{{ emoji }}</span>
+                            <span>{{ label }}</span>
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Checklist -->
+                <div class="pf-block">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+                        <label class="pf-label" style="margin:0">Checklist</label>
+                        <div style="display:flex;gap:.4rem;align-items:center">
+                            <select id="checklist-template" class="form-input"
+                                    style="font-size:.72rem;padding:.2rem .5rem;height:auto"
+                                    onchange="loadTemplate(this.value)">
+                                <option value="">Charger un modèle…</option>
+                                {% for key, items in checklist_templates.items() %}
+                                <option value="{{ key }}">
+                                    {% if key == 'pcb' %}🔌 PCB
+                                    {% elif key == 'code' %}💻 Code
+                                    {% elif key == '3d' %}🖨️ Impression 3D
+                                    {% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="pf-btn-ghost" onclick="addCheckItem()"
+                                    style="padding:.25rem .5rem;font-size:.72rem">+ Ajouter</button>
+                        </div>
+                    </div>
+                    <input type="hidden" name="checklist" id="checklist-input"
+                           value="{{ (project.checklist | tojson) if project else '[]' }}"/>
+                    <div id="checklist-items" class="pf-checklist">
+                        <!-- Rempli par JS au chargement -->
+                    </div>
+                    <div id="checklist-empty" class="pf-checklist-empty"
+                         style="{% if project and project.checklist %}display:none{% endif %}">
+                        Aucune étape — charge un modèle ou ajoute une étape
+                    </div>
+                </div>
+
+                <!-- Liens -->
+                <div class="pf-block">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+                        <label class="pf-label" style="margin:0">Liens & Ressources</label>
+                        <button type="button" class="pf-btn-ghost" onclick="addLink()"
+                                style="padding:.25rem .5rem;font-size:.72rem">+ Ajouter</button>
+                    </div>
+                    <input type="hidden" name="links" id="links-input"
+                           value="{{ (project.links | tojson) if project else '[]' }}"/>
+                    <div id="links-items" class="pf-links">
+                        <!-- Rempli par JS -->
+                    </div>
+                </div>
+
+                <!-- Actions bannière (sous le grid) -->
+                <div class="pf-block pf-banner-actions">
+                    <label class="pf-label">Bannière</label>
+                    <div class="pf-banner-row">
+                        <button type="button" class="pf-btn-ghost" onclick="document.getElementById('image-input').click()">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <rect x="1" y="3" width="14" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                                <circle cx="5.5" cy="7" r="1.5" stroke="currentColor" stroke-width="1.5"/>
+                                <path d="M1 11l4-3 3 2.5 3-3 4 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Choisir une image
+                        </button>
+                        <span class="pf-banner-sep">ou</span>
+                        <div class="pf-color-swatches">
+                            {% for c in ['#7c6cff','#f59e0b','#34d17e','#f43f5e','#06b6d4','#ec4899','#f97316','#8b5cf6'] %}
+                            <button type="button" class="pf-swatch" style="--sw:{{ c }}"
+                                    onclick="pickBannerColor('{{ c }}')"></button>
+                            {% endfor %}
+                            <input type="color" id="custom-color" value="#7c6cff" title="Couleur custom"
+                                   onchange="pickBannerColor(this.value)"
+                                   class="pf-color-input"/>
+                        </div>
+                        {% if project and project.image_path %}
+                        <button type="button" class="pf-btn-ghost pf-btn-danger" onclick="clearBanner()" id="pf-clear-btn">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <path d="M3 5h10M6 5V3h4v2M7 8v4M9 8v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <rect x="2" y="5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                            </svg>
+                            Retirer
+                        </button>
+                        {% else %}
+                        <button type="button" class="pf-btn-ghost pf-btn-danger" onclick="clearBanner()" id="pf-clear-btn" style="display:none">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                <path d="M3 5h10M6 5V3h4v2M7 8v4M9 8v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <rect x="2" y="5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                            </svg>
+                            Retirer
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Colonne aperçu -->
+            <div class="pf-aside">
+                <div class="pf-aside-sticky">
+                    <div class="pf-label" style="margin-bottom:.75rem">Aperçu</div>
+
+                    <!-- Carte Kanban preview -->
+                    <div class="kb-card pf-preview-card" style="pointer-events:none;cursor:default">
+                        <div class="kb-card-img pf-preview-banner" id="preview-banner"
+                             style="height:140px;background:var(--bg-card)"></div>
+                        <div class="kb-card-body">
+                            <div class="kb-card-title" style="display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem">
+                                <span id="prev-emoji" style="font-size:1rem">📁</span>
+                                <span id="prev-name" class="kb-card-link" style="font-size:.9rem;font-weight:700">
+                                    Nom du projet
+                                </span>
+                            </div>
+                            <p id="prev-desc" class="kb-card-desc" style="min-height:16px;margin-bottom:.5rem"></p>
+                            <div class="kb-card-footer">
+                                <span id="prev-status" class="pf-prev-status-badge">idée</span>
+                                <span class="kb-date">aujourd'hui</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="pf-submit-btn" id="pf-submit">
+                        <span class="pf-submit-icon">{{ '💾' if project else '🚀' }}</span>
+                        <span>{{ 'Enregistrer les modifications' if project else 'Créer le projet' }}</span>
+                    </button>
+                    <a href="{{ url_for('projects.index') }}" class="pf-cancel-btn">Annuler</a>
+
+                    <div class="pf-kbd-hint">
+                        <kbd>Ctrl</kbd> + <kbd>↵</kbd> pour sauvegarder
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </form>
+</div>
+
+<script>
+const EXISTING = {{ existing | tojson }};
+let _emoji = '📁';
+let _statusColor = '#7c6cff';
+let _bannerType = null; // 'image' | 'color' | null
+
+// ── Init ─────────────────────────────────────────────────────────
+(function init() {
+    onNameInput(document.getElementById('proj-name').value);
+    onDescInput(document.getElementById('proj-desc').value);
+    const active = document.querySelector('.pf-status-active');
+    if (active) applyStatusTheme(active.dataset.color);
+
+    {% if project and project.image_path %}
+    _bannerType = 'image';
+    document.getElementById('pf-hero').classList.add('pf-hero-has-img');
+    document.getElementById('pf-hero-bg').style.backgroundImage =
+        "url('{{ url_for('projects.project_image', filename=project.image_path) }}')";
+    document.getElementById('preview-banner').style.backgroundImage =
+        "url('{{ url_for('projects.project_image', filename=project.image_path) }}')";
+    document.getElementById('pf-clear-btn').style.display = '';
+    {% endif %}
+})();
+
+// ── Emoji ────────────────────────────────────────────────────────
+function toggleEmojiPicker() {
+    const p = document.getElementById('emoji-picker');
+    const open = p.classList.toggle('pf-emoji-open');
+    if (open) setTimeout(() => document.addEventListener('click', closeEmojiOutside, {once:true}), 10);
+}
+function closeEmojiOutside(e) {
+    if (!document.getElementById('emoji-picker').contains(e.target) &&
+        !document.getElementById('pf-emoji-btn').contains(e.target)) {
+        document.getElementById('emoji-picker').classList.remove('pf-emoji-open');
+    }
+}
+function pickEmoji(e) {
+    _emoji = e;
+    document.getElementById('pf-emoji-display').textContent = e;
+    document.getElementById('prev-emoji').textContent = e;
+    document.getElementById('emoji-picker').classList.remove('pf-emoji-open');
+}
+
+// ── Nom ──────────────────────────────────────────────────────────
+function onNameInput(val) {
+    const max = 60;
+    const ctr = document.getElementById('name-counter');
+    ctr.textContent = `${val.length}/${max}`;
+    ctr.className = 'pf-name-counter' + (val.length > max*.85 ? ' pf-counter-warn' : '');
+    document.getElementById('prev-name').textContent = val || 'Nom du projet';
+    // Largeur de la ligne animée
+    const line = document.getElementById('pf-name-line');
+    line.style.width = val.length ? '100%' : '0%';
+    checkDupe(val);
+}
+function checkDupe(val) {
+    const warn = document.getElementById('dupe-warning');
+    if (!val || val.length < 3) { warn.textContent = ''; warn.className = 'pf-dupe-warn'; return; }
+    const q = val.toLowerCase();
+    const m = EXISTING.find(p => p.name.toLowerCase().includes(q) || q.includes(p.name.toLowerCase()));
+    if (m) {
+        warn.textContent = `⚠️ Similaire à "${m.name}"`;
+        warn.className = 'pf-dupe-warn pf-dupe-visible';
+    } else {
+        warn.textContent = '';
+        warn.className = 'pf-dupe-warn';
+    }
+}
+
+// ── Description ──────────────────────────────────────────────────
+function onDescInput(val) {
+    document.getElementById('desc-counter').textContent = `${val.length} caractère${val.length > 1 ? 's' : ''}`;
+    const d = document.getElementById('prev-desc');
+    d.textContent = val.length > 90 ? val.substring(0,90) + '…' : val;
+}
+
+// ── Statut ───────────────────────────────────────────────────────
+function pickStatus(val, color) {
+    _statusColor = color;
+    document.getElementById('status-input').value = val;
+    document.querySelectorAll('.pf-status-btn').forEach(b => {
+        b.classList.toggle('pf-status-active', b.dataset.val === val);
+    });
+    applyStatusTheme(color);
+    const badge = document.getElementById('prev-status');
+    badge.textContent = val;
+    badge.style.background = color + '22';
+    badge.style.color = color;
+    badge.style.borderColor = color + '44';
+}
+function applyStatusTheme(color) {
+    document.documentElement.style.setProperty('--pf-accent', color);
+    document.getElementById('pf-submit').style.background = color;
+    document.getElementById('pf-submit').style.boxShadow = `0 0 24px ${color}44`;
+}
+
+// ── Bannière ─────────────────────────────────────────────────────
+function applyImageFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const url = URL.createObjectURL(file);
+    setBannerImage(url);
+    _bannerType = 'image';
+    document.getElementById('banner-color-input').value = '';
+    document.getElementById('delete-image').value = '0';
+    document.getElementById('pf-clear-btn').style.display = '';
+}
+function setBannerImage(url) {
+    const hero = document.getElementById('pf-hero');
+    const bg   = document.getElementById('pf-hero-bg');
+    bg.style.backgroundImage = `url(${url})`;
+    hero.classList.add('pf-hero-has-img');
+    document.getElementById('preview-banner').style.backgroundImage = `url(${url})`;
+    document.getElementById('preview-banner').style.background = '';
+}
+function pickBannerColor(hex) {
+    const hero = document.getElementById('pf-hero');
+    const bg   = document.getElementById('pf-hero-bg');
+    bg.style.backgroundImage = '';
+    bg.style.background = `linear-gradient(135deg, ${hex}cc, ${hex}55)`;
+    hero.classList.add('pf-hero-has-img');
+    document.getElementById('preview-banner').style.backgroundImage = 'none';
+    document.getElementById('preview-banner').style.background = hex;
+    document.getElementById('banner-color-input').value = hex;
+    document.getElementById('delete-image').value = '0';
+    _bannerType = 'color';
+    document.getElementById('pf-clear-btn').style.display = '';
+    // Reset image input
+    document.getElementById('image-input').value = '';
+}
+function clearBanner() {
+    document.getElementById('pf-hero-bg').style.backgroundImage = '';
+    document.getElementById('pf-hero-bg').style.background = '';
+    document.getElementById('pf-hero').classList.remove('pf-hero-has-img');
+    document.getElementById('preview-banner').style.backgroundImage = 'none';
+    document.getElementById('preview-banner').style.background = 'var(--bg-card)';
+    document.getElementById('banner-color-input').value = '';
+    document.getElementById('delete-image').value = '1';
+    document.getElementById('image-input').value = '';
+    document.getElementById('pf-clear-btn').style.display = 'none';
+    _bannerType = null;
+}
+function heroImageDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const input = document.getElementById('image-input');
+    input.files = dt.files;
+    applyImageFile(file);
+}
+
+// ── Tags ─────────────────────────────────────────────────────────
+let _tags = JSON.parse(document.getElementById('tags-input').value || '[]');
+
+function toggleTag(slug, color) {
+    const idx = _tags.indexOf(slug);
+    if (idx >= 0) _tags.splice(idx, 1);
+    else           _tags.push(slug);
+    document.getElementById('tags-input').value = JSON.stringify(_tags);
+    document.querySelectorAll('.pf-tag-btn').forEach(b =>
+        b.classList.toggle('pf-tag-active', _tags.includes(b.dataset.slug)));
+}
+
+// ── Checklist ─────────────────────────────────────────────────────
+const TEMPLATES = {{ checklist_templates | tojson }};
+let _checklist = JSON.parse(document.getElementById('checklist-input').value || '[]');
+
+function renderChecklist() {
+    const el = document.getElementById('checklist-items');
+    const empty = document.getElementById('checklist-empty');
+    if (!_checklist.length) { el.innerHTML = ''; if(empty) empty.style.display=''; return; }
+    if(empty) empty.style.display = 'none';
+    el.innerHTML = _checklist.map((item, i) => `
+        <div class="pf-check-row">
+            <input type="checkbox" class="pf-check-box" ${item.done?'checked':''}
+                   onchange="toggleCheck(${i},this.checked)"/>
+            <input type="text" class="pf-check-label" value="${item.label.replace(/"/g,'&quot;')}"
+                   oninput="editCheck(${i},this.value)" placeholder="Étape…"/>
+            <button type="button" class="pf-check-del" onclick="delCheck(${i})">✕</button>
+        </div>`).join('');
+    syncCheck();
+}
+function addCheckItem() {
+    _checklist.push({label:'',done:false}); renderChecklist();
+    const last = document.querySelectorAll('.pf-check-label');
+    if(last.length) last[last.length-1].focus();
+}
+function delCheck(i)        { _checklist.splice(i,1); renderChecklist(); }
+function toggleCheck(i,v)   { _checklist[i].done=v; syncCheck(); }
+function editCheck(i,v)     { _checklist[i].label=v; syncCheck(); }
+function syncCheck()        { document.getElementById('checklist-input').value=JSON.stringify(_checklist); }
+function loadTemplate(key)  {
+    if(!key||!TEMPLATES[key]) return;
+    if(_checklist.length && !confirm('Remplacer la checklist ?')) return;
+    _checklist = TEMPLATES[key].map(l=>({label:l,done:false}));
+    renderChecklist();
+    document.getElementById('checklist-template').value='';
+}
+
+// ── Liens ─────────────────────────────────────────────────────────
+let _links = JSON.parse(document.getElementById('links-input').value || '[]');
+const LINK_ICONS = {KiCad:'📐',GitHub:'🐙',Fusion360:'🖥️',JLCPCB:'🏭',LCSC:'🛒',Thingiverse:'🖨️',Autre:'🔗'};
+const LINK_LABELS = Object.keys(LINK_ICONS);
+
+function renderLinks() {
+    const el = document.getElementById('links-items');
+    el.innerHTML = _links.map((l,i) => `
+        <div class="pf-link-row">
+            <select class="pf-link-label" onchange="editLink(${i},'label',this.value)">
+                ${LINK_LABELS.map(k=>`<option value="${k}" ${l.label===k?'selected':''}>${LINK_ICONS[k]} ${k}</option>`).join('')}
+            </select>
+            <input type="text" class="pf-link-url" value="${l.url||''}"
+                   placeholder="URL ou chemin local…" oninput="editLink(${i},'url',this.value)"/>
+            <button type="button" class="pf-check-del" onclick="delLink(${i})">✕</button>
+        </div>`).join('');
+    syncLinks();
+}
+function addLink()           { _links.push({label:'KiCad',url:''}); renderLinks(); }
+function delLink(i)          { _links.splice(i,1); renderLinks(); }
+function editLink(i,k,v)     { _links[i][k]=v; syncLinks(); }
+function syncLinks()         { document.getElementById('links-input').value=JSON.stringify(_links); }
+
+// Init
+renderChecklist();
+renderLinks();
+
+document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('proj-form').submit();
+    }
+    if (e.key === 'Escape') document.getElementById('emoji-picker').classList.remove('pf-emoji-open');
+});
+</script>
+
+{% endblock %}

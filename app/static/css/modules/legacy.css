@@ -1,0 +1,332 @@
+/* ============================================================
+   Classes récupérées depuis v1 (pages spécifiques)
+   ============================================================ */
+.empty-state p { margin-bottom: 1rem; }
+.empty-state .btn { margin: .25rem; }
+
+/* -- Forms -- */
+
+.drop-zone
+
+.info-card h2 { font-size: 1rem; margin-bottom: .75rem; }
+.info-card p { margin-bottom: .5rem; color: var(--text-muted); }
+.info-card hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+.column-list li { margin-bottom: .2rem; }
+.column-list code {
+    background: var(--bg-surface); padding: .1rem .35rem;
+    border-radius: 3px; font-size: .8rem; color: var(--text);
+}
+
+/* ============================================================
+   Extensions — Images, Lightbox, Settings, Enrichissement
+   ============================================================ */
+
+/* -- Miniatures dans le tableau -- */
+.btn-fetch-img:hover { opacity: 1; }
+
+/* -- Lightbox -- */
+.lightbox-inner img {
+    max-width: 80vw; max-height: 78vh; object-fit: contain;
+    display: block; margin: 0 auto;
+}
+
+/* -- Bouton petit -- */
+
+.banner-lcsc:hover { background: rgba(240,160,80,.2); color: var(--warning); }
+
+.status-ok   { background: rgba(76,175,125,.15); border-left: 3px solid var(--success); color: var(--success); }
+
+.btn-eye:hover { color: var(--text); }
+
+/* ============================================================
+   Pagination & toolbar
+   ============================================================ */
+
+.page-btn:hover:not(.disabled) { border-color: var(--accent); color: var(--accent); }
+.page-btn.active  { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.page-btn.disabled { opacity: .35; cursor: default; pointer-events: none; }
+
+/* colonne catégorie : tronquée si trop longue */
+
+/* ============================================================
+   Ajustement rapide +/- , Alertes, Projets, Historique
+   ============================================================ */
+
+/* -- Contrôle quantité inline -- */
+
+.project-tag {
+    display:inline-flex; align-items:center; gap:.4rem;
+    padding:.3rem .7rem; border-radius:6px;
+    background:var(--bg-surface); border:1px solid var(--border);
+    color:var(--text); text-decoration:none; font-size:.85rem;
+    transition: border-color .15s;
+}
+.project-tag:hover { border-color:var(--accent); color:var(--accent); }
+
+/* -- Grille de projets -- */
+
+/* -- Badges de statut projet -- */
+.badge-status-archivé   { background:rgba(124,130,160,.2); color:var(--text-muted); }
+
+.link-small:hover { color:var(--accent); }
+
+/* -- Badge nav -- */
+
+.bom-section .table-wrapper {
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+}
+
+/* ============================================================
+   Cartes projet avec image
+   ============================================================ */
+
+/* -- Upload image dans le formulaire -- */
+
+/* ============================================================
+   Sélection multiple + barre d'actions flottante
+   ============================================================ */
+
+/* Colonne checkbox */
+.th-check, .td-check {
+    width: 36px; padding: .4rem .5rem !important;
+    text-align: center; vertical-align: middle;
+}
+
+/* ============================================================
+   Galerie composant (photo + symbole + footprint)
+   ============================================================ */
+
+/* Lightbox étendue pour SVG (plus grande) */
+
+/* ============================================================
+   Groupement par catégorie — page projet
+   ============================================================ */
+
+/* Supprime la bordure du table-wrapper imbriqué
+   (la bordure est déjà portée par .category-group) */
+
+/* ============================================================
+   Page projet — refonte interface
+   ============================================================ */
+
+/* ── Barre de stats compacte ──────────────────────────────── */
+
+/* Boutons d'action dans la barre stats */
+
+/* ── Formulaire d'ajout rétractable ───────────────────────── */
+
+/* ── Tableau projet épuré ─────────────────────────────────── */
+.proj-table th { font-size: .75rem; padding: .5rem .75rem; }
+.proj-table td { padding: .55rem .75rem; vertical-align: middle; }
+
+.th-center, .td-center { text-align: center !important; }
+.th-right,  .td-right  { text-align: right !important; }
+
+/* Dispo badges */
+
+.action-use:hover      { border-color: var(--danger); color: var(--danger); background: rgba(244,63,94,.08); }
+.action-return:hover   { border-color: var(--success); color: var(--success); background: rgba(52,209,126,.08); }
+.action-btn:disabled   { opacity: .4; cursor: not-allowed; }
+
+/* ── Séparateur de catégorie dans tableau unique ──────────── */
+.proj-cat-row td {
+    background: var(--bg-surface) !important;
+    padding: .45rem .75rem !important;
+    border-top: 2px solid var(--border) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+.proj-cat-row:first-child td { border-top: none !important; }
+.proj-cat-title {
+    font-weight: 700; font-size: .75rem;
+    text-transform: uppercase; letter-spacing: .07em;
+    color: var(--text-muted);
+}
+.proj-cat-count {
+    font-size: .72rem;
+    color: var(--text-faint);
+    margin-left: .6rem;
+}
+.row-unavail td { background: rgba(244,63,94,.03); }
+
+/* Miniature cliquable */
+
+/* ============================================================
+   Page configuration étiquettes
+   ============================================================ */
+
+/* ── Panneau de config ──────────────────────────────────────── */
+
+/* ── Panneau aperçu ─────────────────────────────────────────── */
+
+.settings-field 
+
+/* Stats DB */
+
+/* ── Description inline ─────────────────────────────────────── */
+
+/* ── Seuil compact ───────────────────────────────────────────── */
+
+/* ============================================================
+   Classes manquantes — pages spécifiques v1/v2
+   ============================================================ */
+
+.action-btn         { padding:.3rem .65rem;border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.8rem;background:var(--bg-surface);color:var(--text-muted);cursor:pointer;transition:all .12s; }
+.action-btn:hover   { border-color:var(--accent);color:var(--accent); }
+.action-del:hover   { border-color:var(--danger);color:var(--danger); }
+.thumb-clickable    { cursor:pointer;transition:opacity .12s; }
+.thumb-clickable:hover { opacity:.8; }
+.td-actions         { white-space:nowrap;text-align:right; }
+.td-actions-compact { white-space:nowrap; }
+
+.td-desc-link:hover { color: var(--accent); }
+.td-desc-line { font-size: .75rem; color: var(--text-muted); }
+.td-qty-bold        { font-weight:800; }
+.td-check           { width:36px; }
+.comp-link          { color:var(--text);font-weight:600; }
+.comp-link:hover    { color:var(--accent); }
+.comp-note          { font-size:.75rem;color:var(--text-muted); }
+.dispo-ok           { color:var(--success);font-weight:700; }
+.dispo-ko           { color:var(--danger);font-weight:700; }
+.n_ok,.n_total,.pct,.ok,.not { /* Jinja variables, pas des classes CSS réelles */ }
+
+/* ── Index stock ────────────────────────────────────────────────── */
+.qty-value          { font-weight:800;font-size:1rem; }
+.row-check          { width:36px; }
+.min-stock-pip      { display:inline-flex;align-items:center;gap:.2rem;font-size:.7rem;color:var(--warning); }
+.pcf-date { font-size:.72rem;color:var(--text-muted); }
+.btn-icon           { padding:.3rem .5rem;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;color:var(--text-muted);transition:all .12s;font-size:.85rem; }
+.btn-icon:hover     { border-color:var(--accent);color:var(--accent); }
+.btn-fetch-img      { font-size:.75rem; }
+.result-count       { font-size:.8rem;color:var(--text-muted); }
+.empty-icon         { font-size:2rem;opacity:.4; }
+.page-ellipsis      { padding:.3rem .4rem;color:var(--text-muted); }
+.badge-status-idée          { background:rgba(6,182,212,.15);   color:#06b6d4; }
+.badge-status-conception    { background:var(--accent-dim);      color:var(--accent); }
+.badge-status-commandé      { background:rgba(249,115,22,.15);   color:#f97316; }
+.badge-status-en-production { background:rgba(139,92,246,.15);   color:#8b5cf6; }
+.badge-status-assemblage    { background:var(--warning-dim);     color:var(--warning); }
+.badge-status-debug         { background:var(--danger-dim);      color:var(--danger); }
+.badge-status-terminé       { background:var(--success-dim);     color:var(--success); }
+.badge-status-en-cours      { background:var(--info-dim);        color:var(--info); }
+.badge-status-en-pause      { background:var(--warning-dim);     color:var(--warning); }
+
+/* ── Projets détail ─────────────────────────────────────────────── */
+.proj-table         { width:100%;border-collapse:collapse; }
+
+/* ── Import CSV ─────────────────────────────────────────────────── */
+.import-layout      { display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start; }
+
+.import-hint        { font-size:.78rem;color:var(--text-muted);margin-top:.5rem; }
+
+.btn-file           { position:relative;cursor:pointer; }
+.btn-file input     { position:absolute;inset:0;opacity:0;cursor:pointer; }
+.file-selected      { font-size:.78rem;color:var(--success);margin-top:.35rem; }
+.drop-icon          { font-size:1.8rem;margin-bottom:.35rem; }
+.drop-subtitle      { font-size:.78rem;color:var(--text-muted);margin-top:.2rem; }
+
+.drop-selected      { display:flex;flex-direction:column;align-items:center; }
+.column-list        { display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.5rem; }
+.info-card          { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem; }
+.info-note          { font-size:.8rem;color:var(--text-muted);line-height:1.5; }
+
+/* ── Formulaires projet ─────────────────────────────────────────── */
+.form-card          { background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem; }
+
+.form-actions       { display:flex;gap:.5rem;margin-top:1.25rem; }
+
+/* ── Étiquettes ─────────────────────────────────────────────────── */
+.toolbar            { display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem 1rem;margin-bottom:1rem; }
+.toolbar-title      { flex:1;font-size:.95rem;font-weight:700;color:var(--accent); }
+.toolbar-dims       { font-size:.75rem;color:var(--text-muted);background:var(--bg-surface);border:1px solid var(--border);border-radius:4px;padding:.2rem .55rem; }
+.toolbar-copies     { display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--text-muted); }
+.toolbar-copies input { width:48px;padding:.25rem .4rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85rem;text-align:center; }
+.btn-print          { background:var(--accent);color:#fff;padding:.4rem .9rem;border-radius:var(--radius-sm);border:none;cursor:pointer;font-weight:600;font-size:.85rem;display:inline-flex;align-items:center;gap:.35rem; }
+.btn-print:hover    { filter:brightness(1.1); }
+.preview-area       { width:100%; }
+.labels-grid        { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,max-content));gap:10px;justify-content:start; }
+.lbl-img-empty      { display:flex;align-items:center;justify-content:center;background:var(--bg-surface);color:var(--text-faint);font-size:.75rem; }
+.print-hint         { font-size:.72rem;color:var(--text-faint);margin-bottom:1rem;line-height:1.5; }
+.print-hint a       { color:var(--accent); }
+
+.hint               { font-size:.75rem;color:var(--text-muted); }
+
+/* ── Config étiquettes ──────────────────────────────────────────── */
+
+.settings-warn-box     { background:var(--warning-dim);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius-sm);padding:.6rem .85rem;font-size:.8rem;color:var(--warning); }
+
+/* ── Divers manquants ───────────────────────────────────────────── */
+.page-header-actions    { display:flex;gap:.5rem;align-items:center; }
+.lightbox-inner         { position:relative;display:flex;flex-direction:column;align-items:center; }
+.lightbox-inner-lg      { max-width:90vw; }
+.lightbox-header        { display:flex;align-items:center;justify-content:space-between;width:100%;padding:.5rem;color:#fff; }
+.lightbox-title         { font-weight:700;font-size:.9rem; }
+.lightbox-close         { cursor:pointer;color:rgba(255,255,255,.6);font-size:1.2rem;padding:.25rem .5rem; }
+.lightbox-close:hover   { color:#fff; }
+.bom-check              { cursor:pointer; }
+.bom-check-ok,.bom-check-low { }
+.disabled               { opacity:.5;pointer-events:none; }
+
+/* ============================================================
+   Corrections label_settings — toggles + aperçu
+   ============================================================ */
+
+/* Layout general */
+@media (max-width: 900px) {
+    #preview-label {
+        max-width: 100% !important;
+        transform: none !important;
+        margin: 0 auto;
+    }
+}
+
+/* Panneau config */
+
+.lbl-cfg-toggle:hover { background: var(--bg-hover); }
+
+.toggle-slider::after {
+    content: ''; position: absolute;
+    width: 12px; height: 12px; background: #fff;
+    border-radius: 50%; top: 3px; left: 3px;
+    transition: transform .2s;
+}
+
+/* Couleur + input */
+.cfg-input:focus { border-color: var(--accent); }
+
+#preview-label {
+    display: flex; overflow: hidden;
+    border-radius: 3px; box-shadow: 0 2px 12px rgba(0,0,0,.5);
+    border: 1px solid #ddd;
+    max-width: 100%;
+}
+
+/* Toggle track (label_settings) */
+.tgl-track {
+    display: block;
+    width: 34px; height: 18px;
+    background: var(--border);
+    border-radius: 9px;
+    position: absolute; top: 0; left: 0;
+    transition: background .2s;
+    pointer-events: none;
+}
+.tgl-track::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: #fff; border-radius: 50%;
+    top: 3px; left: 3px;
+    transition: transform .2s;
+}
+input:checked + .tgl-track { background: var(--accent); }
+input:checked + .tgl-track::after { transform: translateX(16px); }
+
+/* ── Barre de recherche stock ── */
+.input-select {
+    cursor: pointer;
+    padding: .5rem .75rem;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); font-size: .9rem;
+    cursor: pointer;
+}
