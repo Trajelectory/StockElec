@@ -1,3 +1,4 @@
+import json
 from .database import get_db
 
 STATUS_OPTIONS = ["idea", "design", "ordered", "production", "assembly", "debug", "done", "archived"]
@@ -50,7 +51,6 @@ CHECKLIST_TEMPLATES = {
 
 class Project:
     def __init__(self, row):
-        import json as _json
         keys = row.keys()
         self.id           = row["id"]
         self.name         = row["name"]
@@ -59,11 +59,11 @@ class Project:
         self.created_at   = row["created_at"]
         self.updated_at   = row["updated_at"]
         # Tags, checklist, liens
-        try: self.tags      = _json.loads(row["tags"]      if "tags"      in keys and row["tags"]      else "[]")
+        try: self.tags      = json.loads(row["tags"]      if "tags"      in keys and row["tags"]      else "[]")
         except: self.tags   = []
-        try: self.checklist = _json.loads(row["checklist"] if "checklist" in keys and row["checklist"] else "[]")
+        try: self.checklist = json.loads(row["checklist"] if "checklist" in keys and row["checklist"] else "[]")
         except: self.checklist = []
-        try: self.links     = _json.loads(row["links"]     if "links"     in keys and row["links"]     else "[]")
+        try: self.links     = json.loads(row["links"]     if "links"     in keys and row["links"]     else "[]")
         except: self.links  = []
         # Colonnes jointes
         self.component_count = row["component_count"] if "component_count" in keys else None
@@ -162,7 +162,6 @@ class ProjectModel:
     def create(data: dict) -> int:
         try:
             db = get_db()
-            import json as _json
             cur = db.execute(
                 """INSERT INTO projects
                    (name, description, status, image_path, tags, checklist, links)
@@ -172,9 +171,9 @@ class ProjectModel:
                     data.get("description"),
                     data.get("status", "idea"),
                     data.get("image_path"),
-                    _json.dumps(data.get("tags",      []), ensure_ascii=False),
-                    _json.dumps(data.get("checklist", []), ensure_ascii=False),
-                    _json.dumps(data.get("links",     []), ensure_ascii=False),
+                    json.dumps(data.get("tags",      []), ensure_ascii=False),
+                    json.dumps(data.get("checklist", []), ensure_ascii=False),
+                    json.dumps(data.get("links",     []), ensure_ascii=False),
                 ),
             )
             db.commit()
@@ -186,7 +185,6 @@ class ProjectModel:
     @staticmethod
     def update(project_id: int, data: dict):
         try:
-            import json as _json
             db = get_db()
             db.execute(
                 """UPDATE projects SET name=?, description=?, status=?, image_path=?,
@@ -196,9 +194,9 @@ class ProjectModel:
                     data.get("description"),
                     data.get("status", "idea"),
                     data.get("image_path"),
-                    _json.dumps(data.get("tags", []),      ensure_ascii=False),
-                    _json.dumps(data.get("checklist", []), ensure_ascii=False),
-                    _json.dumps(data.get("links", []),     ensure_ascii=False),
+                    json.dumps(data.get("tags", []),      ensure_ascii=False),
+                    json.dumps(data.get("checklist", []), ensure_ascii=False),
+                    json.dumps(data.get("links", []),     ensure_ascii=False),
                     data.get("notes", None),
                     project_id,
                 ),

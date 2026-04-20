@@ -293,7 +293,7 @@ class ComponentModel:
         # (la valeur KiCad "0R 0402" est moins précise que "RES 100Ω ±1% 62.5mW 0402")
         for col in ("description", "description_long"):
             new_val = enrichment.get(col)
-            if new_val and col in row_keys:
+            if new_val and col in d:
                 fields.append(f"{col} = ?")
                 values.append(new_val)
 
@@ -310,27 +310,27 @@ class ComponentModel:
         # image_path : toujours écrit si on en a une nouvelle (quelle que soit la source)
         # En mode force, on écrase même si déjà présent (ré-enrichissement explicite)
         new_image = enrichment.get("image_path")
-        if new_image and "image_path" in row_keys:
-            if not row["image_path"] or force_attributes:
+        if new_image and "image_path" in d:
+            if not d["image_path"] or force_attributes:
                 fields.append("image_path = ?")
                 values.append(new_image)
 
         # Attributs techniques — toujours écrasés si on en a de nouveaux
         attrs = enrichment.get("attributes")
-        if attrs and "attributes" in row_keys:
-            import json as _json
+        if attrs and "attributes" in d:
+            import json
             fields.append("attributes = ?")
-            values.append(_json.dumps(attrs, ensure_ascii=False))
+            values.append(json.dumps(attrs, ensure_ascii=False))
 
         # Prix — cas particulier : on met à jour même si déjà présent si la valeur est 0 ou None
         unit_price = enrichment.get("unit_price")
-        if unit_price and "unit_price" in row_keys and not row["unit_price"]:
+        if unit_price and "unit_price" in d and not d["unit_price"]:
             fields.append("unit_price = ?")
             values.append(unit_price)
 
         # category_id : pas dans row.keys() si migration ancienne DB
         try:
-            if cat_id and not row["category_id"]:
+            if cat_id and not d.get("category_id"):
                 fields.append("category_id = ?")
                 values.append(cat_id)
         except (IndexError, KeyError) as e:

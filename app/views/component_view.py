@@ -28,11 +28,11 @@ class ComponentView:
 
     @staticmethod
     def render_detail(component, projects_using=None):
-        import json as _json
+        import json
         attrs = {}
         if component.attributes:
             try:
-                attrs = _json.loads(component.attributes)
+                attrs = json.loads(component.attributes)
             except Exception as e:
                 logger.debug("Ignored: %s", e)
         from ..models.settings import SettingsModel
