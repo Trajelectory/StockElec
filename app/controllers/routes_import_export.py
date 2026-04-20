@@ -322,6 +322,7 @@ def add():
 
 @component_bp.route("/import", methods=["GET", "POST"])
 def import_csv():
+    """Étape 1 — Upload et analyse sans insertion (prévisualisation)."""
     if request.method == "POST":
         file = request.files.get("csv_file")
         if not file or file.filename == "":
@@ -331,38 +332,81 @@ def import_csv():
             flash(_t("msg.not_csv"), "danger")
             return redirect(url_for("components.import_csv"))
 
-        stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
-        rows   = list(csv.DictReader(stream))
-        result = ComponentModel.import_from_csv_rows(rows)
+        raw  = file.stream.read().decode("utf-8-sig")
+        # Stocker le CSV brut en session pour la confirmation
+        from flask import session
+        session["import_csv_raw"]      = raw
+        session["import_csv_filename"] = file.filename
 
-        inserted      = result["inserted"]
-        skipped       = result["skipped"]
-        duplicates    = result["duplicates"]
-        errors        = result["errors"]
-        component_ids = result["component_ids"]
-        mouser_ids    = result.get("mouser_ids", [])
-        digikey_ids   = result.get("digikey_ids", [])
+        rows   = list(csv.DictReader(io.StringIO(raw, newline=None)))
+        report = ComponentModel.analyse_csv_rows(rows)
 
-        # Lance les enrichissements en arrière-plan
-        if component_ids:
-            _enrich_async(component_ids)
-        if mouser_ids:
-            for cid, mref in mouser_ids:
-                _enrich_async_source(cid, mref, "mouser")
-        if digikey_ids:
-            for cid, dref in digikey_ids:
-                _enrich_async_source(cid, dref, "digikey")
-
-        # Affiche le rapport détaillé plutôt qu'un simple redirect
-        return render_template("components/import_result.html",
-            inserted=inserted, skipped=skipped,
-            duplicates=duplicates, errors=errors,
-            component_ids=component_ids,
-            mouser_ids=mouser_ids, digikey_ids=digikey_ids,
+        return render_template("components/import_preview.html",
+            report=report,
+            filename=file.filename,
             total_rows=len(rows),
         )
 
     return ComponentView.render_import()
+
+
+@component_bp.route("/import/confirm", methods=["POST"])
+def import_csv_confirm():
+    """Étape 2 — Confirmation : insère uniquement les lignes cochées."""
+    from flask import session
+
+    raw      = session.get("import_csv_raw", "")
+    filename = session.get("import_csv_filename", "fichier.csv")
+
+    if not raw:
+        flash(_t("msg.no_file"), "danger")
+        return redirect(url_for("components.import_csv"))
+
+    # Lignes sélectionnées par l'utilisateur (numéros de ligne, base 1)
+    selected_rows = set(request.form.getlist("selected_rows"))
+
+    all_rows    = list(csv.DictReader(io.StringIO(raw, newline=None)))
+    # Filtrer selon la sélection (row_idx = index 1-based)
+    if selected_rows:
+        rows_to_import = [r for i, r in enumerate(all_rows, start=1)
+                          if str(i) in selected_rows]
+    else:
+        rows_to_import = []
+
+    if not rows_to_import:
+        flash("Aucun composant sélectionné.", "warning")
+        return redirect(url_for("components.import_csv"))
+
+    result = ComponentModel.import_from_csv_rows(rows_to_import)
+
+    inserted      = result["inserted"]
+    skipped       = result["skipped"]
+    duplicates    = result["duplicates"]
+    errors        = result["errors"]
+    component_ids = result["component_ids"]
+    mouser_ids    = result.get("mouser_ids", [])
+    digikey_ids   = result.get("digikey_ids", [])
+
+    if component_ids:
+        _enrich_async(component_ids)
+    if mouser_ids:
+        for cid, mref in mouser_ids:
+            _enrich_async_source(cid, mref, "mouser")
+    if digikey_ids:
+        for cid, dref in digikey_ids:
+            _enrich_async_source(cid, dref, "digikey")
+
+    # Nettoyer la session
+    session.pop("import_csv_raw", None)
+    session.pop("import_csv_filename", None)
+
+    return render_template("components/import_result.html",
+        inserted=inserted, skipped=skipped,
+        duplicates=duplicates, errors=errors,
+        component_ids=component_ids,
+        mouser_ids=mouser_ids, digikey_ids=digikey_ids,
+        total_rows=len(rows_to_import),
+    )
 
 
 # ------------------------------------------------------------------ #

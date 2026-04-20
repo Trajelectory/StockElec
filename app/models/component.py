@@ -527,6 +527,150 @@ class ComponentModel:
     #  Import CSV avec déduplication
     # ------------------------------------------------------------------ #
 
+
+    @staticmethod
+    def analyse_csv_rows(rows: list[dict]) -> dict:
+        """
+        Analyse les lignes CSV et retourne un rapport de prévisualisation.
+        Ne modifie PAS la base de données — lecture seule.
+
+        Retourne :
+          - to_import  : lignes nouvelles (avec infos détectées)
+          - duplicates : lignes déjà en stock
+          - skipped    : lignes sans référence fournisseur
+          - errors     : lignes illisibles
+          - columns    : colonnes détectées
+        """
+        db = get_db()
+
+        if not rows:
+            return {"to_import": [], "duplicates": [], "skipped": [], "errors": [], "columns": {}}
+
+        headers   = list(rows[0].keys())
+        lc_headers = {h.lower().strip(): h for h in headers}
+
+        def _col(*candidates):
+            for c in candidates:
+                if c in lc_headers:
+                    return lc_headers[c]
+            return None
+
+        lcsc_col    = _col("lcsc part number", "lcsc#", "lcsc part #", "lcsc", "lcsc_part_number")
+        mouser_col  = _col("mouser", "mouser part number", "mouser part #", "mouser#", "mouser_part_number")
+        digikey_col = _col("digikey", "digi-key", "digikey part number", "digikey part #", "digikey#", "digikey_part_number")
+        qty_col     = _col("quantity", "qty", "quantité", "qté")
+        desc_col    = _col("description", "value", "comment", "val")
+        mfr_col     = _col("manufacture part number", "mpn", "manufacturer part number")
+        mfr_name_col = _col("manufacturer")
+        pkg_col     = _col("package")
+        price_col   = _col("unit price(€)", "unit price", "prix unitaire")
+        min_stock_col = _col("min_stock", "min stock", "seuil alerte", "seuil")
+        cat_col     = _col("category", "catégorie", "categorie")
+        loc_col     = _col("location", "emplacement")
+        notes_col   = _col("notes", "remarques")
+        source_url_col = _col("source / url achat", "source_url", "fournisseur", "url achat", "url")
+
+        to_import  = []
+        duplicates = []
+        skipped    = []
+        errors     = []
+
+        for i, row in enumerate(rows, start=1):
+            try:
+                lcsc        = _clean(row.get(lcsc_col,    "") if lcsc_col    else "")
+                mouser_ref  = _clean(row.get(mouser_col,  "") if mouser_col  else "")
+                digikey_ref = _clean(row.get(digikey_col, "") if digikey_col else "")
+
+                if lcsc:        lcsc        = lcsc.upper()
+                if mouser_ref:  mouser_ref  = " ".join(mouser_ref.split())
+                if digikey_ref: digikey_ref = " ".join(digikey_ref.split())
+
+                desc       = _clean(row.get(desc_col,     "") if desc_col     else "")
+                mfr_part   = _clean(row.get(mfr_col,      "") if mfr_col      else "")
+                mfr_name   = _clean(row.get(mfr_name_col, "") if mfr_name_col else "")
+                pkg        = _clean(row.get(pkg_col,       "") if pkg_col      else "")
+                source_url = _clean(row.get(source_url_col,"") if source_url_col else "")
+
+                try:
+                    qty = int(float(row.get(qty_col, 0) if qty_col else 0))
+                except (ValueError, TypeError):
+                    qty = 0
+
+                try:
+                    price = _to_float(row.get(price_col) if price_col else None)
+                except Exception:
+                    price = None
+
+                try:
+                    min_stock_v = max(0, int(_clean(row.get(min_stock_col, "") if min_stock_col else "") or 0))
+                except (ValueError, TypeError):
+                    min_stock_v = 0
+
+                if not any([lcsc, mouser_ref, digikey_ref]):
+                    skipped.append({"row": i, "desc": desc or "—"})
+                    continue
+
+                # Cherche si déjà en stock
+                existing = None
+                if lcsc:
+                    existing = db.execute(
+                        "SELECT id, description, quantity FROM components WHERE lcsc_part_number = ?",
+                        (lcsc,)
+                    ).fetchone()
+                if not existing and mouser_ref:
+                    existing = db.execute(
+                        "SELECT id, description, quantity FROM components WHERE mouser_part_number = ?",
+                        (mouser_ref,)
+                    ).fetchone()
+                if not existing and digikey_ref:
+                    existing = db.execute(
+                        "SELECT id, description, quantity FROM components WHERE digikey_part_number = ?",
+                        (digikey_ref,)
+                    ).fetchone()
+
+                entry = {
+                    "row":         i,
+                    "lcsc":        lcsc or "",
+                    "mouser":      mouser_ref or "",
+                    "digikey":     digikey_ref or "",
+                    "description": desc or mfr_part or lcsc or mouser_ref or digikey_ref or "—",
+                    "manufacturer":mfr_name or "",
+                    "mfr_part":    mfr_part or "",
+                    "package":     pkg or "",
+                    "quantity":    qty,
+                    "min_stock":   min_stock_v,
+                    "unit_price":  price,
+                    "source_url":  source_url or "",
+                    "source":      "lcsc" if lcsc else ("mouser" if mouser_ref else "digikey"),
+                }
+
+                if existing:
+                    entry["existing_id"]  = existing["id"]
+                    entry["existing_desc"]= existing["description"]
+                    entry["existing_qty"] = existing["quantity"]
+                    duplicates.append(entry)
+                else:
+                    to_import.append(entry)
+
+            except Exception as exc:
+                errors.append({"row": i, "error": str(exc)})
+
+        return {
+            "to_import":  to_import,
+            "duplicates": duplicates,
+            "skipped":    skipped,
+            "errors":     errors,
+            "columns": {
+                "lcsc":       bool(lcsc_col),
+                "mouser":     bool(mouser_col),
+                "digikey":    bool(digikey_col),
+                "qty":        bool(qty_col),
+                "price":      bool(price_col),
+                "desc":       bool(desc_col),
+                "source_url": bool(source_url_col),
+            },
+        }
+
     @staticmethod
     def import_from_csv_rows(rows):
         """
