@@ -273,7 +273,12 @@
     "ph_notes_short": "Remarques, liens…",
     "search_btn": "🔍 Rechercher",
     "label_source_url": "Fournisseur / URL d'achat",
-    "hint_source_url": "AliExpress, Amazon, site fabricant... (optionnel)"
+    "hint_source_url": "AliExpress, Amazon, site fabricant... (optionnel)",
+    "label_attributes": "⚙️ Caractéristiques",
+    "label_attr_name": "Nom",
+    "label_attr_value": "Valeur",
+    "btn_add_attr": "+ Ajouter une caractéristique",
+    "hint_attributes": "Remplissez les caractéristiques techniques manuellement (elles seront remplacées si vous enrichissez depuis LCSC/Mouser/DigiKey)."
   },
   "detail": {
     "back_stock": "← Retour au stock",

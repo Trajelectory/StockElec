@@ -285,61 +285,86 @@ def led_on(cell_id):
 
     try:
         esp_url = cfg["url"]
-        # Détecte P4 (display:true dans /ping) — cache 60s thread-safe
+
+        # ── Détection de l'endpoint — polyvalent S3 / P4 ─────────────
+        # On interroge /ping pour avoir un indice, mais on valide
+        # en testant réellement l'endpoint. Le résultat est mis en cache
+        # 60s pour éviter un aller-retour à chaque LED.
         now = _time.time()
         with _p4_cache_lock:
             cached = _p4_cache.get(esp_url)
-        if cached is None or now - cached[1] > 60:
-            try:
-                ping = _requests.get(f"{esp_url}/ping", timeout=2)
-                is_p4 = ping.status_code == 200 and ping.json().get("display", False)
-            except Exception:
-                is_p4 = False
-            with _p4_cache_lock:
-                _p4_cache[esp_url] = (is_p4, now)
-        else:
-            is_p4 = cached[0]
 
-        device   = "P4" if is_p4 else "S3"
-        endpoint = "/led" if is_p4 else "/leds"
+        if cached is None or now - cached[2] > 60:
+            # Indice initial depuis /ping
+            try:
+                ping     = _requests.get(f"{esp_url}/ping", timeout=2)
+                hint_p4  = ping.status_code == 200 and ping.json().get("display", False)
+            except Exception:
+                hint_p4  = False
+
+            # Ordre de tentative : on commence par ce que dit le ping,
+            # mais on a un fallback automatique si c'est 404
+            endpoints_to_try = ["/led", "/leds"] if hint_p4 else ["/leds", "/led"]
+            with _p4_cache_lock:
+                _p4_cache[esp_url] = (hint_p4, endpoints_to_try, now)
+        else:
+            hint_p4, endpoints_to_try, _ = cached
+
+        device = "P4" if hint_p4 else "S3"
 
         # ── Log lisible ───────────────────────────────────────────────
         logger.info(
             "\n"
             "┌─ LED ON ───────────────────────────────────\n"
-            "│  Device    : %s  (%s%s)\n"
+            "│  Device    : %s  (%s)\n"
             "│  Case      : %s  →  LEDs %s  tiroir %s\n"
             "│  Couleur   : %s\n"
             "│  Durée     : %ss\n"
             "│  Composant : #%s  %s\n"
-            "│  Payload   → %s%s\n"
             "└────────────────────────────────────────────",
-            device, esp_url, endpoint,
+            device, esp_url,
             cell_id, indices, drawer_index,
             color,
             cfg["duration"],
             component_id or "—", comp_desc[:50] or "—",
-            esp_url, endpoint,
         )
 
-        resp = _requests.post(
-            f"{esp_url}{endpoint}",
-            json=payload,
-            headers=_led_headers(cfg),
-            timeout=5,
-        )
+        # ── Envoi avec fallback automatique ──────────────────────────
+        last_status = None
+        for endpoint in endpoints_to_try:
+            resp = _requests.post(
+                f"{esp_url}{endpoint}",
+                json=payload,
+                headers=_led_headers(cfg),
+                timeout=5,
+            )
+            last_status = resp.status_code
+            status_icon = "✅" if resp.status_code in (200, 202) else "❌"
+            logger.info("[LED] %s %s → HTTP %s", status_icon, endpoint, resp.status_code)
 
-        status_icon = "✅" if resp.status_code in (200, 202) else "❌"
-        logger.info("[LED] %s Réponse HTTP %s", status_icon, resp.status_code)
+            if resp.status_code in (200, 202):
+                queued = resp.status_code == 202
+                if queued:
+                    logger.info("[LED] ⏳ Mis en file d'attente (202)")
+                # Mémoriser l'endpoint qui a marché en premier pour les 60s suivantes
+                worked_p4 = endpoint == "/led"
+                if worked_p4 != hint_p4:
+                    logger.info("[LED] 🔄 Endpoint réel (%s) ≠ hint ping — cache mis à jour", endpoint)
+                with _p4_cache_lock:
+                    _p4_cache[esp_url] = (worked_p4, [endpoint], now)
+                return jsonify({"ok": True, "leds": indices, "queued": queued,
+                                "endpoint": endpoint})
 
-        if resp.status_code in (200, 202):
-            queued = resp.status_code == 202
-            if queued:
-                logger.info("[LED] ⏳ Mis en file d'attente (202)")
-            return jsonify({"ok": True, "leds": indices, "queued": queued})
-        return jsonify({"ok": False, "error": f"ESP32 HTTP {resp.status_code}"}), 502
+            if resp.status_code == 404:
+                logger.info("[LED] ↩️  404 sur %s — tentative sur l'autre endpoint", endpoint)
+                continue
 
-    except requests.RequestException as e:
+            # Autre erreur HTTP (pas 404) — on arrête
+            break
+
+        return jsonify({"ok": False, "error": f"ESP32 HTTP {last_status}"}), 502
+
+    except _requests.RequestException as e:
         logger.warning("[LED] ✗ Erreur réseau : %s", e)
         return jsonify({"ok": False, "error": str(e)}), 503
 
@@ -356,7 +381,7 @@ def led_off():
         status_icon = "✅" if resp.status_code == 200 else "❌"
         logger.info("[LED] %s OFF réponse HTTP %s", status_icon, resp.status_code)
         return jsonify({"ok": resp.status_code == 200})
-    except requests.RequestException as e:
+    except _requests.RequestException as e:
         logger.warning("[LED] ✗ OFF erreur réseau : %s", e)
         return jsonify({"ok": False, "error": str(e)}), 503
 
@@ -381,7 +406,7 @@ def led_ping():
                             "display": data.get("display", False), "ip": cfg["url"]})
         logger.warning("[LED] ❌ PING HTTP %s", resp.status_code)
         return jsonify({"ok": False, "error": f"HTTP {resp.status_code}"}), 502
-    except requests.RequestException as e:
+    except _requests.RequestException as e:
         logger.warning("[LED] ✗ PING erreur réseau : %s", e)
         return jsonify({"ok": False, "error": str(e)}), 503
 
@@ -398,7 +423,7 @@ def led_status():
         if resp.status_code == 200:
             return jsonify(resp.json())
         return jsonify({"ok": False, "error": f"HTTP {resp.status_code}"}), 502
-    except requests.RequestException as e:
+    except _requests.RequestException as e:
         logger.warning("[LED] ✗ STATUS erreur réseau : %s", e)
         return jsonify({"ok": False, "error": str(e)}), 503
 
@@ -446,7 +471,7 @@ def led_test():
             return jsonify({"ok": True, "plateau": pid,
                             "offset": offset, "count": count})
         return jsonify({"ok": False, "error": f"ESP32 HTTP {resp.status_code}"}), 502
-    except requests.RequestException as e:
+    except _requests.RequestException as e:
         logger.warning("[LED] ✗ TEST erreur réseau : %s", e)
         return jsonify({"ok": False, "error": str(e)}), 503
 

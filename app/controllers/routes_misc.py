@@ -163,6 +163,7 @@ def _form_to_dict(form):
         "product_url":             _f("product_url"),
         "source_url":              _f("source_url"),
         "image_url":               _f("image_url"),
+        "attributes":              _f("attributes"),  # JSON sérialisé par l'éditeur front
     }
 
 
@@ -471,3 +472,72 @@ def api_health():
         _health_cache["ts"]   = now
 
     return jsonify(payload), 200 if db_ok else 503
+
+# ------------------------------------------------------------------ #
+#  GET /api/search?q=xxx — recherche globale (composants + projets)
+# ------------------------------------------------------------------ #
+
+@component_bp.route("/api/search")
+def api_search():
+    """
+    Recherche unifiée composants + projets.
+    Retourne max 7 composants + 4 projets pour le dropdown navbar.
+    """
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify({"components": [], "projects": []})
+
+    db   = get_db()
+    like = f"%{q}%"
+
+    # Composants — cherche dans description, LCSC, Mouser, DigiKey, fabricant, package
+    comp_rows = db.execute("""
+        SELECT id, description, lcsc_part_number, mouser_part_number,
+               digikey_part_number, package, quantity, image_path, category
+        FROM components
+        WHERE description          LIKE ?
+           OR lcsc_part_number     LIKE ?
+           OR mouser_part_number   LIKE ?
+           OR digikey_part_number  LIKE ?
+           OR manufacture_part_number LIKE ?
+           OR manufacturer         LIKE ?
+        ORDER BY
+            CASE WHEN lcsc_part_number = ? OR mouser_part_number = ?
+                      OR digikey_part_number = ? THEN 0 ELSE 1 END,
+            description
+        LIMIT 7
+    """, (like, like, like, like, like, like, q.upper(), q, q)).fetchall()
+
+    # Projets — cherche dans nom et description
+    proj_rows = db.execute("""
+        SELECT id, name, status, image_path
+        FROM projects
+        WHERE name LIKE ? OR description LIKE ?
+        ORDER BY updated_at DESC
+        LIMIT 4
+    """, (like, like)).fetchall()
+
+    components = []
+    for r in comp_rows:
+        ref = r["lcsc_part_number"] or r["mouser_part_number"] or r["digikey_part_number"] or ""
+        components.append({
+            "id":          r["id"],
+            "description": r["description"] or ref,
+            "ref":         ref,
+            "package":     r["package"] or "",
+            "quantity":    r["quantity"],
+            "image_path":  r["image_path"],
+            "category":    r["category"] or "",
+        })
+
+    projects = []
+    for r in proj_rows:
+        projects.append({
+            "id":         r["id"],
+            "name":       r["name"],
+            "status":     r["status"],
+            "image_path": r["image_path"],
+        })
+
+    return jsonify({"components": components, "projects": projects})
+

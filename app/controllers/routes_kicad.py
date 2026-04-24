@@ -16,7 +16,7 @@ from flask import Blueprint, jsonify, request, send_file, current_app
 from ..models.component import ComponentModel
 from ..models.settings import SettingsModel
 from ..services import kicad_jlc
-from ..services.kicad_jlc import get_component_kicad_status
+from ..services.kicad_jlc import get_component_kicad_status, get_missing_kicad_refs
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,33 @@ def _kicad_dir() -> str:
 # ------------------------------------------------------------------ #
 #  Vérifier l'installation de JLC2KiCadLib
 # ------------------------------------------------------------------ #
+
+
+
+# ------------------------------------------------------------------ #
+#  GET /kicad/missing-count — combien de composants manquent dans la lib
+# ------------------------------------------------------------------ #
+
+@kicad_bp.route("/missing-count")
+def missing_count():
+    """
+    Retourne le nombre de composants LCSC du stock
+    qui n'ont pas encore de fichiers KiCad générés.
+    Utilisé par le dashboard home et la page settings.
+    """
+    kicad_dir = _kicad_dir()
+    refs      = ComponentModel.get_all_lcsc_refs()
+    missing   = get_missing_kicad_refs(kicad_dir, refs)
+    total     = len(refs)
+    n_missing = len(missing)
+    n_done    = total - n_missing
+    return jsonify({
+        "total":     total,
+        "done":      n_done,
+        "missing":   n_missing,
+        "pct":       int(n_done / total * 100) if total else 0,
+        "refs_missing": missing[:50],  # max 50 pour debug
+    })
 
 @kicad_bp.route("/check")
 def check():

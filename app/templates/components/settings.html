@@ -841,17 +841,26 @@ function kicadCheck() {
 }
 
 function kicadLoadStatus() {
-    fetch('/kicad/status')
-        .then(r => r.json())
-        .then(d => {
+    // Stats KiCad — status + missing count en parallèle
+    Promise.all([
+        fetch('/kicad/status').then(r => r.json()),
+        fetch('/kicad/missing-count').then(r => r.json()),
+    ]).then(([d, mc]) => {
             // Stats
             const statsEl = document.getElementById('kicad-stats');
             if (statsEl) {
                 const s = d.stats;
-                if (s.has_files) {
+                if (s.has_files || mc.total > 0) {
+                    const pctColor = mc.pct >= 80 ? 'var(--success)'
+                                   : mc.pct >= 40 ? 'var(--warning)'
+                                   : 'var(--danger)';
+                    const missingLabel = mc.missing > 0
+                        ? `<span style="color:var(--text-muted)"> — ${mc.missing} manquant${mc.missing>1?'s':''}</span>`
+                        : `<span style="color:var(--success)"> ✅</span>`;
                     statsEl.innerHTML =
                         `<span style="color:var(--success)">✅</span> ` +
-                        `${s.n_sym} sym &nbsp;·&nbsp; ${s.n_fp} fp &nbsp;·&nbsp; ${s.n_m3d} 3D`;
+                        `${s.n_sym} sym &nbsp;·&nbsp; ${s.n_fp} fp &nbsp;·&nbsp; ${s.n_m3d} 3D` +
+                        `<br><span style="color:${pctColor};font-weight:600">${mc.done}/${mc.total} dans la lib</span>${missingLabel}`;
                 } else {
                     statsEl.textContent = t_kicad.stats_empty;
                 }

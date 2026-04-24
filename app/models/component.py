@@ -132,8 +132,8 @@ class ComponentModel:
                     customer_no, package, description, description_long, rohs,
                     quantity, min_stock, unit_price, ext_price,
                     category, category_id, location, notes,
-                    image_path, datasheet_url, product_url, source_url
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    image_path, datasheet_url, product_url, source_url, attributes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     _to_none(data.get("lcsc_part_number")),
@@ -158,6 +158,7 @@ class ComponentModel:
                     data.get("datasheet_url"),
                     data.get("product_url"),
                     _to_none(data.get("source_url")),
+                    _to_none(data.get("attributes")),
                 ),
             )
             db.commit()
@@ -194,7 +195,8 @@ class ComponentModel:
                     image_path              = ?,
                     datasheet_url           = ?,
                     product_url             = ?,
-                    source_url              = ?
+                    source_url              = ?,
+                    attributes              = ?
                 WHERE id = ?
                 """,
                 (
@@ -220,6 +222,7 @@ class ComponentModel:
                     data.get("datasheet_url"),
                     data.get("product_url"),
                     _to_none(data.get("source_url")),
+                    _to_none(data.get("attributes")),
                     component_id,
                 ),
             )
@@ -478,11 +481,19 @@ class ComponentModel:
 
     @staticmethod
     def get_all_lcsc_refs() -> list:
-        """Retourne toutes les références LCSC distinctes du stock."""
+        """
+        Retourne les références LCSC générables dans KiCad.
+        Filtre sur category_id IS NOT NULL : seuls les composants enrichis
+        depuis LCSC ont un category_id, ce qui garantit que JLC2KiCadLib
+        pourra trouver leur schéma EasyEDA.
+        Les composants sans category_id (mécaniques, fils, ajouts manuels)
+        sont exclus — ils n'ont pas de symbol/footprint EasyEDA.
+        """
         db = get_db()
         rows = db.execute(
             "SELECT DISTINCT lcsc_part_number FROM components "
             "WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != '' "
+            "AND category_id IS NOT NULL "
             "ORDER BY lcsc_part_number"
         ).fetchall()
         return [r["lcsc_part_number"] for r in rows]

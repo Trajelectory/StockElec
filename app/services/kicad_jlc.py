@@ -118,6 +118,17 @@ def _already_done(ref: str, kicad_dir: str) -> bool:
     return bool(glob.glob(os.path.join(kicad_dir, "*", f"*_{ref}")))
 
 
+
+
+def get_missing_kicad_refs(kicad_dir: str, lcsc_refs: list[str]) -> list[str]:
+    """
+    Retourne les références LCSC qui n'ont PAS encore de fichiers KiCad générés.
+    Utilise _already_done() qui vérifie l'existence d'un dossier *_<REF>.
+    """
+    if not lcsc_refs:
+        return []
+    return [ref for ref in lcsc_refs if not _already_done(ref, kicad_dir)]
+
 def _download_one(ref: str, kicad_dir: str, prefix: str = "") -> str:
     """
     1. Appelle l'API JLCPCB pour récupérer catégorie + part_number

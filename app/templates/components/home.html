@@ -17,13 +17,28 @@
         · <a href="{{ url_for('components.alerts') }}" style="color:var(--danger)">⚠️ {{ stats.n_alerts }} alerte(s)</a>
         {% endif %}
     </p>
-    <form method="get" action="{{ url_for('components.stock') }}">
+
+    <!-- Barre de recherche avec dropdown instantané -->
+    <form method="get" action="{{ url_for('components.stock') }}" id="home-search-form"
+          style="position:relative" autocomplete="off">
         <div style="position:relative">
             <span style="position:absolute;left:1rem;top:50%;transform:translateY(-50%);font-size:1.1rem;pointer-events:none">🔍</span>
-            <input type="text" name="search" autofocus autocomplete="off"
+            <input type="text" name="search" id="home-search-input" autofocus
                    placeholder="{{ t.home.search_placeholder }}"
                    class="form-input"
-                   style="padding:.85rem 1rem .85rem 2.8rem;font-size:1rem;border-radius:var(--radius-lg);border:2px solid var(--border)"/>
+                   style="padding:.85rem 3.5rem .85rem 2.8rem;font-size:1rem;border-radius:var(--radius-lg);border:2px solid var(--border);transition:border-color .15s"
+                   onfocus="this.style.borderColor='var(--accent)'"
+                   onblur="setTimeout(()=>{ this.style.borderColor='var(--border)'; closeHomeDropdown(); }, 150)"/>
+            <span id="home-search-spinner"
+                  style="display:none;position:absolute;right:1rem;top:50%;transform:translateY(-50%);
+                         width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);
+                         border-radius:50%;animation:spin .6s linear infinite"></span>
+        </div>
+        <div id="home-search-dropdown"
+             style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+                    background:var(--bg-card);border:1px solid var(--border);
+                    border-radius:var(--radius-lg);box-shadow:var(--shadow);
+                    z-index:100;overflow:hidden;text-align:left">
         </div>
     </form>
 </div>
@@ -55,6 +70,13 @@
             <div style="font-size:1.6rem;font-weight:800;color:{{ 'var(--danger)' if (stats.n_zero or 0) > 0 else 'var(--success)' }}">{{ stats.n_zero or 0 }}</div>
             <div style="font-size:.72rem;color:var(--text-muted)">Stock zéro</div>
         </div>
+        <!-- Widget KiCad -->
+        <a href="{{ url_for('components.settings') }}#sec-kicad"
+           id="home-kicad-widget"
+           style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center;text-decoration:none;display:block">
+            <div style="font-size:1.6rem;font-weight:800;color:var(--text-muted)" id="home-kicad-count">…</div>
+            <div style="font-size:.72rem;color:var(--text-muted)">sans KiCad</div>
+        </a>
     </div>
 
     <!-- Alertes stock -->
@@ -151,4 +173,250 @@
     {% endif %}
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // ── Compteur KiCad ────────────────────────────────────────────
+    fetch('/kicad/missing-count')
+        .then(function(r) { return r.json(); })
+        .then(function(mc) {
+            var el = document.getElementById('home-kicad-count');
+            if (!el) return;
+            var n = mc.missing || 0;
+            el.textContent = n;
+            el.style.color = n === 0 ? 'var(--success)' : n < 10 ? 'var(--warning)' : 'var(--danger)';
+        })
+        .catch(function() {
+            var el = document.getElementById('home-kicad-count');
+            if (el) el.textContent = '?';
+        });
+
+    // ── Recherche avec dropdown ───────────────────────────────────
+    var inp = document.getElementById('home-search-input');
+    var dd  = document.getElementById('home-search-dropdown');
+    var sp  = document.getElementById('home-search-spinner');
+    if (!inp || !dd) return;
+
+    var _timer = null;
+    var _items = [];
+    var _idx   = -1;
+
+    window.closeHomeDropdown = function() {
+        dd.style.display = 'none';
+        _items = []; _idx = -1;
+    };
+
+    inp.addEventListener('input', function() {
+        clearTimeout(_timer);
+        var q = inp.value.trim();
+        if (q.length < 2) { closeHomeDropdown(); return; }
+        if (sp) sp.style.display = 'block';
+        _timer = setTimeout(function() { doSearch(q); }, 200);
+    });
+
+    inp.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown')  { e.preventDefault(); setActive(Math.min(_idx + 1, _items.length - 1)); }
+        if (e.key === 'ArrowUp')    { e.preventDefault(); setActive(Math.max(_idx - 1, 0)); }
+        if (e.key === 'Escape')     { closeHomeDropdown(); inp.blur(); }
+        if (e.key === 'Enter' && _idx >= 0 && _items[_idx]) {
+            e.preventDefault();
+            closeHomeDropdown();
+            window.location.href = _items[_idx];
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!inp.contains(e.target) && !dd.contains(e.target)) closeHomeDropdown();
+    });
+
+    function doSearch(q) {
+        fetch('/api/search?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (sp) sp.style.display = 'none';
+                renderDropdown(data, q);
+            })
+            .catch(function() {
+                if (sp) sp.style.display = 'none';
+            });
+    }
+
+    function makeRow(url, imgSrc, line1, line2, right) {
+        var idx = _items.length;
+        _items.push(url);
+
+        var a = document.createElement('a');
+        a.href = url;
+        a.dataset.idx = idx;
+        a.style.cssText = 'display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;text-decoration:none;color:var(--text);transition:background .1s;cursor:pointer';
+        a.addEventListener('click', function() { closeHomeDropdown(); });
+        a.addEventListener('mouseenter', function() { setActive(idx); });
+        a.addEventListener('mouseleave', function() { clearActive(); });
+
+        // Thumbnail
+        var thumb = document.createElement('div');
+        thumb.style.cssText = 'width:36px;height:36px;border-radius:6px;background:var(--bg-surface);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center';
+        if (imgSrc) {
+            var img = document.createElement('img');
+            img.src = imgSrc;
+            img.style.cssText = 'width:36px;height:36px;object-fit:cover';
+            img.addEventListener('error', function() { img.style.display = 'none'; });
+            thumb.appendChild(img);
+        } else {
+            thumb.textContent = '';
+        }
+        a.appendChild(thumb);
+
+        // Infos
+        var info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0';
+
+        var l1 = document.createElement('div');
+        l1.style.cssText = 'font-size:.85rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        l1.innerHTML = line1;
+        info.appendChild(l1);
+
+        if (line2) {
+            var l2 = document.createElement('div');
+            l2.style.cssText = 'margin-top:.1rem';
+            l2.innerHTML = line2;
+            info.appendChild(l2);
+        }
+        a.appendChild(info);
+
+        // Droite (quantité)
+        if (right) {
+            var r = document.createElement('span');
+            r.style.cssText = 'font-size:.8rem;font-weight:700;flex-shrink:0;' + right.style;
+            r.textContent = right.text;
+            a.appendChild(r);
+        }
+
+        return a;
+    }
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    function renderDropdown(data, q) {
+        dd.innerHTML = '';
+        _items = []; _idx = -1;
+
+        var comps = data.components || [];
+        var projs = data.projects   || [];
+
+        if (!comps.length && !projs.length) {
+            var empty = document.createElement('div');
+            empty.style.cssText = 'padding:.85rem 1rem;font-size:.82rem;color:var(--text-muted);text-align:center';
+            empty.textContent = 'Aucun résultat pour « ' + (q || '') + ' »';
+            dd.appendChild(empty);
+            dd.style.display = 'block';
+            return;
+        }
+
+        // Section composants
+        if (comps.length) {
+            var cl = document.createElement('div');
+            cl.style.cssText = 'padding:.35rem 1rem .15rem;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)';
+            cl.textContent = '📦 Composants';
+            dd.appendChild(cl);
+
+            comps.forEach(function(c) {
+                var imgSrc = c.image_path
+                    ? '/images/' + c.image_path.replace(/.*images\//, '')
+                    : null;
+
+                var qColor = c.quantity === 0 ? 'color:var(--danger)'
+                           : c.quantity < 5   ? 'color:var(--warning)'
+                           : 'color:var(--success)';
+
+                var line2 = '';
+                if (c.ref) {
+                    line2 += '<span style="font-family:var(--mono);font-size:.68rem;color:var(--accent);background:var(--accent-dim);padding:.05rem .3rem;border-radius:3px;margin-right:.3rem">' + esc(c.ref) + '</span>';
+                }
+                if (c.package) {
+                    line2 += '<span style="font-size:.68rem;color:var(--text-muted);background:var(--bg-surface);padding:.05rem .3rem;border-radius:3px">' + esc(c.package) + '</span>';
+                }
+
+                var row = makeRow(
+                    '/component/' + c.id,
+                    imgSrc,
+                    esc(c.description || c.ref || '—'),
+                    line2,
+                    { text: String(c.quantity), style: qColor }
+                );
+                dd.appendChild(row);
+            });
+        }
+
+        // Séparateur
+        if (comps.length && projs.length) {
+            var sep = document.createElement('div');
+            sep.style.cssText = 'border-top:1px solid var(--border);margin:.2rem 0';
+            dd.appendChild(sep);
+        }
+
+        // Section projets
+        if (projs.length) {
+            var pl = document.createElement('div');
+            pl.style.cssText = 'padding:.35rem 1rem .15rem;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)';
+            pl.textContent = '🗂️ Projets';
+            dd.appendChild(pl);
+
+            var statusColors = {
+                idea:'#06b6d4', design:'var(--accent)', ordered:'#f97316',
+                production:'#8b5cf6', assembly:'var(--warning)', debug:'var(--danger)',
+                done:'var(--success)', archived:'var(--text-muted)'
+            };
+
+            projs.forEach(function(p) {
+                var sc = statusColors[p.status] || 'var(--text-muted)';
+                var row = makeRow(
+                    '/projects/' + p.id,
+                    null,
+                    esc(p.name),
+                    '<span style="font-size:.7rem;color:' + sc + '">' + esc(p.status) + '</span>',
+                    null
+                );
+                row.querySelector('div').textContent = '🗂️';
+                dd.appendChild(row);
+            });
+        }
+
+        // Lien "voir tout"
+        var sepBottom = document.createElement('div');
+        sepBottom.style.cssText = 'border-top:1px solid var(--border)';
+        var all = document.createElement('a');
+        all.href = '/stock?search=' + encodeURIComponent(q);
+        all.style.cssText = 'display:block;padding:.55rem 1rem;font-size:.78rem;color:var(--text-muted);text-decoration:none;text-align:center;transition:background .1s';
+        all.textContent = '🔍 Voir tous les résultats dans le stock →';
+        all.addEventListener('mouseenter', function() { all.style.background = 'var(--bg-surface)'; });
+        all.addEventListener('mouseleave', function() { all.style.background = ''; });
+        all.addEventListener('click', function() { closeHomeDropdown(); });
+        sepBottom.appendChild(all);
+        dd.appendChild(sepBottom);
+
+        dd.style.display = 'block';
+    }
+
+    function setActive(idx) {
+        _idx = idx;
+        dd.querySelectorAll('a[data-idx]').forEach(function(el) {
+            el.style.background = parseInt(el.dataset.idx) === idx ? 'var(--accent-dim)' : '';
+        });
+    }
+    function clearActive() {
+        _idx = -1;
+        dd.querySelectorAll('a[data-idx]').forEach(function(el) { el.style.background = ''; });
+    }
+
+}); // DOMContentLoaded
+</script>
+<style>@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }</style>
 {% endblock %}

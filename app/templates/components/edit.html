@@ -122,6 +122,31 @@
                 <textarea name="notes" class="form-input" rows="3"
                           placeholder="{{ t.form.ph_notes_short }}">{{ component.notes or '' }}</textarea>
             </div>
+            <div class="add-field-full">
+                <label class="add-label">{{ t.form.label_attributes }}</label>
+                <span class="add-hint">{{ t.form.hint_attributes }}</span>
+                <div id="attr-editor" style="margin-top:.5rem">
+                    <table style="width:100%;border-collapse:collapse">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;font-size:.72rem;color:var(--text-muted);font-weight:600;padding:.2rem .4rem .4rem 0;width:45%">{{ t.form.label_attr_name }}</th>
+                                <th style="text-align:left;font-size:.72rem;color:var(--text-muted);font-weight:600;padding:.2rem .4rem .4rem 0">{{ t.form.label_attr_value }}</th>
+                                <th style="width:28px"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="attr-rows"></tbody>
+                    </table>
+                    <button type="button" onclick="attrAddRow()"
+                            style="margin-top:.5rem;font-size:.75rem;padding:.25rem .65rem;background:none;border:1px dashed var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;transition:all .15s"
+                            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+                            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+                        {{ t.form.btn_add_attr }}
+                    </button>
+                </div>
+                <!-- Valeur initiale pour l'éditeur (edit) -->
+                <input type="hidden" id="attr-json-init" value="{{ component.attributes | e if component.attributes else '' }}"/>
+                <input type="hidden" name="attributes" id="attr-json"/>
+            </div>
 
             <div class="form-field">
                 <label class="form-label">{{ t.form.label_source_url }} <span class="form-hint">{{ t.form.hint_optional }}</span></label>
@@ -198,6 +223,47 @@
     </div>
 
 </div>
+<script>
+(function(){
+    var _ex=null;
+    try{var r=document.getElementById('attr-json-init');if(r&&r.value)_ex=JSON.parse(r.value);}catch(e){}
+    function mkRow(n,v){
+        var tr=document.createElement('tr');
+        function mkTd(cls,ph,val){
+            var td=document.createElement('td');td.style.cssText='padding-right:.4rem;padding-bottom:.3rem';
+            var inp=document.createElement('input');inp.type='text';inp.className='form-input '+cls;
+            inp.value=val||'';inp.placeholder=ph;inp.style.cssText='font-size:.78rem;padding:.3rem .5rem';
+            inp.addEventListener('input',save);td.appendChild(inp);return td;
+        }
+        tr.appendChild(mkTd('attr-k','ex: Voltage Rating',n));
+        tr.appendChild(mkTd('attr-v','ex: 12V',v));
+        var td=document.createElement('td');td.style.cssText='padding-bottom:.3rem;text-align:center';
+        var btn=document.createElement('button');btn.type='button';btn.textContent='×';
+        btn.style.cssText='background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:.1rem .3rem;border-radius:3px';
+        btn.addEventListener('click',function(){tr.remove();save();});
+        btn.addEventListener('mouseover',function(){btn.style.color='var(--danger)';});
+        btn.addEventListener('mouseout',function(){btn.style.color='var(--text-muted)';});
+        td.appendChild(btn);tr.appendChild(td);return tr;
+    }
+    window.attrAddRow=function(n,v){
+        var tb=document.getElementById('attr-rows');if(!tb)return;
+        tb.appendChild(mkRow(n,v));save();
+        var ins=tb.querySelectorAll('.attr-k');if(ins.length)ins[ins.length-1].focus();
+    };
+    function save(){
+        var obj={};
+        document.querySelectorAll('#attr-rows tr').forEach(function(tr){
+            var k=tr.querySelector('.attr-k'),v=tr.querySelector('.attr-v');
+            if(k&&v&&k.value.trim())obj[k.value.trim()]=v.value.trim();
+        });
+        var h=document.getElementById('attr-json');if(h)h.value=JSON.stringify(obj);
+    }
+    document.addEventListener('DOMContentLoaded',function(){
+        if(_ex&&typeof _ex==='object'){Object.keys(_ex).forEach(function(k){attrAddRow(k,_ex[k]);});}
+        save();
+    });
+})();
+</script>
 </form>
 
 
