@@ -117,10 +117,6 @@ def analyse_bom(rows: list[dict], project_id: int) -> dict | None:
     low      = []
     missing  = []
     no_lcsc  = []
-    new_ids        = []
-    new_mouser_ids  = []
-    new_digikey_ids = []
-
     already = {
         pc.component_id
         for pc in ProjectModel.get_components(project_id)
@@ -216,76 +212,19 @@ def analyse_bom(rows: list[dict], project_id: int) -> dict | None:
             else:
                 low.append(entry)
         else:
-            comp_data = {
-                "description":      "",
-                "description_long": val or "",
-                "quantity":         0,
-                "min_stock":        0,
-            }
-            if has_lcsc:    comp_data["lcsc_part_number"]    = lcsc_ref
-            if has_mouser:  comp_data["mouser_part_number"]  = mouser_ref
-            if has_digikey: comp_data["digikey_part_number"] = digikey_ref
-            comp_id = ComponentModel.create(comp_data)
-
-            if has_lcsc:    new_ids.append((comp_id, lcsc_ref))
-            if has_mouser:  new_mouser_ids.append((comp_id, mouser_ref))
-            if has_digikey: new_digikey_ids.append((comp_id, digikey_ref))
-
+            # Composant manquant — PAS de création en DB ici (side effect évité)
+            # La création se fait dans apply_bom_result() après confirmation utilisateur
             entry.update({
-                "component_id": comp_id,
+                "component_id": None,
                 "description":  val or lcsc_ref or mouser_ref or digikey_ref,
                 "stock_qty":    0,
                 "unit_price":   None,
                 "image_path":   None,
-                "created":      True,
             })
             missing.append(entry)
 
-    # ── Enrichissement en arrière-plan ─────────────────────────────────
-    _app = current_app._get_current_object()
-
-    if new_ids:
-        def _enrich_lcsc():
-            with _app.app_context():
-                for cid, ref in new_ids:
-                    try:
-                        info = lcsc_scraper.enrich_component(ref)
-                        if info:
-                            ComponentModel.apply_enrichment(cid, info)
-                    except Exception as e:
-                        logger.debug("Ignored: %s", e)
-        threading.Thread(target=_enrich_lcsc, daemon=True).start()
-
-    if new_mouser_ids:
-        def _enrich_mouser():
-            with _app.app_context():
-                api_key = SettingsModel.get("mouser_api_key", "")
-                if not api_key:
-                    return
-                for cid, ref in new_mouser_ids:
-                    try:
-                        info = mouser_scraper.enrich_component(ref, api_key)
-                        if info:
-                            ComponentModel.apply_enrichment(cid, info)
-                    except Exception as e:
-                        logger.debug("Ignored: %s", e)
-        threading.Thread(target=_enrich_mouser, daemon=True).start()
-
-    if new_digikey_ids:
-        def _enrich_digikey():
-            with _app.app_context():
-                client_id     = SettingsModel.get("digikey_client_id", "")
-                client_secret = SettingsModel.get("digikey_client_secret", "")
-                if not client_id or not client_secret:
-                    return
-                for cid, ref in new_digikey_ids:
-                    try:
-                        info = digikey_scraper.enrich_component(ref, client_id, client_secret)
-                        if info:
-                            ComponentModel.apply_enrichment(cid, info)
-                    except Exception as e:
-                        logger.debug("Ignored: %s", e)
-        threading.Thread(target=_enrich_digikey, daemon=True).start()
+    # Note : plus d'enrichissement ici — analyse_bom() est purement lecture seule.
+    # L'enrichissement se déclenche dans apply_bom_result() après confirmation.
 
     return {
         "lcsc_col":    lcsc_col,
@@ -306,10 +245,13 @@ def analyse_bom(rows: list[dict], project_id: int) -> dict | None:
 #  Helpers images projet
 # ══════════════════════════════════════════════════════════════════════════
 
+MAX_PROJECT_IMAGE_SIZE = 3 * 1024 * 1024  # 3 Mo — limite pour les images de couverture
+
+
 def save_project_image(file_storage) -> str | None:
     """
     Sauvegarde l'image uploadée dans instance/project_images/.
-    Vérifie les magic bytes avant d'accepter le fichier.
+    Vérifie les magic bytes et la taille avant d'accepter le fichier.
     Retourne le nom de fichier (relatif) ou None si échec.
     """
     if not file_storage or not file_storage.filename:
@@ -317,7 +259,13 @@ def save_project_image(file_storage) -> str | None:
 
     # Vérification magic bytes — ne pas se fier au Content-Type déclaré
     header = file_storage.read(12)
+    rest   = file_storage.read()
     file_storage.seek(0)
+
+    # Vérification taille — 3Mo max pour une image de couverture
+    if len(header) + len(rest) > MAX_PROJECT_IMAGE_SIZE:
+        logger.warning("[image] Fichier trop volumineux (%d Ko > 3 Mo)", (len(header)+len(rest))//1024)
+        return None
 
     ext = ""
     for magic, candidate_ext in _IMAGE_MAGIC.items():
@@ -371,3 +319,160 @@ def delete_project_image(image_path: str | None) -> None:
             os.remove(filepath)
     except OSError as e:
         logger.debug("Ignored: %s", e)
+
+
+
+def enrich_single_lcsc(comp_id: int, lcsc_ref: str, app) -> None:
+    """Lance l'enrichissement LCSC d'un composant en arrière-plan."""
+    def _run():
+        with app.app_context():
+            try:
+                info = lcsc_scraper.enrich_component(lcsc_ref)
+                if info:
+                    ComponentModel.apply_enrichment(comp_id, info)
+            except Exception as e:
+                logger.debug("Ignored: %s", e)
+    threading.Thread(target=_run, daemon=True).start()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  apply_bom_result — Applique les résultats du rapport BOM
+# ══════════════════════════════════════════════════════════════════════════
+
+def apply_bom_result(project_id: int, form) -> dict:
+    """
+    Applique les composants sélectionnés dans le rapport BOM vers le projet.
+    Crée les composants manquants en base et lance l'enrichissement en arrière-plan.
+
+    Séparé de analyse_bom() pour éviter les side effects lors de l'analyse :
+    les composants ne sont créés qu'après confirmation explicite de l'utilisateur.
+
+    Retourne : {"added": int, "enrich_lcsc": int, "enrich_mouser": int, "enrich_digikey": int}
+    """
+    from flask import current_app
+    from ..models.component import ComponentModel
+    from ..models.project import ProjectModel
+    from ..models.database import get_db
+    from ..models.settings import SettingsModel
+
+    db    = get_db()
+    added = 0
+
+    # ── 1. Composants existants cochés ──────────────────────────────
+    component_ids = form.getlist("component_id")
+    quantities    = form.getlist("quantity")
+    for comp_id, qty in zip(component_ids, quantities):
+        try:
+            ProjectModel.add_component(project_id, int(comp_id), int(qty))
+            added += 1
+        except Exception as e:
+            logger.debug("Ignored: %s", e)
+
+    # ── 2. Composants manquants cochés → créer en base ───────────────
+    missing_ids       = form.getlist("missing_id")
+    to_enrich         = []
+    to_enrich_mouser  = []
+    to_enrich_digikey = []
+
+    # Index en mémoire pour éviter N+1 queries
+    all_rows    = db.execute(
+        "SELECT id, lcsc_part_number, mouser_part_number, digikey_part_number FROM components"
+    ).fetchall()
+    idx_lcsc    = {r["lcsc_part_number"]:    r for r in all_rows if r["lcsc_part_number"]}
+    idx_mouser  = {r["mouser_part_number"]:  r for r in all_rows if r["mouser_part_number"]}
+    idx_digikey = {r["digikey_part_number"]: r for r in all_rows if r["digikey_part_number"]}
+
+    for idx in missing_ids:
+        qty         = form.get(f"missing_qty_{idx}",     0,  type=int)
+        desc        = form.get(f"missing_desc_{idx}",    "")
+        lcsc        = form.get(f"missing_lcsc_{idx}",    "").strip().upper()
+        mouser_ref  = form.get(f"missing_mouser_{idx}",  "").strip()
+        digikey_ref = form.get(f"missing_digikey_{idx}", "").strip()
+
+        if not lcsc and not mouser_ref and not digikey_ref:
+            continue
+
+        existing = (idx_lcsc.get(lcsc) or idx_mouser.get(mouser_ref)
+                    or idx_digikey.get(digikey_ref))
+
+        if existing:
+            comp_id = existing["id"]
+            updates = {}
+            if lcsc        and not existing["lcsc_part_number"]:    updates["lcsc_part_number"]    = lcsc
+            if mouser_ref  and not existing["mouser_part_number"]:  updates["mouser_part_number"]  = mouser_ref
+            if digikey_ref and not existing["digikey_part_number"]: updates["digikey_part_number"] = digikey_ref
+            if updates:
+                fields = ", ".join(f"{k} = ?" for k in updates)
+                try:
+                    db.execute(f"UPDATE components SET {fields} WHERE id = ?",
+                               list(updates.values()) + [comp_id])
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    raise
+        else:
+            comp_data = {"description": "", "description_long": desc or "",
+                         "quantity": 0, "min_stock": 0}
+            if lcsc:        comp_data["lcsc_part_number"]    = lcsc
+            if mouser_ref:  comp_data["mouser_part_number"]  = mouser_ref
+            if digikey_ref: comp_data["digikey_part_number"] = digikey_ref
+            comp_id = ComponentModel.create(comp_data)
+            if lcsc:        to_enrich.append((comp_id, lcsc))
+            if mouser_ref:  to_enrich_mouser.append((comp_id, mouser_ref))
+            if digikey_ref: to_enrich_digikey.append((comp_id, digikey_ref))
+
+        try:
+            ProjectModel.add_component(project_id, comp_id, max(1, qty))
+            added += 1
+        except Exception as e:
+            logger.debug("Ignored: %s", e)
+
+    # ── Enrichissement en arrière-plan ──────────────────────────────
+    _app = current_app._get_current_object()
+
+    if to_enrich:
+        def _enrich_lcsc():
+            with _app.app_context():
+                for cid, ref in to_enrich:
+                    try:
+                        info = lcsc_scraper.enrich_component(ref)
+                        if info: ComponentModel.apply_enrichment(cid, info)
+                    except Exception as e:
+                        logger.debug("Ignored: %s", e)
+        threading.Thread(target=_enrich_lcsc, daemon=True).start()
+
+    if to_enrich_mouser:
+        def _enrich_mouser():
+            with _app.app_context():
+                api_key = SettingsModel.get("mouser_api_key", "")
+                if not api_key: return
+                from ..services import mouser_scraper as _ms
+                for cid, ref in to_enrich_mouser:
+                    try:
+                        info = _ms.enrich_component(ref, api_key)
+                        if info: ComponentModel.apply_enrichment(cid, info)
+                    except Exception as e:
+                        logger.debug("Ignored: %s", e)
+        threading.Thread(target=_enrich_mouser, daemon=True).start()
+
+    if to_enrich_digikey:
+        def _enrich_digikey():
+            with _app.app_context():
+                client_id     = SettingsModel.get("digikey_client_id", "")
+                client_secret = SettingsModel.get("digikey_client_secret", "")
+                if not client_id or not client_secret: return
+                from ..services import digikey_scraper as _dk
+                for cid, ref in to_enrich_digikey:
+                    try:
+                        info = _dk.enrich_component(ref, client_id, client_secret)
+                        if info: ComponentModel.apply_enrichment(cid, info)
+                    except Exception as e:
+                        logger.debug("Ignored: %s", e)
+        threading.Thread(target=_enrich_digikey, daemon=True).start()
+
+    return {
+        "added":          added,
+        "enrich_lcsc":    len(to_enrich),
+        "enrich_mouser":  len(to_enrich_mouser),
+        "enrich_digikey": len(to_enrich_digikey),
+    }

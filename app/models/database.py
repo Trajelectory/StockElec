@@ -13,15 +13,22 @@ def get_db():
     global _wal_initialized
     db = getattr(g, "_database", None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE, timeout=10)
-        db.row_factory = sqlite3.Row
+        raw = sqlite3.connect(DATABASE, timeout=10)
+        raw.row_factory = sqlite3.Row
         # foreign_keys doit être activé par connexion (non persistant)
-        db.execute("PRAGMA foreign_keys=ON")
+        raw.execute("PRAGMA foreign_keys=ON")
         if not _wal_initialized:
             # WAL et synchronous sont persistants sur le fichier — 1 seule fois
-            db.execute("PRAGMA journal_mode=WAL")
-            db.execute("PRAGMA synchronous=NORMAL")
+            raw.execute("PRAGMA journal_mode=WAL")
+            raw.execute("PRAGMA synchronous=NORMAL")
             _wal_initialized = True
+        # Instrumenter si la debug toolbar est active
+        try:
+            from app.debugtoolbar import wrap_db, get_collector
+            db = wrap_db(raw) if get_collector() is not None else raw
+        except Exception:
+            db = raw
+        g._database = db
     return db
 
 

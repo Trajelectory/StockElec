@@ -93,6 +93,14 @@
         </div>
 
         <div class="stg-nav-group">
+            <div class="stg-nav-group-label">Développement</div>
+            <button class="stg-nav-item" onclick="showSection('debug', this)">
+                <span class="stg-nav-icon">🛠️</span>
+                Debug Toolbar
+            </button>
+        </div>
+
+        <div class="stg-nav-group">
             <div class="stg-nav-group-label">{{ t.settings.tab_labels }}</div>
             <button class="stg-nav-item" onclick="showSection('labels', this)">
                 <span class="stg-nav-icon">
@@ -793,6 +801,36 @@
                 <p class="stg-hint">{{ t.settings.hint_labels }}</p>
                 <a href="{{ url_for('components.label_settings') }}" class="btn btn-primary">{{ t.settings.btn_label_cfg }}</a>
             </div>
+        </section>
+
+        {# ══ Debug Toolbar ══════════════════════════════════════════════════ #}
+        <section id="sec-debug" class="stg-section" style="display:none">
+            <div class="stg-section-header">
+                <h2 class="stg-section-title">🛠️ Mode Debug</h2>
+                <p class="stg-section-desc">Toolbar de débogage — affiche les requêtes SQL, logs et variables de la requête en bas de chaque page HTML. Désactiver en production.</p>
+            </div>
+            <form method="post" action="{{ url_for('components.settings') }}">
+                <input type="hidden" name="action" value="save_debug"/>
+                <!-- Valeur par défaut 0 — remplacée par 1 si la checkbox est cochée -->
+                <input type="hidden" name="debug_toolbar" value="0"/>
+                <div class="stg-panel">
+                    <div class="stg-field">
+                        <label class="stg-label">Debug Toolbar</label>
+                        <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;margin-top:.25rem">
+                            <input type="checkbox" name="debug_toolbar" value="1"
+                                   {% if current.debug_toolbar == '1' %}checked{% endif %}
+                                   style="width:18px;height:18px;accent-color:var(--accent)"/>
+                            <span style="font-size:.85rem">Activer la debug toolbar</span>
+                        </label>
+                        <span class="stg-hint" style="margin-top:.5rem;display:block">
+                            ⚠️ La toolbar expose les requêtes SQL et les variables de session — ne jamais activer sur un serveur accessible publiquement.
+                        </span>
+                    </div>
+                    <div class="stg-panel-footer">
+                        <button type="submit" class="btn btn-primary">{{ t.settings.btn_save }}</button>
+                    </div>
+                </div>
+            </form>
         </section>
 
     </div>{# /stg-content #}

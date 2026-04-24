@@ -51,47 +51,53 @@ CHECKLIST_TEMPLATES = {
 
 class Project:
     def __init__(self, row):
-        keys = row.keys()
-        self.id           = row["id"]
-        self.name         = row["name"]
-        self.description  = row["description"]
-        self.status       = row["status"]
-        self.created_at   = row["created_at"]
-        self.updated_at   = row["updated_at"]
-        # Tags, checklist, liens
-        try: self.tags      = json.loads(row["tags"]      if "tags"      in keys and row["tags"]      else "[]")
-        except: self.tags   = []
-        try: self.checklist = json.loads(row["checklist"] if "checklist" in keys and row["checklist"] else "[]")
-        except: self.checklist = []
-        try: self.links     = json.loads(row["links"]     if "links"     in keys and row["links"]     else "[]")
-        except: self.links  = []
-        # Colonnes jointes
-        self.component_count = row["component_count"] if "component_count" in keys else None
-        self.total_value     = row["total_value"]     if "total_value"     in keys else None
-        self.image_path      = row["image_path"]      if "image_path"      in keys else None
-        self.notes           = row["notes"]           if "notes"           in keys else None
+        d = dict(row)
+        self.id           = d["id"]
+        self.name         = d["name"]
+        self.description  = d["description"]
+        self.status       = d["status"]
+        self.created_at   = d["created_at"]
+        self.updated_at   = d["updated_at"]
+        # Tags, checklist, liens — JSON stocké en base
+        try:
+            self.tags      = json.loads(d.get("tags")      or "[]")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.debug("Ignored: %s", e); self.tags = []
+        try:
+            self.checklist = json.loads(d.get("checklist") or "[]")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.debug("Ignored: %s", e); self.checklist = []
+        try:
+            self.links     = json.loads(d.get("links")     or "[]")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.debug("Ignored: %s", e); self.links = []
+        # Colonnes jointes (optionnelles selon la requête)
+        self.component_count = d.get("component_count")
+        self.total_value     = d.get("total_value")
+        self.image_path      = d.get("image_path")
+        self.notes           = d.get("notes")
 
 
 class ProjectComponent:
     def __init__(self, row):
-        keys = row.keys()
-        self.id           = row["id"]
-        self.project_id   = row["project_id"]
-        self.component_id = row["component_id"]
-        self.quantity     = row["quantity"]
-        self.notes        = row["notes"]
-        # Colonnes jointes depuis components
-        self.description             = row["description"]             if "description"             in keys else None
-        self.lcsc_part_number        = row["lcsc_part_number"]        if "lcsc_part_number"        in keys else None
-        self.mouser_part_number      = row["mouser_part_number"]      if "mouser_part_number"      in keys else None
-        self.digikey_part_number     = row["digikey_part_number"]     if "digikey_part_number"     in keys else None
-        self.manufacture_part_number = row["manufacture_part_number"] if "manufacture_part_number" in keys else None
-        self.manufacturer            = row["manufacturer"]            if "manufacturer"            in keys else None
-        self.package                 = row["package"]                 if "package"                 in keys else None
-        self.category                = row["category"]                if "category"                in keys else None
-        self.stock_quantity          = row["stock_quantity"]          if "stock_quantity"          in keys else None
-        self.unit_price              = row["unit_price"]              if "unit_price"              in keys else None
-        self.image_path              = row["image_path"]              if "image_path"              in keys else None
+        d = dict(row)
+        self.id           = d["id"]
+        self.project_id   = d["project_id"]
+        self.component_id = d["component_id"]
+        self.quantity     = d["quantity"]
+        self.notes        = d["notes"]
+        # Colonnes jointes depuis components (optionnelles selon la requête)
+        self.description             = d.get("description")
+        self.lcsc_part_number        = d.get("lcsc_part_number")
+        self.mouser_part_number      = d.get("mouser_part_number")
+        self.digikey_part_number     = d.get("digikey_part_number")
+        self.manufacture_part_number = d.get("manufacture_part_number")
+        self.manufacturer            = d.get("manufacturer")
+        self.package                 = d.get("package")
+        self.category                = d.get("category")
+        self.stock_quantity          = d.get("stock_quantity")
+        self.unit_price              = d.get("unit_price")
+        self.image_path              = d.get("image_path")
 
 
 class ProjectModel:
@@ -270,7 +276,6 @@ class ProjectModel:
     @staticmethod
     def get_active(limit: int = 4) -> list:
         """Projets actifs (non terminés/archivés) pour le dashboard."""
-        from .database import get_db
         db = get_db()
         return db.execute("""
             SELECT id, name, status, created_at
@@ -281,7 +286,6 @@ class ProjectModel:
     @staticmethod
     def get_recent_movements(limit: int = 8) -> list:
         """Derniers mouvements de stock toutes sources confondues pour le dashboard."""
-        from .database import get_db
         db = get_db()
         return db.execute("""
             SELECT m.type, m.quantity, m.created_at, m.note,

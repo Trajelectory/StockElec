@@ -270,14 +270,21 @@
             <form method="post" action="{{ url_for('projects.add_component', project_id=project.id) }}"
                   class="pd-add-form">
                 <div class="pd-add-fields">
-                    <div class="pd-add-field pd-add-main">
+                    <div class="pd-add-field pd-add-main" style="position:relative">
                         <label class="pf-label">{{ t.projects.label_component }}</label>
-                        <select name="component_id" class="form-input" required>
-                            <option value="">{{ t.projects.select_none }}</option>
-                            {% for c in all_components %}
-                            <option value="{{ c.id }}">{{ c.description or c.manufacture_part_number }} ({{ c.lcsc_part_number or '—' }}) — {{ c.quantity }}</option>
-                            {% endfor %}
-                        </select>
+                        <!-- Champ caché contenant l'id sélectionné -->
+                        <input type="hidden" name="component_id" id="pd-comp-id" required/>
+                        <!-- Champ de recherche AJAX -->
+                        <input type="text" id="pd-comp-search" class="form-input"
+                               placeholder="Chercher par description, LCSC, package…"
+                               autocomplete="off"/>
+                        <!-- Dropdown résultats -->
+                        <div id="pd-comp-dropdown"
+                             style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;
+                                    background:var(--bg-card);border:1px solid var(--border);
+                                    border-radius:var(--radius);box-shadow:var(--shadow);
+                                    max-height:240px;overflow-y:auto">
+                        </div>
                     </div>
                     <div class="pd-add-field">
                         <label class="pf-label">{{ t.projects.col_qty }}</label>
@@ -1160,7 +1167,86 @@ const t_projects_kit_confirm       = {{ t.projects.kit_confirm | tojson }};
 const t_projects_btn_kit           = {{ t.projects.btn_kit | tojson }};
 const t_projects_kit_err           = {{ t.projects.kit_err | tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/projects_detail.js') }}?v={{ cache_buster }}"></script>
+<script src="{{ url_for('static', filename='js/projects_detail.js') }}?v={{ cache_buster }}">
+// ── Recherche AJAX composant dans le formulaire d'ajout ───────────
+(function() {
+    var _timer = null;
+    var inp    = document.getElementById('pd-comp-search');
+    var hidden = document.getElementById('pd-comp-id');
+    var dd     = document.getElementById('pd-comp-dropdown');
+    if (!inp || !hidden || !dd) return;
+
+    inp.addEventListener('input', function() {
+        clearTimeout(_timer);
+        hidden.value = '';
+        inp.style.borderColor = 'var(--border)';
+        var q = inp.value.trim();
+        if (q.length < 2) { dd.style.display = 'none'; return; }
+        _timer = setTimeout(function() { doSearch(q); }, 200);
+    });
+
+    inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { dd.style.display = 'none'; inp.blur(); }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!inp.contains(e.target) && !dd.contains(e.target)) dd.style.display = 'none';
+    });
+
+    function doSearch(q) {
+        fetch('/api/components?search=' + encodeURIComponent(q) + '&limit=12')
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderDd(data.components || data, q); })
+            .catch(function() {});
+    }
+
+    function esc(s) {
+        var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML;
+    }
+
+    function renderDd(comps, q) {
+        dd.innerHTML = '';
+        if (!comps || !comps.length) {
+            var empty = document.createElement('div');
+            empty.style.cssText = 'padding:.6rem 1rem;font-size:.8rem;color:var(--text-muted)';
+            empty.textContent = 'Aucun résultat';
+            dd.appendChild(empty); dd.style.display = 'block'; return;
+        }
+        comps.forEach(function(c) {
+            var a = document.createElement('div');
+            a.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.45rem .75rem;cursor:pointer;transition:background .1s;font-size:.82rem';
+            a.addEventListener('mouseenter', function() { a.style.background = 'var(--accent-dim)'; });
+            a.addEventListener('mouseleave', function() { a.style.background = ''; });
+            a.addEventListener('click', function() {
+                hidden.value = c.id;
+                inp.value    = (c.description || c.manufacture_part_number || c.lcsc_part_number || '') +
+                               (c.lcsc_part_number ? ' (' + c.lcsc_part_number + ')' : '');
+                inp.style.borderColor = 'var(--success)';
+                dd.style.display = 'none';
+            });
+
+            var qColor = c.quantity === 0 ? 'var(--danger)' : c.quantity < 5 ? 'var(--warning)' : 'var(--success)';
+            var desc = document.createElement('div');
+            desc.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+            desc.textContent = c.description || c.manufacture_part_number || '—';
+            a.appendChild(desc);
+
+            if (c.lcsc_part_number) {
+                var ref = document.createElement('span');
+                ref.style.cssText = 'font-family:var(--mono);font-size:.68rem;color:var(--accent);background:var(--accent-dim);padding:.05rem .3rem;border-radius:3px;flex-shrink:0';
+                ref.textContent = c.lcsc_part_number;
+                a.appendChild(ref);
+            }
+            var qty = document.createElement('span');
+            qty.style.cssText = 'font-weight:700;color:' + qColor + ';flex-shrink:0';
+            qty.textContent = c.quantity;
+            a.appendChild(qty);
+            dd.appendChild(a);
+        });
+        dd.style.display = 'block';
+    }
+})();
+</script>
 
 <style>
 /* ── Onglets ─────────────────────────────────────────────────────── */

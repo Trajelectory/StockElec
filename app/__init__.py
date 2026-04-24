@@ -59,6 +59,9 @@ def create_app():
 
     init_db(app)
 
+    from .debugtoolbar import init_toolbar
+    init_toolbar(app)
+
     from .controllers import component_bp
     from .controllers.routes_projects import project_bp
     from .controllers.routes_kicad import kicad_bp

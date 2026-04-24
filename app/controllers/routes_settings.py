@@ -84,6 +84,15 @@ def settings():
                 clear_p4_cache()
             flash(_t("msg.settings_saved"), "success")
 
+        # ── Debug toolbar ─────────────────────────────────────────────
+        elif action == "save_debug":
+            # hidden value="0" + checkbox value="1" → getlist retourne ["0","1"] si coché
+            # ou ["0"] si décoché — on cherche si "1" est présent
+            vals      = request.form.getlist("debug_toolbar")
+            debug_val = "1" if "1" in vals else "0"
+            SettingsModel.set("debug_toolbar", debug_val)
+            flash(_t("msg.settings_saved"), "success")
+
         # ── Enrichissement en masse ──────────────────────────────────
         elif action == "enrich_all":
             rows = db.execute(
@@ -334,6 +343,7 @@ def settings():
         "esp32_duration":         SettingsModel.get("esp32_duration", "5"),
         "esp32_offsets":          SettingsModel.get("esp32_offsets",  "{}"),
         "esp32_token":            SettingsModel.get("esp32_token",    ""),
+        "debug_toolbar":          SettingsModel.get("debug_toolbar",  "0"),
         "kicad_prefix":           SettingsModel.get("kicad_prefix",   "StockElec_"),
     }
 
