@@ -443,7 +443,7 @@
                             <label>{{ t.settings.label_esp32_token }}</label>
                             <input type="text" name="esp32_token" class="stg-input stg-mono"
                                    value="{{ current.esp32_token }}"
-                                   placeholder="stockelek-secret"/>
+                                   placeholder="{{ t.settings.ph_esp_token }}"/>
                             <span class="stg-hint">{{ t.settings.hint_esp32_token }}</span>
                         </div>
                     </div>
@@ -491,8 +491,8 @@
             <!-- ── Couleurs LED par catégorie ────────────────────── -->
             <div style="margin-top:1.75rem">
                 <div class="stg-section-header" style="border-bottom:1px solid var(--border);padding-bottom:.75rem;margin-bottom:1rem">
-                    <h3 style="font-size:.95rem;font-weight:700;color:var(--text);margin:0">Couleurs LED par catégorie</h3>
-                    <p style="font-size:.78rem;color:var(--text-muted);margin:.25rem 0 0">Assignées automatiquement selon la famille du composant. Clique sur la couleur pour modifier.</p>
+                    <h3 style="font-size:.95rem;font-weight:700;color:var(--text);margin:0">{{ t.settings.section_led_colors }}</h3>
+                    <p style="font-size:.78rem;color:var(--text-muted);margin:.25rem 0 0">{{ t.settings.hint_led_colors }} couleur pour modifier.</p>
                 </div>
 
                 <form method="post" id="led-colors-form">
@@ -691,7 +691,7 @@
                         {{ t.settings.kicad_prefix_label }}
                         <input type="text" id="kicad-prefix"
                                value="{{ current.get('kicad_prefix', 'StockElec_') or 'StockElec_' }}"
-                               placeholder="StockElec_"
+                               placeholder="{{ t.settings.ph_kicad_prefix }}"
                                style="font-size:.78rem;padding:.2rem .5rem;width:120px;
                                       border:1px solid var(--border);border-radius:var(--radius-sm);
                                       background:var(--bg-surface);color:var(--text);font-family:var(--mono)"/>
@@ -1022,7 +1022,7 @@ function kicadMerge() {
             kicadLoadStatus();
         })
         .catch(() => {
-            statusEl.textContent = '❌ Erreur réseau';
+            statusEl.textContent = {{ t.settings.err_network | tojson }};
             btn.disabled = false;
         });
 }
@@ -1075,7 +1075,7 @@ function kicadRegister() {
             btn.disabled = false;
         })
         .catch(() => {
-            statusEl.textContent = '❌ Erreur réseau';
+            statusEl.textContent = {{ t.settings.err_network | tojson }};
             btn.disabled = false;
         });
 }
@@ -1303,7 +1303,7 @@ function testSequence() {
     .catch(() => {
         btn.textContent = '{{ t.settings.btn_esp32_test_seq }}';
         btn.disabled = false;
-        result.textContent = '❌ Erreur réseau';
+        result.textContent = {{ t.settings.err_network | tojson }};
         result.style.color = 'var(--danger)';
     });
 }

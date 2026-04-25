@@ -1,424 +1,1281 @@
 {% extends "base.html" %}
 {% block title %}{{ component.description or 'Composant' }} — StockElec{% endblock %}
 
-{% block content %}
+{% block head %}
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   FICHE COMPOSANT — design "composant sous microscope"
+   Tout le JS existant est conservé (adjustQty, flashLed, checkPrice,
+   enrichComponent, loadPngs, openLightbox, startQtyEdit...)
+══════════════════════════════════════════════════════════════════ */
 
-<!-- ══ HEADER ════════════════════════════════════════════════════ -->
-<div class="cd-header">
-    <div class="cd-header-left">
-        <a href="{{ url_for('components.stock') }}" class="btn-back">← {{ t.detail.back_stock }}</a>
-        {% if component.category %}
-        <div class="cd-breadcrumb">
-            {% for part in component.category.split(' / ') %}
-            <a href="{{ url_for('components.stock', category=component.category) }}" class="cd-breadcrumb-part">{{ part }}</a>
-            {% if not loop.last %}<span class="cd-breadcrumb-sep">/</span>{% endif %}
-            {% endfor %}
-        </div>
-        {% endif %}
+/* ── Root ─────────────────────────────────────────────────────── */
+.dc-root {
+  padding: 1.25rem 2rem 4rem;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ── Header bande ─────────────────────────────────────────────── */
+.dc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.dc-topbar-left {
+  display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+}
+.dc-back {
+  display: flex; align-items: center; gap: .35rem;
+  color: var(--text-muted); font-size: .8rem; text-decoration: none;
+  padding: .3rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: all .15s;
+}
+.dc-back:hover { color: var(--text); border-color: var(--accent); }
+.dc-back svg { width: 14px; height: 14px; }
+.dc-breadcrumb {
+  display: flex; align-items: center; gap: .3rem; font-size: .75rem;
+}
+.dc-breadcrumb a {
+  color: var(--text-muted); text-decoration: none; transition: color .15s;
+}
+.dc-breadcrumb a:hover { color: var(--accent); }
+.dc-breadcrumb-sep { color: var(--border); }
+.dc-topbar-right { display: flex; align-items: center; gap: .5rem; }
+.dc-used-pill {
+  font-size: .72rem; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 99px; padding: .2rem .75rem; font-weight: 600;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LAYOUT PRINCIPAL
+   ┌──────────┬──────────────────────────┬──────────┐
+   │  Galerie │  Infos (tabs)            │  Stock   │
+   └──────────┴──────────────────────────┴──────────┘
+══════════════════════════════════════════════════════════════ */
+.dc-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr 260px;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 1200px) {
+  .dc-layout { grid-template-columns: 240px 1fr 240px; }
+}
+@media (max-width: 900px) {
+  .dc-layout { grid-template-columns: 1fr; }
+}
+
+/* ══ COL GAUCHE — Galerie ══════════════════════════════════════ */
+.dc-gallery {
+  display: flex; flex-direction: column; gap: .75rem;
+  position: sticky; top: 1rem;
+}
+
+/* Image principale */
+.dc-img-hero {
+  aspect-ratio: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  cursor: zoom-in;
+  transition: border-color .2s;
+}
+.dc-img-hero:hover { border-color: var(--accent); }
+.dc-img-hero img {
+  width: 100%; height: 100%; object-fit: contain;
+  transition: transform .3s ease;
+}
+.dc-img-hero:hover img { transform: scale(1.04); }
+.dc-img-hero-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: .75rem; height: 100%; color: var(--text-muted);
+}
+.dc-img-hero-icon { font-size: 2.5rem; opacity: .2; }
+.dc-img-zoom-hint {
+  position: absolute; bottom: .5rem; right: .5rem;
+  font-size: .6rem; color: var(--text-muted);
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  padding: .15rem .4rem; border-radius: 4px;
+  pointer-events: none; opacity: 0;
+  transition: opacity .2s;
+}
+.dc-img-hero:hover .dc-img-zoom-hint { opacity: 1; }
+
+/* Miniatures sym/fp */
+.dc-thumbs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
+}
+.dc-thumb-item {
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.dc-thumb-box {
+  aspect-ratio: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: border-color .15s;
+  position: relative;
+}
+.dc-thumb-box:hover { border-color: var(--accent); }
+.dc-thumb-box img {
+  width: 100%; height: 100%; object-fit: contain;
+  padding: .25rem;
+}
+.dc-thumb-load {
+  display: flex; flex-direction: column;
+  align-items: center; gap: .3rem;
+  color: var(--text-muted); font-size: .7rem; cursor: pointer;
+}
+.dc-thumb-load-icon { font-size: 1.5rem; opacity: .3; }
+.dc-thumb-lbl {
+  font-size: .62rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .07em;
+  text-align: center;
+}
+
+/* Badges KiCad */
+.dc-kicad-strip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .6rem .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.dc-kicad-badges {
+  display: flex; gap: .4rem; justify-content: center;
+}
+.dc-kicad-badge {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, box-shadow .15s;
+  text-decoration: none;
+}
+.dc-kicad-badge--on {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 25%, transparent);
+}
+.dc-kicad-badge--on:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--success) 20%, transparent);
+}
+.dc-kicad-badge--off {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  opacity: .4;
+}
+.dc-kicad-badge img { width: 22px; height: 22px; object-fit: contain; }
+.dc-kicad-gen-btn {
+  font-size: .68rem; padding: .2rem .55rem;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted); cursor: pointer;
+  transition: all .15s; white-space: nowrap;
+}
+.dc-kicad-gen-btn:hover { border-color: var(--accent); color: var(--accent); }
+.dc-kicad-row2 {
+  display: flex; gap: .4rem; align-items: center; justify-content: center;
+  padding-top: .5rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  flex-wrap: wrap;
+}
+
+/* ══ COL CENTRE — Infos tabulées ══════════════════════════════ */
+.dc-info {
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+
+/* Titre hero */
+.dc-hero {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+.dc-hero-name {
+  font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.2;
+  margin-bottom: .4rem;
+}
+.dc-hero-desc {
+  font-size: .82rem; color: var(--text-muted);
+  line-height: 1.5; margin-bottom: .85rem;
+}
+.dc-hero-badges {
+  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+}
+.dc-badge {
+  display: inline-flex; align-items: center;
+  padding: .2rem .65rem; border-radius: 99px;
+  font-size: .68rem; font-weight: 700;
+  border: 1px solid;
+  text-decoration: none;
+  transition: filter .15s;
+  letter-spacing: .03em;
+}
+.dc-badge:hover { filter: brightness(1.2); }
+.dc-badge--green  { color:var(--success); border-color:color-mix(in srgb,var(--success) 30%,transparent); background:color-mix(in srgb,var(--success) 10%,transparent); }
+.dc-badge--gray   { color:var(--text-muted); border-color:var(--border); background:var(--bg-surface); font-family:var(--mono); }
+.dc-badge--purple { color:#a78bfa; border-color:#a78bfa40; background:#a78bfa12; }
+
+/* Refs fournisseurs */
+.dc-refs {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.dc-refs-head {
+  padding: .55rem 1rem;
+  font-size: .62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+}
+.dc-refs-body {
+  display: flex; flex-direction: column;
+}
+.dc-ref-row {
+  display: flex; align-items: center; gap: 1rem;
+  padding: .6rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  text-decoration: none; color: var(--text);
+  transition: background .12s;
+}
+.dc-ref-row:last-child { border-bottom: none; }
+.dc-ref-row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.dc-ref-source {
+  display: flex; align-items: center; gap: .4rem;
+  width: 90px; flex-shrink: 0;
+  font-size: .72rem; font-weight: 600; color: var(--text-muted);
+}
+.dc-ref-source img { width: 14px; height: 14px; border-radius: 2px; }
+.dc-ref-val {
+  font-family: var(--mono); font-size: .8rem; color: var(--text); flex: 1;
+}
+.dc-ref-ext {
+  font-size: .65rem; color: var(--text-muted); opacity: .6;
+}
+/* Couleurs sources */
+.dc-ref-lcsc    .dc-ref-source { color: #0066cc; }
+.dc-ref-mouser  .dc-ref-source { color: #e03000; }
+.dc-ref-digikey .dc-ref-source { color: #cc0000; }
+
+/* Onglets */
+.dc-tabs {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.dc-tabs-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.dc-tabs-nav::-webkit-scrollbar { display: none; }
+.dc-tab-btn {
+  flex-shrink: 0;
+  padding: .6rem 1.1rem;
+  font-size: .75rem; font-weight: 600;
+  color: var(--text-muted);
+  border: none; background: none; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.dc-tab-btn:hover { color: var(--text); }
+.dc-tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.dc-tab-pane { display: none; padding: 1rem; }
+.dc-tab-pane.active { display: block; }
+
+/* Grille de champs (dans les tabs) */
+.dc-fields {
+  display: flex; flex-direction: column; gap: .1rem;
+}
+.dc-field {
+  display: flex; align-items: baseline;
+  gap: .75rem; padding: .4rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+.dc-field:last-child { border-bottom: none; }
+.dc-lbl {
+  font-size: .72rem; color: var(--text-muted);
+  width: 140px; flex-shrink: 0;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.dc-val { font-size: .82rem; color: var(--text); word-break: break-word; }
+.dc-val.mono { font-family: var(--mono); }
+.dc-cat-link {
+  color: var(--accent); text-decoration: none; font-size: .82rem;
+}
+.dc-cat-link:hover { text-decoration: underline; }
+
+/* Caractéristiques grid */
+.dc-attrs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: .5rem;
+}
+.dc-attr-chip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .5rem .75rem;
+}
+.dc-attr-key {
+  font-size: .6rem; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--text-muted);
+  display: block; margin-bottom: .15rem;
+}
+.dc-attr-val {
+  font-size: .82rem; font-weight: 600; color: var(--text);
+  font-family: var(--mono);
+}
+
+/* Notes */
+.dc-notes {
+  font-size: .82rem; color: var(--text); line-height: 1.65;
+  white-space: pre-wrap;
+  background: var(--bg-surface);
+  border-radius: 6px; border: 1px solid var(--border);
+  padding: .65rem .85rem;
+}
+
+/* Projets qui utilisent ce composant */
+.dc-proj-list { display: flex; flex-direction: column; gap: .3rem; }
+.dc-proj-row {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .4rem .75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none; color: var(--text);
+  font-size: .8rem;
+  transition: border-color .15s, background .15s;
+}
+.dc-proj-row:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.dc-proj-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.dc-proj-name { flex: 1; font-weight: 500; }
+.dc-proj-qty {
+  font-family: var(--mono); font-size: .75rem; color: var(--text-muted);
+}
+.dc-proj-status {
+  font-size: .62rem; font-family: var(--mono);
+  padding: .1rem .4rem; border-radius: 99px;
+  border: 1px solid; text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* Historique mouvements dans tab */
+.dc-hist-list { display: flex; flex-direction: column; }
+.dc-hist-row {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .4rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+.dc-hist-row:last-child { border-bottom: none; }
+.dc-hist-icon {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; font-weight: 700; flex-shrink: 0;
+}
+.dc-hist-icon--in  { background:color-mix(in srgb,var(--success) 15%,transparent); color:var(--success); }
+.dc-hist-icon--out { background:color-mix(in srgb,var(--danger)  15%,transparent); color:var(--danger); }
+.dc-hist-icon--adj { background:color-mix(in srgb,var(--accent)  15%,transparent); color:var(--accent); }
+.dc-hist-qty { font-family:var(--mono); font-size:.8rem; font-weight:700; flex-shrink:0; min-width:40px; }
+.dc-hist-qty--in  { color:var(--success); }
+.dc-hist-qty--out { color:var(--danger); }
+.dc-hist-qty--adj { color:var(--accent); }
+.dc-hist-note { flex:1; font-size:.78rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dc-hist-proj {
+  font-size: .6rem; font-family: var(--mono);
+  background: color-mix(in srgb, #38bdf8 10%, transparent);
+  color: #38bdf8; border-radius: 3px;
+  padding: .05rem .35rem; flex-shrink: 0;
+}
+.dc-hist-date { font-family:var(--mono); font-size:.65rem; color:var(--text-muted); flex-shrink:0; }
+.dc-hist-more {
+  display: block; text-align: center; padding: .5rem;
+  font-size: .72rem; color: var(--accent); text-decoration: none;
+  border-top: 1px solid var(--border); margin-top: .35rem;
+  transition: background .12s;
+}
+.dc-hist-more:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+/* Méta */
+.dc-meta {
+  font-size: .68rem; color: var(--text-muted);
+  padding-top: .75rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ══ COL DROITE — Stock ════════════════════════════════════════ */
+.dc-stock {
+  display: flex; flex-direction: column; gap: .75rem;
+  position: sticky; top: 1rem;
+}
+
+/* Carte stock principale */
+.dc-stock-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.dc-stock-head {
+  padding: .6rem 1rem;
+  font-size: .62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.dc-stock-body { padding: 1.25rem 1rem; }
+
+/* Quantité */
+.dc-qty-block {
+  display: flex; align-items: center;
+  justify-content: center; gap: .85rem;
+  margin-bottom: 1rem;
+}
+.dc-qty-btn {
+  width: 38px; height: 38px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 1.2rem; font-weight: 700;
+  color: var(--text-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; flex-shrink: 0;
+}
+.dc-qty-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.dc-qty-btn:active { transform: scale(.93); }
+.cd-qty-val {
+  font-family: var(--mono);
+  font-size: 2.8rem; font-weight: 800;
+  line-height: 1; letter-spacing: -.04em;
+  cursor: pointer; min-width: 80px; text-align: center;
+  transition: color .2s;
+}
+.cd-qty-input {
+  font-family: var(--mono); font-size: 2rem; font-weight: 800;
+  width: 90px; text-align: center;
+  background: var(--bg-surface); border: 2px solid var(--accent);
+  border-radius: 8px; color: var(--text); outline: none;
+  padding: .25rem;
+}
+.qty-zero { color: var(--danger) !important; }
+.qty-low  { color: var(--warning) !important; }
+
+/* Jauge stock */
+.dc-gauge-wrap { margin-bottom: .85rem; }
+.dc-gauge-track {
+  height: 6px; background: var(--bg-surface);
+  border-radius: 3px; overflow: hidden; margin-bottom: .3rem;
+}
+.dc-gauge-fill {
+  height: 100%; border-radius: 3px;
+  background: var(--success);
+  transition: width .6s cubic-bezier(.22,1,.36,1);
+}
+.dc-gauge-fill--warn   { background: var(--warning); }
+.dc-gauge-fill--danger { background: var(--danger); }
+.dc-gauge-labels {
+  display: flex; justify-content: space-between;
+  font-size: .62rem; color: var(--text-muted); font-family: var(--mono);
+}
+
+/* Seuil */
+.dc-seuil {
+  font-size: .72rem; color: var(--text-muted);
+  text-align: center; margin-bottom: .75rem;
+}
+.dc-seuil-alert { color: var(--warning); font-weight: 600; }
+
+/* Prix */
+.dc-price-block {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .6rem .85rem;
+  margin-bottom: 1rem;
+}
+.dc-price-unit {
+  font-size: .72rem; color: var(--text-muted);
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: .2rem;
+}
+.dc-price-val {
+  font-family: var(--mono); font-size: 1.1rem; font-weight: 700;
+  color: var(--text);
+}
+.dc-price-total {
+  font-size: .72rem; color: var(--text-muted);
+  margin-top: .25rem; font-family: var(--mono);
+}
+.dc-price-check-btn {
+  background: none; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text-muted);
+  font-size: .68rem; padding: .1rem .35rem;
+  cursor: pointer; transition: all .15s;
+}
+.dc-price-check-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Localisation + LED */
+.dc-location-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.dc-location-head {
+  padding: .55rem 1rem;
+  font-size: .62rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+}
+.dc-location-body {
+  padding: .85rem 1rem;
+  display: flex; align-items: center; gap: .75rem;
+}
+.dc-location-val {
+  font-family: var(--mono); font-size: 1.5rem; font-weight: 800;
+  letter-spacing: -.02em; flex: 1;
+}
+.dc-led-btn {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .45rem .85rem;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 8px;
+  color: var(--accent); font-size: .78rem; font-weight: 600;
+  cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.dc-led-btn:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.dc-led-btn:active { transform: scale(.96); }
+.dc-led-status {
+  font-size: .7rem; color: var(--text-muted);
+  padding: 0 .75rem; min-height: 1.2rem;
+  text-align: center;
+}
+
+/* Actions */
+.dc-actions {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: .75rem;
+  display: flex; flex-direction: column; gap: .45rem;
+}
+
+/* Lightbox */
+.lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.88);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: none; align-items: center; justify-content: center;
+}
+.lightbox.open { display: flex; }
+.lightbox-inner-lg {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  max-width: 92vw; max-height: 92vh;
+  display: flex; flex-direction: column; gap: .5rem;
+  box-shadow: 0 32px 80px rgba(0,0,0,.6);
+}
+.lightbox-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--border);
+}
+.lightbox-title { font-size: .85rem; font-weight: 600; }
+.lightbox-close {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  font-size: .82rem; cursor: pointer; color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.lightbox-close:hover { color: var(--text); border-color: var(--accent); }
+#lightbox-img {
+  max-width: 85vw; max-height: 80vh;
+  border-radius: 8px; object-fit: contain;
+}
+
+/* Source badges inline */
+.src-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .7rem; font-family: var(--mono);
+}
+.src-badge-lcsc    { color: #0066cc; }
+.src-badge-mouser  { color: #e03000; }
+.src-badge-digikey { color: #cc0000; }
+.src-icon { width: 12px; height: 12px; border-radius: 2px; object-fit: contain; }
+
+/* Badge purple (datasheet) */
+.badge-purple {
+  background: rgba(139,92,246,.15); color: #a78bfa;
+  border: 1px solid rgba(139,92,246,.3);
+  text-decoration: none; border-radius: 99px;
+}
+.badge-purple:hover { background: rgba(139,92,246,.28); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dc-root">
+
+{# ══ HEADER ══════════════════════════════════════════════════════ #}
+<div class="dc-topbar">
+  <div class="dc-topbar-left">
+    <a href="{{ url_for('components.stock') }}" class="dc-back">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      {{ t.detail.back_stock }}
+    </a>
+    {% if component.category %}
+    <div class="dc-breadcrumb">
+      {% for part in component.category.split(' / ') %}
+      <a href="{{ url_for('components.stock', category=component.category) }}">{{ part }}</a>
+      {% if not loop.last %}<span class="dc-breadcrumb-sep">/</span>{% endif %}
+      {% endfor %}
     </div>
-    <div class="cd-header-right">
-        {% if projects_using %}
-        <span class="cd-used-badge">
-            Utilisé dans {{ projects_using|length }} projet{{ 's' if projects_using|length > 1 }}
-        </span>
-        {% endif %}
-    </div>
+    {% endif %}
+  </div>
+  <div class="dc-topbar-right">
+    {% if projects_using %}
+    <span class="dc-used-pill">
+      Utilisé dans {{ projects_using|length }} projet{{ 's' if projects_using|length > 1 }}
+    </span>
+    {% endif %}
+    <a href="{{ url_for('components.edit', component_id=component.id) }}"
+       class="btn btn-primary btn-sm">{{ t.detail.btn_edit }}</a>
+  </div>
 </div>
 
-<!-- ══ LAYOUT 3 ZONES ════════════════════════════════════════════ -->
-<div class="cd-layout">
+{# ══ LAYOUT ══════════════════════════════════════════════════════ #}
+<div class="dc-layout">
 
-    <!-- ── Colonne gauche : galerie ──────────────────────────────── -->
-    <div class="cd-gallery-col">
+  {# ── COL GAUCHE — Galerie ───────────────────────────────────── #}
+  <div class="dc-gallery">
 
-        <!-- Image principale -->
-        <div class="cd-img-main">
-            {% if component.image_path %}
-            <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
-                 alt="{{ component.description }}"
-                 onclick="openLightbox(this.src, 'Photo')"
-                 class="cd-img-main-img" title="{{ t.detail.title_enlarge }}"/>
-            {% else %}
-            <div class="cd-img-main-empty">
-                <span>📷</span>
-                {% if component.lcsc_part_number or component.digikey_part_number or component.mouser_part_number %}
-                <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
-                        onclick="enrichComponent({{ component.id }})">{{ t.detail.btn_fetch }}</button>
-                {% endif %}
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Symbole + Footprint -->
-        {% if component.lcsc_part_number %}
-        <div class="cd-img-thumbs">
-            <div class="cd-img-thumb-item" id="gallery-symbol">
-                {% if component.symbol_png %}
-                <img src="{{ url_for('components.easyeda_png_file', filename=component.symbol_png.split('easyeda_pngs/')|last) }}"
-                     alt="{{ t.detail.alt_symbol }}" onclick="openLightbox(this.src, 'Symbole')"
-                     class="cd-img-thumb" title="{{ t.detail.title_enlarge }}"/>
-                {% else %}
-                <div class="cd-img-load" id="sym-placeholder" onclick="loadPngs()" title="{{ t.detail.title_load }}">
-                    <span>〜</span>
-                    <span class="cd-load-hint" id="sym-hint">{{ t.detail.btn_load }}</span>
-                </div>
-                {% endif %}
-                <span class="cd-img-label">{{ t.detail.label_symbol }}</span>
-            </div>
-            <div class="cd-img-thumb-item" id="gallery-footprint">
-                {% if component.footprint_png %}
-                <img src="{{ url_for('components.easyeda_png_file', filename=component.footprint_png.split('easyeda_pngs/')|last) }}"
-                     alt="{{ t.detail.alt_footprint }}" onclick="openLightbox(this.src, 'Footprint')"
-                     class="cd-img-thumb" title="{{ t.detail.title_enlarge }}"/>
-                {% else %}
-                <div class="cd-img-load" id="fp-placeholder" onclick="loadPngs()" title="{{ t.detail.title_load }}">
-                    <span>⬡</span>
-                    <span class="cd-load-hint" id="fp-hint">{{ t.detail.btn_load }}</span>
-                </div>
-                {% endif %}
-                <span class="cd-img-label">{{ t.detail.label_footprint }}</span>
-            </div>
-        </div>
-
-        <!-- Badges KiCad sous les miniatures -->
-        <div class="cd-kicad-badges-row">
-            {% if kicad_status.symbol %}
-            <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='symbol') }}"
-               class="cd-kicad-img-badge cd-kicad-img-badge-on"
-               title="Télécharger le symbole KiCad (.kicad_sym)" download>
-                <img src="{{ url_for('static', filename='img/symbol.png') }}" width="32" height="32" alt="Symbole KiCad"/>
-            </a>
-            {% else %}
-            <span class="cd-kicad-img-badge cd-kicad-img-badge-off" title="Symbole KiCad non généré">
-                <img src="{{ url_for('static', filename='img/symbol.png') }}" width="32" height="32" alt="Symbole KiCad"/>
-            </span>
-            {% endif %}
-
-            {% if kicad_status.footprint %}
-            <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='footprint') }}"
-               class="cd-kicad-img-badge cd-kicad-img-badge-on"
-               title="Télécharger la footprint KiCad (.kicad_mod)" download>
-                <img src="{{ url_for('static', filename='img/footprint.png') }}" width="32" height="32" alt="Footprint KiCad"/>
-            </a>
-            {% else %}
-            <span class="cd-kicad-img-badge cd-kicad-img-badge-off" title="Footprint KiCad non générée">
-                <img src="{{ url_for('static', filename='img/footprint.png') }}" width="32" height="32" alt="Footprint KiCad"/>
-            </span>
-            {% endif %}
-
-            {% if kicad_status.model_3d %}
-            <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='model3d') }}"
-               class="cd-kicad-img-badge cd-kicad-img-badge-on"
-               title="Télécharger le modèle 3D (.step)" download>
-                <img src="{{ url_for('static', filename='img/model3D.png') }}" width="32" height="32" alt="Modèle 3D"/>
-            </a>
-            {% else %}
-            <span class="cd-kicad-img-badge cd-kicad-img-badge-off" title="Modèle 3D non généré">
-                <img src="{{ url_for('static', filename='img/model3D.png') }}" width="32" height="32" alt="Modèle 3D"/>
-            </span>
-            {% endif %}
-        </div>
-
-        {# Bouton génération unitaire — visible uniquement si au moins un fichier manque #}
-        {% if component.lcsc_part_number and not (kicad_status.symbol and kicad_status.footprint and kicad_status.model_3d) %}
-        <div class="cd-kicad-gen-row">
-            <button id="cd-kicad-gen-btn"
-                    onclick="generateKicadOne('{{ component.lcsc_part_number }}')"
-                    class="btn btn-secondary"
-                    style="font-size:.72rem;padding:.25rem .7rem">
-                {{ t.detail.kicad_gen_btn }}
-            </button>
-            <span id="cd-kicad-gen-status" style="font-size:.72rem;color:var(--text-muted)"></span>
-        </div>
+    <div class="dc-img-hero"
+         {% if component.image_path %}
+         onclick="openLightbox('{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}', 'Photo')"
+         {% endif %}>
+      {% if component.image_path %}
+      <img src="{{ url_for('components.component_image', filename=component.image_path.split('images/')|last) }}"
+           alt="{{ component.description }}" title="{{ t.detail.title_enlarge }}"/>
+      <span class="dc-img-zoom-hint">{{ t.detail.hint_zoom }}</span>
+      {% else %}
+      <div class="dc-img-hero-empty">
+        <div class="dc-img-hero-icon">📷</div>
+        {% if component.lcsc_part_number or component.mouser_part_number %}
+        <button type="button" class="btn btn-secondary btn-sm" id="enrich-btn"
+                onclick="enrichComponent({{ component.id }})">{{ t.detail.btn_fetch }}</button>
+        {% else %}
+        <div style="font-size:.72rem;color:var(--text-muted)">{{ t.detail.no_image }}</div>
         {% endif %}
-
-        {# Bouton ZIP — visible uniquement si au moins un fichier KiCad existe #}
-        {% if component.lcsc_part_number and (kicad_status.symbol or kicad_status.footprint or kicad_status.model_3d) %}
-        <div class="cd-kicad-gen-row" style="margin-top:.35rem">
-            <a href="{{ url_for('kicad.download_component_zip', lcsc_ref=component.lcsc_part_number) }}"
-               class="btn btn-secondary"
-               style="font-size:.72rem;padding:.25rem .7rem;text-decoration:none"
-               download>
-                📦 ZIP KiCad
-            </a>
-            <span style="font-size:.68rem;color:var(--text-muted)">sym + fp + 3D</span>
-        </div>
-        {% endif %}
-        {% endif %}
-
+      </div>
+      {% endif %}
     </div>
 
-    <!-- ── Colonne centrale : infos ──────────────────────────────── -->
-    <div class="cd-info-col cd-info-card">
-
-        <!-- Titre + badges -->
-        <div class="cd-title-block">
-            <h1 class="cd-title">{{ component.description or '—' }}</h1>
-            {% if component.description_long %}
-            <p class="cd-subtitle">{{ component.description_long }}</p>
-            {% endif %}
-            <div class="cd-badges">
-                {% if component.rohs == 'YES' %}<span class="badge badge-green">{{ t.detail.label_rohs }}</span>{% endif %}
-                {% if component.package %}<span class="badge badge-gray">{{ component.package }}</span>{% endif %}
-                {% if component.datasheet_url %}
-                <a href="{{ component.datasheet_url }}" target="_blank" rel="noopener"
-                   class="badge badge-purple" title="{{ t.detail.title_open_ds }}">{{ t.detail.label_ds }}</a>
-                {% endif %}
-            </div>
+    {% if component.lcsc_part_number %}
+    <div class="dc-thumbs">
+      <div class="dc-thumb-item">
+        <div class="dc-thumb-box" id="gallery-symbol">
+          {% if component.symbol_png %}
+          <img src="{{ url_for('components.easyeda_png_file', filename=component.symbol_png.split('easyeda_pngs/')|last) }}"
+               alt="{{ t.detail.alt_symbol }}"
+               onclick="openLightbox(this.src, 'Symbole')" title="{{ t.detail.title_enlarge }}"/>
+          {% else %}
+          <div class="dc-thumb-load" id="sym-placeholder" onclick="loadPngs()">
+            <div class="dc-thumb-load-icon">〜</div>
+            <span id="sym-hint" style="font-size:.62rem">{{ t.detail.btn_load }}</span>
+          </div>
+          {% endif %}
         </div>
-
-        <!-- Références fournisseurs -->
-        {% if component.lcsc_part_number or component.mouser_part_number or component.digikey_part_number or component.source_url %}
-        <div class="cd-section">
-            <div class="cd-section-title">{{ t.detail.col_reference }}</div>
-            <div class="cd-refs-inline">
-                {% if component.lcsc_part_number %}
-                <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
-                   target="_blank" rel="noopener" class="cd-ref-chip">
-                    <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>LCSC</span>
-                    <span class="cd-ref-chip-val mono">{{ component.lcsc_part_number }}</span>
-                </a>
-                {% endif %}
-                {% if component.mouser_part_number %}
-                <a href="{{ 'https://www.mouser.fr/ProductDetail/' ~ component.mouser_part_number }}"
-                   target="_blank" rel="noopener" class="cd-ref-chip">
-                    <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>Mouser</span>
-                    <span class="cd-ref-chip-val mono">{{ component.mouser_part_number }}</span>
-                </a>
-                {% endif %}
-                {% if component.digikey_part_number %}
-                <a href="{{ 'https://www.digikey.fr/fr/products/result?keywords=' ~ component.digikey_part_number }}"
-                   target="_blank" rel="noopener" class="cd-ref-chip">
-                    <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>DigiKey</span>
-                    <span class="cd-ref-chip-val mono">{{ component.digikey_part_number }}</span>
-                </a>
-                {% endif %}
-                {% if component.source_url %}
-                <a href="{{ component.source_url }}" target="_blank" rel="noopener" class="cd-ref-chip">
-                    <span class="src-badge src-badge-other">
-                        <img class="src-icon src-favicon"
-                             data-src-url="{{ component.source_url }}"
-                             data-fallback="{{ url_for('static', filename='img/other.png') }}"
-                             src="{{ url_for('static', filename='img/other.png') }}"
-                             alt="Autre"/>
-                        Autre
-                    </span>
-                    <span class="cd-ref-chip-val" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                        {{ component.source_url|replace('https://','',1)|replace('http://','',1)|truncate(30, True, '…') }}
-                    </span>
-                </a>
-                {% endif %}
-            </div>
+        <div class="dc-thumb-lbl">{{ t.detail.label_symbol }}</div>
+      </div>
+      <div class="dc-thumb-item">
+        <div class="dc-thumb-box" id="gallery-footprint">
+          {% if component.footprint_png %}
+          <img src="{{ url_for('components.easyeda_png_file', filename=component.footprint_png.split('easyeda_pngs/')|last) }}"
+               alt="{{ t.detail.alt_footprint }}"
+               onclick="openLightbox(this.src, 'Footprint')" title="{{ t.detail.title_enlarge }}"/>
+          {% else %}
+          <div class="dc-thumb-load" id="fp-placeholder" onclick="loadPngs()">
+            <div class="dc-thumb-load-icon">⬡</div>
+            <span id="fp-hint" style="font-size:.62rem">{{ t.detail.btn_load }}</span>
+          </div>
+          {% endif %}
         </div>
+        <div class="dc-thumb-lbl">{{ t.detail.label_footprint }}</div>
+      </div>
+    </div>
+
+    <div class="dc-kicad-strip">
+      {# Ligne 1 : icônes sym / fp / 3D #}
+      <div class="dc-kicad-badges">
+        {% if kicad_status.symbol %}
+        <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='symbol') }}"
+           class="dc-kicad-badge dc-kicad-badge--on" title="Symbole KiCad (.kicad_sym)" download>
+          <img src="{{ url_for('static', filename='img/symbol.png') }}" alt="SYM"/>
+        </a>
+        {% else %}
+        <span class="dc-kicad-badge dc-kicad-badge--off" title="{{ t.detail.kicad_sym_missing }}">
+          <img src="{{ url_for('static', filename='img/symbol.png') }}" alt="SYM"/>
+        </span>
         {% endif %}
-
-        <!-- {{ t.detail.section_identification }} -->
-        <div class="cd-section">
-            <div class="cd-section-title">{{ t.detail.section_identification }}</div>
-            <div class="cd-fields">
-                {% if component.manufacture_part_number %}
-                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_mpn }}</span><span class="cd-val mono">{{ component.manufacture_part_number }}</span></div>
-                {% endif %}
-                {% if component.manufacturer %}
-                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_manufacturer }}</span><span class="cd-val">{{ component.manufacturer }}</span></div>
-                {% endif %}
-                {% if component.customer_no %}
-                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_customer_no }}</span><span class="cd-val mono">{{ component.customer_no }}</span></div>
-                {% endif %}
-                {% if component.category %}
-                <div class="cd-field">
-                    <span class="cd-lbl">{{ t.detail.label_category }}</span>
-                    <a href="{{ url_for('components.stock', category=component.category) }}" class="cd-val cd-cat-link">{{ component.category }}</a>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Localisation -->
-        {% if component.location or component.unit_price is not none %}
-        <div class="cd-section">
-            <div class="cd-section-title">{{ t.detail.section_localisation }}</div>
-            <div class="cd-fields">
-                {% if component.location %}
-                <div class="cd-field">
-                    <span class="cd-lbl">{{ t.detail.label_location }}</span>
-                    {% if esp32_url %}
-                    <span class="cd-val">
-                        <button id="detail-led-btn" onclick="flashLed('{{ component.location }}', {{ component.id }})"
-                                title="{{ t.detail.led_flash }}" class="cd-led-btn">
-                            📍 {{ component.location }}
-                            <span class="cd-led-badge">💡</span>
-                        </button>
-                        <span id="detail-led-status" class="cd-led-status"></span>
-                    </span>
-                    {% else %}
-                    <span class="cd-val">📍 {{ component.location }}</span>
-                    {% endif %}
-                </div>
-                {% endif %}
-                {% if component.unit_price is not none %}
-                <div class="cd-field">
-                    <span class="cd-lbl">{{ t.detail.label_unit_price }}</span>
-                    <span class="cd-val">
-                        {{ "%.4f"|format(component.unit_price) }} €
-                        {% if component.lcsc_part_number %}
-                        <span id="price-check-result" style="margin-left:.5rem;font-size:.78rem"></span>
-                        <button id="price-check-btn"
-                                onclick="checkPrice('{{ component.lcsc_part_number }}')"
-                                title="Vérifier le prix actuel sur LCSC"
-                                style="margin-left:.4rem;font-size:.68rem;padding:.1rem .4rem;
-                                       background:none;border:1px solid var(--border);border-radius:var(--radius-sm);
-                                       color:var(--text-muted);cursor:pointer;vertical-align:middle">
-                            ↻
-                        </button>
-                        {% endif %}
-                    </span>
-                </div>
-                {% endif %}
-                {% if component.ext_price is not none %}
-                <div class="cd-field"><span class="cd-lbl">{{ t.detail.label_ext_price }}</span><span class="cd-val">{{ "%.2f"|format(component.ext_price) }} €</span></div>
-                {% endif %}
-            </div>
-        </div>
+        {% if kicad_status.footprint %}
+        <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='footprint') }}"
+           class="dc-kicad-badge dc-kicad-badge--on" title="Footprint KiCad (.kicad_mod)" download>
+          <img src="{{ url_for('static', filename='img/footprint.png') }}" alt="FP"/>
+        </a>
+        {% else %}
+        <span class="dc-kicad-badge dc-kicad-badge--off" title="{{ t.detail.kicad_fp_missing }}">
+          <img src="{{ url_for('static', filename='img/footprint.png') }}" alt="FP"/>
+        </span>
         {% endif %}
-
-        {% if component.notes %}
-        <div class="cd-section">
-            <div class="cd-section-title">{{ t.detail.section_notes }}</div>
-            <p class="cd-notes">{{ component.notes }}</p>
-        </div>
+        {% if kicad_status.model_3d %}
+        <a href="{{ url_for('kicad.download_file', lcsc_ref=component.lcsc_part_number, file_type='model3d') }}"
+           class="dc-kicad-badge dc-kicad-badge--on" title="Modèle 3D (.step)" download>
+          <img src="{{ url_for('static', filename='img/model3D.png') }}" alt="3D"/>
+        </a>
+        {% else %}
+        <span class="dc-kicad-badge dc-kicad-badge--off" title="{{ t.detail.kicad_3d_missing }}">
+          <img src="{{ url_for('static', filename='img/model3D.png') }}" alt="3D"/>
+        </span>
         {% endif %}
+      </div>
+      {# Ligne 2 : bouton générer + ZIP #}
+      <div class="dc-kicad-row2">
+        {% if not (kicad_status.symbol and kicad_status.footprint and kicad_status.model_3d) %}
+        <button id="cd-kicad-gen-btn"
+                onclick="generateKicadOne('{{ component.lcsc_part_number }}')"
+                class="dc-kicad-gen-btn">
+          {{ t.detail.kicad_gen_btn }}
+        </button>
+        {% endif %}
+        {% if kicad_status.symbol or kicad_status.footprint or kicad_status.model_3d %}
+        <a href="{{ url_for('kicad.download_component_zip', lcsc_ref=component.lcsc_part_number) }}"
+           class="dc-kicad-gen-btn" title="{{ t.detail.kicad_zip_title }}" download
+           style="text-decoration:none;color:var(--success);border-color:color-mix(in srgb,var(--success) 30%,transparent)">
+          {{ t.detail.kicad_zip }}
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
-        <!-- Caractéristiques -->
+  </div>{# /dc-gallery #}
+
+  {# ── COL CENTRE — Infos ─────────────────────────────────────── #}
+  <div class="dc-info">
+
+    {# Hero titre #}
+    <div class="dc-hero">
+      <div class="dc-hero-name">{{ component.description or '—' }}</div>
+      {% if component.description_long %}
+      <div class="dc-hero-desc">{{ component.description_long }}</div>
+      {% endif %}
+      <div class="dc-hero-badges">
+        {% if component.rohs == 'YES' %}
+        <span class="dc-badge dc-badge--green">{{ t.detail.label_rohs }}</span>
+        {% endif %}
+        {% if component.package %}
+        <span class="dc-badge dc-badge--gray">{{ component.package }}</span>
+        {% endif %}
+        {% if component.datasheet_url %}
+        <a href="{{ component.datasheet_url }}" target="_blank" rel="noopener"
+           class="dc-badge dc-badge--purple">{{ t.detail.label_ds }} ↗</a>
+        {% endif %}
+        {% if component.category %}
+        <span class="dc-badge dc-badge--gray" style="font-size:.65rem;opacity:.7">
+          {{ component.category.split(' / ')|last }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Références fournisseurs #}
+    {% if component.lcsc_part_number or component.mouser_part_number or component.digikey_part_number or component.source_url %}
+    <div class="dc-refs">
+      <div class="dc-refs-head">{{ t.detail.col_reference }}</div>
+      <div class="dc-refs-body">
+        {% if component.lcsc_part_number %}
+        <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
+           target="_blank" rel="noopener" class="dc-ref-row dc-ref-lcsc">
+          <div class="dc-ref-source">
+            <img src="{{ url_for('static', filename='img/lcsc.png') }}" alt="LCSC"/>LCSC
+          </div>
+          <div class="dc-ref-val">{{ component.lcsc_part_number }}</div>
+          <div class="dc-ref-ext">lcsc.com ↗</div>
+        </a>
+        {% endif %}
+        {% if component.mouser_part_number %}
+        <a href="https://www.mouser.fr/ProductDetail/{{ component.mouser_part_number }}"
+           target="_blank" rel="noopener" class="dc-ref-row dc-ref-mouser">
+          <div class="dc-ref-source">
+            <img src="{{ url_for('static', filename='img/mouser.png') }}" alt="Mouser"/>Mouser
+          </div>
+          <div class="dc-ref-val">{{ component.mouser_part_number }}</div>
+          <div class="dc-ref-ext">mouser.fr ↗</div>
+        </a>
+        {% endif %}
+        {% if component.digikey_part_number %}
+        <a href="https://www.digikey.fr/fr/products/result?keywords={{ component.digikey_part_number }}"
+           target="_blank" rel="noopener" class="dc-ref-row dc-ref-digikey">
+          <div class="dc-ref-source">
+            <img src="{{ url_for('static', filename='img/digikey.png') }}" alt="DigiKey"/>DigiKey
+          </div>
+          <div class="dc-ref-val">{{ component.digikey_part_number }}</div>
+          <div class="dc-ref-ext">digikey.fr ↗</div>
+        </a>
+        {% endif %}
+        {% if component.source_url %}
+        <a href="{{ component.source_url }}" target="_blank" rel="noopener" class="dc-ref-row">
+          <div class="dc-ref-source">
+            <img class="src-favicon" data-src-url="{{ component.source_url }}"
+                 data-fallback="{{ url_for('static', filename='img/other.png') }}"
+                 src="{{ url_for('static', filename='img/other.png') }}" alt="Autre"/>
+            Autre
+          </div>
+          <div class="dc-ref-val" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            {{ component.source_url|replace('https://','',1)|replace('http://','',1)|truncate(40, True, '…') }}
+          </div>
+          <div class="dc-ref-ext">↗</div>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Onglets #}
+    <div class="dc-tabs">
+      <div class="dc-tabs-nav">
+        <button class="dc-tab-btn active" onclick="dcTab('ident', this)">
+          {{ t.detail.tab_ident }}
+        </button>
         {% if attributes_dict %}
-        <div class="cd-section">
-            <div class="cd-section-title">{{ t.detail.label_attrs }}</div>
-            <div class="cd-attrs-grid">
-                {% for key, val in attributes_dict.items() %}
-                <span class="cd-attr-key">{{ key }}</span>
-                <span class="cd-attr-val">{{ val }}</span>
-                {% endfor %}
-            </div>
-        </div>
+        <button class="dc-tab-btn" onclick="dcTab('attrs', this)">
+          {{ t.detail.tab_specs }} ({{ attributes_dict|length }})
+        </button>
         {% endif %}
-
-        <!-- Projets utilisant ce composant -->
-        {% if projects_using %}
-        <div class="cd-section">
-            <div class="cd-section-title">{{ t.detail.label_used_in }}</div>
-            <div class="cd-projects">
-                {% for p in projects_using %}
-                <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="cd-project-tag">
-                    {{ p.name }}
-                    <span class="cd-project-qty">×{{ p.quantity }}</span>
-                    <span class="badge badge-status-{{ p.status|replace(' ','-') }} badge-xs">{{ p.status }}</span>
-                </a>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Historique des mouvements -->
         {% if history %}
-        <div class="cd-section">
-            <div class="cd-section-title">
-                📋 Historique récent
-                <a href="{{ url_for('components.history', component_id=component.id) }}"
-                   style="font-size:.7rem;font-weight:400;color:var(--accent);margin-left:.5rem">Tout voir →</a>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:.2rem">
-                {% for mv in history %}
-                <div style="display:flex;align-items:center;gap:.5rem;padding:.25rem 0;border-bottom:1px solid var(--border);font-size:.76rem">
-                    <span style="flex-shrink:0;font-size:.8rem">{{ '↑' if mv.type == 'in' else '↓' if mv.type == 'out' else '~' }}</span>
-                    <span style="font-weight:700;color:{{ 'var(--success)' if mv.type == 'in' else 'var(--danger)' if mv.type == 'out' else 'var(--accent)' }};flex-shrink:0">
-                        {{ '+' if mv.type == 'in' else '-' if mv.type == 'out' else '~' }}{{ mv.quantity }}
-                    </span>
-                    <span style="flex:1;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                        {{ mv.note or '—' }}
-                        {% if mv.project_name %}<span class="badge badge-blue" style="font-size:.6rem">{{ mv.project_name }}</span>{% endif %}
-                    </span>
-                    <span style="flex-shrink:0;color:var(--text-muted);font-size:.7rem">{{ mv.created_at[5:16] }}</span>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
+        <button class="dc-tab-btn" onclick="dcTab('hist', this)">
+          {{ t.detail.tab_history }} ({{ history|length }})
+        </button>
         {% endif %}
+        {% if projects_using %}
+        <button class="dc-tab-btn" onclick="dcTab('projs', this)">
+          {{ t.detail.tab_projects }} ({{ projects_using|length }})
+        </button>
+        {% endif %}
+        {% if component.notes %}
+        <button class="dc-tab-btn" onclick="dcTab('notes', this)">{{ t.detail.tab_notes }}</button>
+        {% endif %}
+      </div>
 
-        <!-- Méta -->
-        <div class="cd-meta">
+      {# Tab Identification #}
+      <div class="dc-tab-pane active" id="dct-ident">
+        <div class="dc-fields">
+          {% if component.manufacture_part_number %}
+          <div class="dc-field">
+            <span class="dc-lbl">{{ t.detail.label_mpn }}</span>
+            <span class="dc-val mono">{{ component.manufacture_part_number }}</span>
+          </div>
+          {% endif %}
+          {% if component.manufacturer %}
+          <div class="dc-field">
+            <span class="dc-lbl">{{ t.detail.label_manufacturer }}</span>
+            <span class="dc-val">{{ component.manufacturer }}</span>
+          </div>
+          {% endif %}
+          {% if component.customer_no %}
+          <div class="dc-field">
+            <span class="dc-lbl">{{ t.detail.label_customer_no }}</span>
+            <span class="dc-val mono">{{ component.customer_no }}</span>
+          </div>
+          {% endif %}
+          {% if component.category %}
+          <div class="dc-field">
+            <span class="dc-lbl">{{ t.detail.label_category }}</span>
+            <a href="{{ url_for('components.stock', category=component.category) }}"
+               class="dc-cat-link">{{ component.category }}</a>
+          </div>
+          {% endif %}
+
+          <div class="dc-meta">
             {{ t.detail.label_added }} {{ component.created_at[:16] }}
             {% if component.updated_at != component.created_at %}
             · {{ t.detail.label_updated }} {{ component.updated_at[:16] }}
             {% endif %}
+            · ID #{{ component.id }}
+          </div>
+        </div>
+      </div>
+
+      {# Tab Caractéristiques #}
+      {% if attributes_dict %}
+      <div class="dc-tab-pane" id="dct-attrs">
+        <div class="dc-attrs">
+          {% for key, val in attributes_dict.items() %}
+          <div class="dc-attr-chip">
+            <span class="dc-attr-key">{{ key }}</span>
+            <span class="dc-attr-val">{{ val }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Tab Historique #}
+      {% if history %}
+      <div class="dc-tab-pane" id="dct-hist">
+        <div class="dc-hist-list">
+          {% for mv in history %}
+          <div class="dc-hist-row">
+            <div class="dc-hist-icon dc-hist-icon--{{ mv.type }}">
+              {{ '↑' if mv.type == 'in' else '↓' if mv.type == 'out' else '~' }}
+            </div>
+            <span class="dc-hist-qty dc-hist-qty--{{ mv.type }}">
+              {{ '+' if mv.type=='in' else '-' if mv.type=='out' else '~' }}{{ mv.quantity }}
+            </span>
+            <span class="dc-hist-note">{{ mv.note or '—' }}</span>
+            {% if mv.project_name %}
+            <span class="dc-hist-proj">{{ mv.project_name }}</span>
+            {% endif %}
+            <span class="dc-hist-date">{{ mv.created_at[5:16] if mv.created_at else '' }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <a href="{{ url_for('components.history', component_id=component.id) }}"
+           class="dc-hist-more">{{ t.detail.hist_see_all }}</a>
+      </div>
+      {% endif %}
+
+      {# Tab Projets #}
+      {% if projects_using %}
+      <div class="dc-tab-pane" id="dct-projs">
+        <div class="dc-proj-list">
+          {% for p in projects_using %}
+          <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="dc-proj-row">
+            <div class="dc-proj-dot" style="background:
+              {% if p.status == 'idea' %}#06b6d4
+              {% elif p.status == 'design' %}var(--accent)
+              {% elif p.status == 'ordered' %}#f97316
+              {% elif p.status == 'production' %}#a855f7
+              {% elif p.status == 'assembly' %}var(--warning)
+              {% elif p.status == 'debug' %}var(--danger)
+              {% elif p.status == 'done' %}var(--success)
+              {% else %}var(--text-muted){% endif %}">
+            </div>
+            <span class="dc-proj-name">{{ p.name }}</span>
+            <span class="dc-proj-qty">×{{ p.quantity }}</span>
+            <span class="dc-proj-status" style="
+              {% if p.status == 'done' %}color:var(--success);border-color:color-mix(in srgb,var(--success) 30%,transparent);
+              {% elif p.status == 'debug' %}color:var(--danger);border-color:color-mix(in srgb,var(--danger) 30%,transparent);
+              {% else %}color:var(--text-muted);border-color:var(--border);{% endif %}">
+              {{ p.status }}
+            </span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Tab Notes #}
+      {% if component.notes %}
+      <div class="dc-tab-pane" id="dct-notes">
+        <div class="dc-notes">{{ component.notes }}</div>
+      </div>
+      {% endif %}
+
+    </div>{# /dc-tabs #}
+
+    {# Ajout à un projet via AJAX #}
+    {% if not projects_using or true %}
+    <div class="dc-tabs" id="dc-add-project-panel">
+      <div class="dc-tabs-nav">
+        <div class="dc-tab-btn active" style="cursor:default;pointer-events:none">
+          {{ t.detail.btn_add_to_project }}
+        </div>
+      </div>
+      <div style="padding:.85rem 1rem">
+        <div class="pd-add-field" style="position:relative">
+          <input type="hidden" id="pd-comp-id"/>
+          <input type="text" id="pd-comp-search" class="form-input"
+                 placeholder="{{ t.detail.ph_search_project }}" autocomplete="off"
+                 style="width:100%"/>
+          <div id="pd-comp-dropdown"
+               style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;
+                      background:var(--bg-card);border:1px solid var(--border);
+                      border-radius:8px;box-shadow:var(--shadow);max-height:200px;overflow-y:auto">
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:.6rem;align-items:center">
+          <label style="font-size:.75rem;color:var(--text-muted)">Qté :</label>
+          <input type="number" id="dc-add-qty" value="1" min="1"
+                 style="width:65px;padding:.3rem .5rem;background:var(--bg-surface);
+                        border:1px solid var(--border);border-radius:6px;color:var(--text);
+                        font-size:.82rem;font-family:inherit"/>
+          <button onclick="dcAddToProject()"
+                  class="btn btn-primary btn-sm" style="margin-left:auto">{{ t.detail.btn_add }}</button>
+        </div>
+        <div id="dc-add-result" style="font-size:.72rem;color:var(--text-muted);margin-top:.4rem;min-height:1rem"></div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>{# /dc-info #}
+
+  {# ── COL DROITE — Stock ─────────────────────────────────────── #}
+  <div class="dc-stock">
+
+    {# Carte stock #}
+    <div class="dc-stock-card">
+      <div class="dc-stock-head">
+        {{ t.detail.label_stock }}
+        {% if component.is_low_stock %}
+        <span style="color:var(--warning);font-size:.65rem">{{ t.detail.stock_low }}</span>
+        {% elif component.quantity == 0 %}
+        <span style="color:var(--danger);font-size:.65rem">{{ t.detail.stock_empty }}</span>
+        {% else %}
+        <span style="color:var(--success);font-size:.65rem">{{ t.detail.stock_ok }}</span>
+        {% endif %}
+      </div>
+      <div class="dc-stock-body">
+        <div class="dc-qty-block">
+          <button class="dc-qty-btn" onclick="adjustQty({{ component.id }}, -1, this)">−</button>
+          <span class="cd-qty-val {% if component.quantity == 0 %}qty-zero{% elif component.is_low_stock %}qty-low{% endif %}"
+                id="qty-{{ component.id }}"
+                onclick="startQtyEdit({{ component.id }}, this)"
+                title="{{ t.detail.click_to_edit }}" style="cursor:pointer">{{ component.quantity }}</span>
+          <input type="number" id="qty-edit-{{ component.id }}" class="cd-qty-input"
+                 style="display:none" min="0" max="99999"
+                 onblur="saveQty({{ component.id }})"
+                 onkeydown="if(event.key==='Enter')saveQty({{ component.id }});if(event.key==='Escape')cancelQtyEdit({{ component.id }})"/>
+          <button class="dc-qty-btn" onclick="adjustQty({{ component.id }}, +1, this)">+</button>
         </div>
 
-    </div>
-
-    <!-- ── Colonne droite : stock ─────────────────────────────────── -->
-    <div class="cd-stock-col">
-        <div class="cd-stock-card">
-            <div class="cd-stock-label">{{ t.detail.label_stock }}</div>
-
-            <div class="cd-qty-row">
-                <button class="cd-qty-btn" onclick="adjustQty({{ component.id }}, -1, this)">−</button>
-                <span class="cd-qty-val {% if component.quantity == 0 %}qty-zero{% elif component.is_low_stock %}qty-low{% endif %}"
-                      id="qty-{{ component.id }}"
-                      title="{{ t.detail.click_to_edit if t.detail.click_to_edit is defined else 'Cliquer pour éditer' }}"
-                      onclick="startQtyEdit({{ component.id }}, this)"
-                      style="cursor:pointer">{{ component.quantity }}</span>
-                <input type="number" id="qty-edit-{{ component.id }}"
-                       class="cd-qty-input" style="display:none"
-                       min="0" max="99999"
-                       onblur="saveQty({{ component.id }})"
-                       onkeydown="if(event.key==='Enter')saveQty({{ component.id }});if(event.key==='Escape')cancelQtyEdit({{ component.id }})"/>
-                <button class="cd-qty-btn" onclick="adjustQty({{ component.id }}, +1, this)">+</button>
-            </div>
-
-            {% if component.min_stock > 0 %}
-            <div class="cd-seuil {% if component.is_low_stock %}cd-seuil-alert{% endif %}">
-                {% if component.is_low_stock %}⚠️ Sous le seuil{% else %}⚡ Seuil : {{ component.min_stock }}{% endif %}
-            </div>
-            {% endif %}
-
-            {% if component.unit_price is not none %}
-            <div class="cd-stock-price">
-                {{ "%.4f"|format(component.unit_price) }} € / pièce
-                {% if component.quantity > 0 %}
-                <div class="cd-stock-total">= {{ "%.2f"|format(component.unit_price * component.quantity) }} € en stock</div>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            <div class="cd-stock-actions">
-                <a href="{{ url_for('components.labels_print', ids=component.id|string) }}"
-                   class="btn btn-secondary btn-full" target="_blank">{{ t.detail.btn_label }}</a>
-                <a href="{{ url_for('components.edit', component_id=component.id) }}"
-                   class="btn btn-primary btn-full">{{ t.detail.btn_edit }}</a>
-                <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
-                      onsubmit="return confirm('{{ t.detail.confirm_delete }}')">
-                    <input type="hidden" name="confirm_delete" value="yes"/>
-                    <button type="submit" class="btn btn-danger btn-full">{{ t.detail.btn_delete }}</button>
-                </form>
-            </div>
+        {# Jauge stock #}
+        {% if component.min_stock > 0 %}
+        {% set pct = [[((component.quantity / component.min_stock) * 100)|round|int, 100]|min, 0]|max %}
+        <div class="dc-gauge-wrap">
+          <div class="dc-gauge-track">
+            <div class="dc-gauge-fill {% if component.quantity == 0 %}dc-gauge-fill--danger{% elif component.is_low_stock %}dc-gauge-fill--warn{% endif %}"
+                 style="width:{{ pct }}%"></div>
+          </div>
+          <div class="dc-gauge-labels">
+            <span>0</span>
+            <span>Seuil : {{ component.min_stock }}</span>
+          </div>
         </div>
+        {% endif %}
+
+        {# Prix #}
+        {% if component.unit_price is not none %}
+        <div class="dc-price-block">
+          <div class="dc-price-unit">
+            <span>{{ t.detail.price_unit }}</span>
+            {% if component.lcsc_part_number %}
+            <button onclick="checkPrice('{{ component.lcsc_part_number }}')"
+                    class="dc-price-check-btn" id="price-check-btn">↻</button>
+            {% endif %}
+          </div>
+          <div class="dc-price-val">{{ "%.4f"|format(component.unit_price) }} €</div>
+          <span id="price-check-result" style="font-size:.72rem"></span>
+          {% if component.quantity > 0 %}
+          <div class="dc-price-total">
+            {{ component.quantity }} × {{ "%.4f"|format(component.unit_price) }} €
+            = <strong>{{ "%.2f"|format(component.unit_price * component.quantity) }} €</strong>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+      </div>
     </div>
 
-</div>
+    {# Localisation + LED #}
+    {% if component.location %}
+    <div class="dc-location-card">
+      <div class="dc-location-head">{{ t.detail.label_location }}</div>
+      <div class="dc-location-body">
+        <div class="dc-location-val">📍 {{ component.location }}</div>
+        {% if esp32_url %}
+        <button class="dc-led-btn" id="detail-led-btn"
+                onclick="flashLed('{{ component.location }}', {{ component.id }})">
+          {{ t.detail.btn_light_led }}
+        </button>
+        {% endif %}
+      </div>
+      <div class="dc-led-status" id="detail-led-status"></div>
+    </div>
+    {% endif %}
 
-<!-- Lightbox -->
+    {# Actions #}
+    <div class="dc-actions">
+      <a href="{{ url_for('components.labels_print', ids=component.id|string) }}"
+         class="btn btn-secondary btn-full" target="_blank">{{ t.detail.btn_label }}</a>
+      <a href="{{ url_for('components.edit', component_id=component.id) }}"
+         class="btn btn-primary btn-full">{{ t.detail.btn_edit }}</a>
+      <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"
+            onsubmit="return confirm('{{ t.detail.confirm_delete }}')">
+        <input type="hidden" name="confirm_delete" value="yes"/>
+        <button type="submit" class="btn btn-danger btn-full">{{ t.detail.btn_delete }}</button>
+      </form>
+    </div>
+
+    {# KiCad gen status #}
+    <div id="cd-kicad-gen-status" style="font-size:.7rem;color:var(--text-muted);text-align:center;min-height:1rem"></div>
+
+  </div>{# /dc-stock #}
+
+</div>{# /dc-layout #}
+</div>{# /dc-root #}
+
+{# Lightbox #}
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-    <div class="lightbox-inner lightbox-inner-lg" onclick="event.stopPropagation()">
-        <div class="lightbox-header">
-            <span id="lightbox-title" class="lightbox-title"></span>
-            <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-        </div>
-        <img id="lightbox-img" src="" alt=""/>
+  <div class="lightbox-inner-lg" onclick="event.stopPropagation()">
+    <div class="lightbox-header">
+      <span id="lightbox-title" class="lightbox-title"></span>
+      <button class="lightbox-close" onclick="closeLightbox()">✕</button>
     </div>
+    <img id="lightbox-img" src="" alt=""/>
+  </div>
 </div>
 
 <script>
-const component_lcsc_part_number_or_tojson = {{ (component.lcsc_part_number or '')|tojson | tojson }};
+/* ── Onglets ────────────────────────────────────────────────────── */
+function dcTab(name, btn) {
+  document.querySelectorAll('.dc-tab-pane').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.dc-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  var pane = document.getElementById('dct-' + name);
+  if (pane) pane.classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+/* ── Ajouter à un projet (AJAX) ─────────────────────────────────── */
+(function() {
+  var inp = document.getElementById('pd-comp-search');
+  var dd  = document.getElementById('pd-comp-dropdown');
+  if (!inp || !dd) return;
+  var _timer = null, _projId = null;
+
+  inp.addEventListener('input', function() {
+    clearTimeout(_timer);
+    _projId = null;
+    var q = inp.value.trim();
+    if (q.length < 2) { dd.style.display = 'none'; return; }
+    _timer = setTimeout(function() {
+      fetch('/api/search?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) { renderProjDD(data.projects || []); });
+    }, 200);
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!inp.contains(e.target) && !dd.contains(e.target)) dd.style.display = 'none';
+  });
+
+  function renderProjDD(projs) {
+    dd.innerHTML = '';
+    if (!projs.length) {
+      dd.innerHTML = '<div style="padding:.6rem .85rem;font-size:.78rem;color:var(--text-muted)">'+t_detail_no_project+'</div>';
+      dd.style.display = 'block'; return;
+    }
+    projs.forEach(function(p) {
+      var a = document.createElement('div');
+      a.style.cssText = 'padding:.45rem .85rem;cursor:pointer;font-size:.8rem;transition:background .1s';
+      a.textContent = p.name;
+      a.addEventListener('mouseenter', function() { a.style.background = 'color-mix(in srgb,var(--accent) 8%,transparent)'; });
+      a.addEventListener('mouseleave', function() { a.style.background = ''; });
+      a.addEventListener('click', function() {
+        inp.value = p.name;
+        _projId = p.id;
+        dd.style.display = 'none';
+      });
+      dd.appendChild(a);
+    });
+    dd.style.display = 'block';
+  }
+
+  window.dcAddToProject = function() {
+    var res = document.getElementById('dc-add-result');
+    if (!_projId) { res.textContent = t_detail_select_project; res.style.color = 'var(--warning)'; return; }
+    var qty = parseInt(document.getElementById('dc-add-qty').value) || 1;
+    res.textContent = t_detail_adding; res.style.color = 'var(--text-muted)';
+    fetch('/projects/' + _projId + '/add-component', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest'},
+      body: 'component_id={{ component.id }}&quantity=' + qty
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        res.textContent = t_detail_added_ok; res.style.color = 'var(--success)';
+        inp.value = ''; _projId = null;
+      } else {
+        res.textContent = '❌ ' + (d.error || 'Erreur'); res.style.color = 'var(--danger)';
+      }
+    })
+    .catch(function() { res.textContent = t_detail_err_network2; res.style.color = 'var(--danger)'; });
+  };
+})();
+
+/* ── Variables pour detail.js ────────────────────────────────────── */
 const LCSC_REF = {{ (component.lcsc_part_number or '')|tojson }};
+const t_detail_no_project    = {{ t.detail.no_project    | tojson }};
+const t_detail_select_project= {{ t.detail.select_project| tojson }};
+const t_detail_adding        = {{ t.detail.adding        | tojson }};
+const t_detail_added_ok      = {{ t.detail.added_ok      | tojson }};
+const t_detail_err_network2  = {{ t.detail.err_network2  | tojson }};
 const t_detail_error_generic  = {{ t.detail.error_generic  | tojson }};
 const t_detail_error_network  = {{ t.detail.error_network  | tojson }};
 const t_detail_btn_fetching   = {{ t.detail.btn_fetching   | tojson }};
@@ -429,37 +1286,33 @@ const t_detail_led_sending    = {{ t.detail.led_sending    | tojson }};
 const t_detail_led_ok         = {{ t.detail.led_ok         | tojson }};
 const t_detail_led_err        = {{ t.detail.led_err        | tojson }};
 
+/* ── Génération KiCad unitaire ────────────────────────────────────── */
 function generateKicadOne(lcscRef) {
-    const btn    = document.getElementById('cd-kicad-gen-btn');
-    const status = document.getElementById('cd-kicad-gen-status');
-    const prefix = {{ kicad_prefix | tojson }};
-    btn.disabled = true;
-    btn.textContent = {{ t.detail.kicad_gen_running | tojson }};
-    status.textContent = '';
-
-    fetch('/kicad/generate-one', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-        body: JSON.stringify({lcsc_ref: lcscRef, prefix: prefix})
-    })
-    .then(r => r.json())
-    .then(d => {
-        if (!d.ok) {
-            status.textContent = '❌ ' + (d.error || 'Erreur');
-            btn.disabled = false;
-            btn.textContent = {{ t.detail.kicad_gen_btn | tojson }};
-            return;
-        }
-        status.textContent = {{ t.detail.kicad_gen_launched | tojson }};
-        btn.textContent = {{ t.detail.kicad_gen_in_progress | tojson }};
-        // Recharger la page après 12s pour afficher les badges mis à jour
-        setTimeout(() => { window.location.reload(); }, 12000);
-    })
-    .catch(() => {
-        status.textContent = '❌ Erreur réseau';
-        btn.disabled = false;
-        btn.textContent = {{ t.detail.kicad_gen_btn | tojson }};
-    });
+  var btn    = document.getElementById('cd-kicad-gen-btn');
+  var status = document.getElementById('cd-kicad-gen-status');
+  var prefix = {{ kicad_prefix | tojson }};
+  if (btn) { btn.disabled = true; btn.textContent = {{ t.detail.kicad_gen_running | tojson }}; }
+  if (status) status.textContent = '';
+  fetch('/kicad/generate-one', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+    body: JSON.stringify({lcsc_ref: lcscRef, prefix: prefix})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.ok) {
+      if (status) status.textContent = '❌ ' + (d.error || 'Erreur');
+      if (btn) { btn.disabled = false; btn.textContent = {{ t.detail.kicad_gen_btn | tojson }}; }
+      return;
+    }
+    if (status) status.textContent = {{ t.detail.kicad_gen_launched | tojson }};
+    if (btn) btn.textContent = {{ t.detail.kicad_gen_in_progress | tojson }};
+    setTimeout(function() { window.location.reload(); }, 12000);
+  })
+  .catch(function() {
+    if (status) status.textContent = t_detail_err_network2;
+    if (btn) { btn.disabled = false; btn.textContent = {{ t.detail.kicad_gen_btn | tojson }}; }
+  });
 }
 </script>
 <script src="{{ url_for('static', filename='js/detail.js') }}?v={{ cache_buster }}"></script>

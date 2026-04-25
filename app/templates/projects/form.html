@@ -48,7 +48,7 @@
                     <div class="pf-name-wrap">
                         <input type="text" name="name" id="proj-name" required
                                class="pf-name-input"
-                               placeholder="Nom du projet…"
+                               placeholder="{{ t.projects.ph_name }}"
                                value="{{ project.name if project else '' }}"
                                oninput="onNameInput(this.value)"
                                autocomplete="off" spellcheck="false"/>
@@ -67,9 +67,9 @@
 
                 <!-- Description -->
                 <div class="pf-block">
-                    <label class="pf-label">Description</label>
+                    <label class="pf-label">{{ t.projects.form_description }}</label>
                     <textarea name="description" id="proj-desc" class="pf-textarea"
-                              placeholder="Décris l'objectif, les composants clés, les contraintes…"
+                              placeholder="{{ t.projects.ph_desc }}"
                               oninput="onDescInput(this.value)">{{ project.description if project else '' }}</textarea>
                     <div class="pf-textarea-footer">
                         <span id="desc-counter" class="pf-char-count">0 caractères</span>
@@ -107,7 +107,7 @@
 
                 <!-- Tags -->
                 <div class="pf-block">
-                    <label class="pf-label">Type de projet</label>
+                    <label class="pf-label">{{ t.projects.form_type }}</label>
                     <input type="hidden" name="tags" id="tags-input" value="{{ (project.tags | tojson) if project else '[]' }}"/>
                     <div class="pf-tags-grid" id="tags-grid">
                         {% for slug, label, emoji, color in tag_options %}
@@ -141,7 +141,7 @@
                                 {% endfor %}
                             </select>
                             <button type="button" class="pf-btn-ghost" onclick="addCheckItem()"
-                                    style="padding:.25rem .5rem;font-size:.72rem">+ Ajouter</button>
+                                    style="padding:.25rem .5rem;font-size:.72rem">{{ t.projects.btn_add_step }}</button>
                         </div>
                     </div>
                     <input type="hidden" name="checklist" id="checklist-input"
@@ -160,7 +160,7 @@
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
                         <label class="pf-label" style="margin:0">Liens & Ressources</label>
                         <button type="button" class="pf-btn-ghost" onclick="addLink()"
-                                style="padding:.25rem .5rem;font-size:.72rem">+ Ajouter</button>
+                                style="padding:.25rem .5rem;font-size:.72rem">{{ t.projects.btn_add_step }}</button>
                     </div>
                     <input type="hidden" name="links" id="links-input"
                            value="{{ (project.links | tojson) if project else '[]' }}"/>
@@ -226,7 +226,7 @@
                             <div class="kb-card-title" style="display:flex;align-items:center;gap:.4rem;margin-bottom:.35rem">
                                 <span id="prev-emoji" style="font-size:1rem">📁</span>
                                 <span id="prev-name" class="kb-card-link" style="font-size:.9rem;font-weight:700">
-                                    Nom du projet
+                                    {{ t.projects.ph_name }}
                                 </span>
                             </div>
                             <p id="prev-desc" class="kb-card-desc" style="min-height:16px;margin-bottom:.5rem"></p>
@@ -242,7 +242,7 @@
                         <span class="pf-submit-icon">{{ '💾' if project else '🚀' }}</span>
                         <span>{{ 'Enregistrer les modifications' if project else 'Créer le projet' }}</span>
                     </button>
-                    <a href="{{ url_for('projects.index') }}" class="pf-cancel-btn">Annuler</a>
+                    <a href="{{ url_for('projects.index') }}" class="pf-cancel-btn">{{ t.projects.btn_cancel }}</a>
 
                     <div class="pf-kbd-hint">
                         <kbd>Ctrl</kbd> + <kbd>↵</kbd> pour sauvegarder

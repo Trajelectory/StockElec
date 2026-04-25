@@ -111,37 +111,35 @@ class CategoryModel:
         """
         Retourne les catégories utilisées dans le stock + toutes les catégories
         custom (ID < 0), groupées pour les <optgroup> HTML.
+        Une seule requête SQL au lieu de N+1.
         """
         db = get_db()
 
         groups: dict[str, list] = {}
         NO_GROUP = "__none__"
 
-        # 1. Catégories déjà utilisées dans le stock
+        # 1. Catégories utilisées dans le stock — 1 seule requête avec JOIN
         rows = db.execute(
             """
-            SELECT DISTINCT c.category
-            FROM components c
-            WHERE c.category IS NOT NULL AND c.category != ''
-            ORDER BY c.category
+            SELECT DISTINCT comp.category,
+                   cat.name        AS cat_name,
+                   parent.name     AS parent_name
+            FROM components comp
+            LEFT JOIN categories cat    ON cat.full_path = comp.category
+            LEFT JOIN categories parent ON parent.id = cat.parent_id
+            WHERE comp.category IS NOT NULL AND comp.category != ''
+            ORDER BY comp.category
             """
         ).fetchall()
 
         for row in rows:
-            path = row["category"]
-            cat_row = db.execute(
-                """
-                SELECT c.name, p.name AS parent_name
-                FROM categories c
-                LEFT JOIN categories p ON p.id = c.parent_id
-                WHERE c.full_path = ?
-                """,
-                (path,),
-            ).fetchone()
+            path       = row["category"]
+            cat_name   = row["cat_name"]
+            parent_name = row["parent_name"]
 
-            if cat_row and cat_row["parent_name"]:
-                group = cat_row["parent_name"]
-                label = cat_row["name"]
+            if cat_name and parent_name:
+                group = parent_name
+                label = cat_name
             elif " / " in path:
                 parts = path.split(" / ", 1)
                 group = parts[0]

@@ -661,7 +661,7 @@ Les composants resteront dans le stock mais perdront leur emplacement.`)) {
         }
     })
     .catch(() => {
-        btn.textContent = '❌ Erreur réseau';
+        btn.textContent = {{ t.rangement.err_network | tojson }};
         btn.disabled = false;
     });
 }
@@ -686,7 +686,7 @@ function autoSave() {
                 setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 2000);
             }
         })
-        .catch(() => { btn.textContent = '❌ Erreur réseau'; setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 2000); });
+        .catch(() => { btn.textContent = {{ t.rangement.err_network | tojson }}; setTimeout(() => { btn.textContent = '{{ t.storage.btn_save }}'; }, 2000); });
     }, 600);
 }
 

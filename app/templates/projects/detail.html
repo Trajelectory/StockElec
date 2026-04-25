@@ -42,7 +42,7 @@
                             <path d="M3 5h10M6 5V3h4v2M7 8v4M9 8v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                             <rect x="2" y="5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
                         </svg>
-                        Supprimer
+                        {{ t.projects.btn_delete }}
                     </button>
                 </form>
             </div>
@@ -109,7 +109,7 @@
         <div class="pd-hero-stats">
             <div class="pd-hstat">
                 <span class="pd-hstat-val">{{ project.component_count }}</span>
-                <span class="pd-hstat-lbl">composants</span>
+                <span class="pd-hstat-lbl">{{ t.projects.n_components }}</span>
             </div>
             {% if project.total_value %}
             <div class="pd-hstat-sep"></div>
@@ -122,7 +122,7 @@
             <div class="pd-hstat-sep"></div>
             <div class="pd-hstat">
                 <span class="pd-hstat-val {% if pct==100 %}pd-ok{% elif pct==0 %}pd-err{% else %}pd-warn{% endif %}">{{ n_ok }}/{{ n_total }}</span>
-                <span class="pd-hstat-lbl">disponibles</span>
+                <span class="pd-hstat-lbl">{{ t.projects.n_available }}</span>
             </div>
             {% if pct > 0 %}
             <div class="pd-hstat-sep"></div>
@@ -229,9 +229,9 @@
             {% for pc in components %}{% if pc.category and pc.category not in cats %}{% set _ = cats.append(pc.category) %}{% endif %}{% endfor %}
             {% if cats | length > 1 %}
             <div class="pd-sidebar-card">
-                <div class="pf-label" style="margin-bottom:.6rem">Catégories</div>
+                <div class="pf-label" style="margin-bottom:.6rem">{{ t.projects.section_cats }}</div>
                 <button class="pd-cat-filter-btn pd-cat-active" onclick="filterCat(null, this)">
-                    <span>Tout</span><span class="pd-cat-badge">{{ components|length }}</span>
+                    <span>{{ t.projects.filter_all }}</span><span class="pd-cat-badge">{{ components|length }}</span>
                 </button>
                 {% for cat in cats | sort %}
                 {% set cnt = components | selectattr('category', 'equalto', cat) | list | length %}
@@ -246,7 +246,7 @@
             <!-- Activité récente -->
             {% if journal %}
             <div class="pd-sidebar-card">
-                <div class="pf-label" style="margin-bottom:.6rem">Activité récente</div>
+                <div class="pf-label" style="margin-bottom:.6rem">{{ t.projects.recent_act }}</div>
                 {% for mv in journal[:8] %}
                 <div class="pd-jrn-row">
                     <span class="pd-jrn-icon">{% if mv.type == 'project_use' %}🔩{% elif mv.type == 'project_return' %}↩️{% elif mv.type == 'in' %}📥{% elif mv.type == 'out' %}📤{% else %}🔧{% endif %}</span>
@@ -264,7 +264,7 @@
         <!-- Panel ajout -->
         <div class="pd-add-panel" id="add-form" style="display:none">
             <div class="pd-add-header">
-                <span class="pf-label" style="margin:0">Ajouter un composant</span>
+                <span class="pf-label" style="margin:0">{{ t.projects.add_component }}</span>
                 <button type="button" class="pd-add-close" onclick="toggleAddForm()">✕</button>
             </div>
             <form method="post" action="{{ url_for('projects.add_component', project_id=project.id) }}"
@@ -276,7 +276,7 @@
                         <input type="hidden" name="component_id" id="pd-comp-id" required/>
                         <!-- Champ de recherche AJAX -->
                         <input type="text" id="pd-comp-search" class="form-input"
-                               placeholder="Chercher par description, LCSC, package…"
+                               placeholder="{{ t.projects.ph_comp_search }}"
                                autocomplete="off"/>
                         <!-- Dropdown résultats -->
                         <div id="pd-comp-dropdown"
@@ -302,7 +302,7 @@
             </form>
         </div>
 
-        <!-- Tableau composants -->
+        <!-- Tableau {{ t.projects.n_components }} -->
         {% if components %}
         <div class="table-wrapper">
         <table class="data-table proj-table">
@@ -504,7 +504,7 @@
                     <input type="checkbox" class="pd-check-cb" {% if item.done %}checked{% endif %}
                            onchange="toggleCheck({{ loop.index0 }}, this.checked)"/>
                     <span class="pd-check-label" onclick="this.previousElementSibling.click()">{{ item.label }}</span>
-                    <button class="pd-check-del" onclick="deleteCheck({{ loop.index0 }})" title="Supprimer">✕</button>
+                    <button class="pd-check-del" onclick="deleteCheck({{ loop.index0 }})" title="{{ t.projects.btn_delete }}">✕</button>
                 </div>
                 {% endfor %}
             </div>
@@ -512,7 +512,7 @@
             <!-- Ajouter -->
             <div class="pd-check-add">
                 <input type="text" class="pd-check-add-input" id="new-check-input"
-                       placeholder="Ajouter une étape…"
+                       placeholder="{{ t.projects.ph_checklist }}"
                        onkeydown="if(event.key==='Enter')addCheck()"/>
                 <button class="pd-check-add-btn" onclick="addCheck()">+</button>
             </div>
@@ -559,7 +559,7 @@
                     <input type="text" class="pd-link-add-input" id="new-link-url"
                            placeholder="https://…"
                            onkeydown="if(event.key==='Enter')addLink()"/>
-                    <button class="pd-link-add-btn" onclick="addLink()">Ajouter</button>
+                    <button class="pd-link-add-btn" onclick="addLink()">{{ t.projects.btn_add }}</button>
                 </div>
             </div>
 
@@ -595,7 +595,7 @@
         {% else %}
         <div class="pd-empty">
             <div class="empty-icon">📋</div>
-            <p>Aucun mouvement de stock pour ce projet.</p>
+            <p>{{ t.projects.no_movements }}</p>
         </div>
         {% endif %}
     </div>
@@ -755,7 +755,7 @@ function saveNotes() {
         s.textContent = d.ok ? '✓ Sauvegardé' : '✗ Erreur';
         setTimeout(() => { s.textContent = ''; }, 2000);
     }).catch(() => {
-        document.getElementById('notes-save-status').textContent = '✗ Erreur réseau';
+        document.getElementById('notes-save-status').textContent = {{ t.projects.err_network | tojson }};
     });
 }
 function fmtNote(type) {
@@ -835,7 +835,7 @@ function uploadNoteImage(file) {
             scheduleNotesSave();
             renderNotes();
         })
-        .catch(() => { status.textContent = '✗ Erreur réseau'; });
+        .catch(() => { status.textContent = {{ t.projects.err_network | tojson }}; });
 }
 
 function handleNoteImageDrop(e) {
@@ -1077,7 +1077,7 @@ function renderChecklist() {
             <input type="checkbox" class="pd-check-cb" ${item.done ? 'checked' : ''}
                    onchange="toggleCheck(${i}, this.checked)"/>
             <span class="pd-check-label" onclick="this.previousElementSibling.click()">${item.label}</span>
-            <button class="pd-check-del" onclick="deleteCheck(${i})" title="Supprimer">✕</button>
+            <button class="pd-check-del" onclick="deleteCheck(${i})" title="{{ t.projects.btn_delete }}">✕</button>
         </div>`).join('');
     const total = _checklist.length;
     const done  = _checklist.filter(i => i.done).length;
@@ -1209,7 +1209,7 @@ const t_projects_kit_err           = {{ t.projects.kit_err | tojson }};
         if (!comps || !comps.length) {
             var empty = document.createElement('div');
             empty.style.cssText = 'padding:.6rem 1rem;font-size:.8rem;color:var(--text-muted)';
-            empty.textContent = 'Aucun résultat';
+            empty.textContent = {{ t.projects.no_result | tojson }};
             dd.appendChild(empty); dd.style.display = 'block'; return;
         }
         comps.forEach(function(c) {

@@ -21,7 +21,30 @@
     "stats_refs": "references",
     "stats_parts": "parts",
     "stats_alerts_plural": "alerts",
-    "recent_title": "Recently added"
+    "recent_title": "Recently added",
+    "tagline": "Mission control — Electronics workshop",
+    "search_prompt": "~/stock $",
+    "stat_refs": "References",
+    "stat_parts": "Parts in stock",
+    "stat_alerts": "Stock alerts",
+    "stat_zero": "Out of stock",
+    "section_inv": "INVENTORY",
+    "chart_title": "Breakdown by family",
+    "chart_link": "Explore →",
+    "section_act": "ACTIVITY",
+    "act_title": "Movements — last 7 days",
+    "hist_link": "History →",
+    "alerts_title": "Critical stock",
+    "see_all": "View all →",
+    "section_proj": "PROJECTS",
+    "proj_title": "Ongoing",
+    "section_new": "NEW",
+    "stock_link": "Stock →",
+    "mfr_title": "Top manufacturers",
+    "no_result": "No results for",
+    "see_all_stock": "→ View all results in stock",
+    "legend_in": "In",
+    "legend_out": "Out"
   },
   "stock": {
     "title": "📦 Component stock",
@@ -63,7 +86,9 @@
     "stats_refs": "references",
     "stats_parts": "parts",
     "stats_value": "total value",
-    "all_categories": "All categories"
+    "all_categories": "All categories",
+    "filter_all": "All",
+    "ph_cat": "Filter…"
   },
   "settings": {
     "title": "⚙️ Settings",
@@ -216,7 +241,12 @@
     "kicad_reg_sym_added": "✅ {n} sym lib(s) added to KiCad",
     "kicad_reg_fp_added": "✅ {n} fp lib(s) added to KiCad",
     "kicad_reg_added": "✅ {n} library(ies) added",
-    "kicad_reg_uptodate": "↩ Already up to date"
+    "kicad_reg_uptodate": "↩ Already up to date",
+    "section_led_colors": "LED colors by category",
+    "hint_led_colors": "Automatically assigned based on the component family.",
+    "ph_esp_token": "stockelek-secret",
+    "ph_kicad_prefix": "StockElec_",
+    "err_network": "❌ Network error"
   },
   "form": {
     "title_add": "➕ Add component",
@@ -327,7 +357,34 @@
     "kicad_gen_btn": "⚙ Generate KiCad",
     "kicad_gen_running": "⏳ Generating...",
     "kicad_gen_launched": "⏳ Job launched — reloading in ~10s",
-    "kicad_gen_in_progress": "⏳ In progress..."
+    "kicad_gen_in_progress": "⏳ In progress...",
+    "btn_add_to_project": "Add to project",
+    "ph_search_project": "Search a project…",
+    "btn_add": "Add",
+    "lbl_qty": "Qty:",
+    "no_project": "No project found",
+    "no_image": "No image",
+    "adding": "Adding…",
+    "added_ok": "✅ Added!",
+    "select_project": "⚠ Select a project first",
+    "err_network2": "❌ Network error",
+    "stock_ok": "● In stock",
+    "stock_low": "⚠ Below threshold",
+    "stock_empty": "Out of stock",
+    "price_unit": "Unit price",
+    "btn_light_led": "💡 Turn on LED",
+    "hist_see_all": "View full history →",
+    "hint_zoom": "🔍 Enlarge",
+    "tab_ident": "Identification",
+    "tab_specs": "Specifications",
+    "tab_history": "History",
+    "tab_projects": "Projects",
+    "tab_notes": "Notes",
+    "kicad_sym_missing": "Symbol not generated",
+    "kicad_fp_missing": "Footprint not generated",
+    "kicad_3d_missing": "3D model not generated",
+    "kicad_zip": "📦 ZIP KiCad",
+    "kicad_zip_title": "Full KiCad ZIP"
   },
   "bom": {
     "back": "← Back to project",
@@ -391,7 +448,7 @@
     "title_remove": "Remove from project",
     "label_component": "Component",
     "ph_optional": "Optional",
-    "err_network": "Network error",
+    "err_network": "✗ Network error",
     "btn_add_component": "➕ Add component",
     "btn_close_form": "✕ Close",
     "filter_all": "All",
@@ -429,7 +486,22 @@
       "debug": "🔬 Debug",
       "done": "✅ Done",
       "archived": "📦 Archived"
-    }
+    },
+    "n_components": "components",
+    "n_available": "available",
+    "section_cats": "Categories",
+    "recent_act": "Recent activity",
+    "add_component": "Add a component",
+    "no_movements": "No stock movements for this project.",
+    "btn_delete": "Delete",
+    "ph_comp_search": "Search by description, LCSC, package…",
+    "ph_checklist": "Add a step…",
+    "no_result": "No results",
+    "form_description": "Description",
+    "form_type": "Project type",
+    "btn_add_step": "+ Add",
+    "ph_name": "Project name…",
+    "ph_desc": "Describe the goal, key components, constraints…"
   },
   "import_bom": {
     "title": "📋 Import KiCad BOM",
@@ -525,7 +597,9 @@
     "mv_adjust": "Adjustment",
     "mv_init": "Init",
     "mv_proj_use": "Project — use",
-    "mv_proj_ret": "Project — return"
+    "mv_proj_ret": "Project — return",
+    "legend_in": "↑ In",
+    "legend_out": "↓ Out"
   },
   "alerts": {
     "title": "🔔 Components below alert threshold",
@@ -740,5 +814,25 @@
   "add": {
     "section_identification": "Identification",
     "section_price": "Total price (€)"
+  },
+  "import": {
+    "preview_title": "📋 Import preview",
+    "to_import": "to import",
+    "in_stock": "already in stock",
+    "check_all": "Check all",
+    "uncheck_all": "Uncheck all",
+    "col_ref": "Reference",
+    "col_desc": "Description",
+    "col_mfr": "Manufacturer",
+    "col_csv_ref": "CSV Reference",
+    "col_stock_comp": "Component in stock",
+    "col_stock_qty": "Current stock",
+    "no_new": "No new components to import.",
+    "btn_cancel": "Cancel",
+    "importing": "⏳ Importing…",
+    "toggle_all": "Toggle all"
+  },
+  "rangement": {
+    "err_network": "❌ Network error"
   }
 }

@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <a href="{{ url_for('components.import_csv') }}" class="btn-back">← Changer de fichier</a>
-    <h1>📋 Aperçu de l'import</h1>
+    <h1>{{ t.import.preview_title }}</h1>
 </div>
 
 {# ── Résumé colonnes détectées ───────────────────────────────────── #}
@@ -37,11 +37,11 @@
 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.5rem">
     <div class="card" style="text-align:center;padding:.75rem">
         <div style="font-size:2rem;font-weight:800;color:var(--success)" id="count-selected">{{ report.to_import|length }}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem">à importer</div>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem">{{ t.import.to_import }}</div>
     </div>
     <div class="card" style="text-align:center;padding:.75rem">
         <div style="font-size:2rem;font-weight:800;color:var(--warning)">{{ report.duplicates|length }}</div>
-        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem">déjà en stock</div>
+        <div style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem">{{ t.import.in_stock }}</div>
     </div>
     <div class="card" style="text-align:center;padding:.75rem">
         <div style="font-size:2rem;font-weight:800;color:var(--text-muted)">{{ report.skipped|length }}</div>
@@ -63,8 +63,8 @@
             ✅ Nouveaux composants ({{ report.to_import|length }})
         </div>
         <div style="display:flex;gap:.5rem;align-items:center">
-            <button type="button" class="btn btn-secondary" style="font-size:.72rem;padding:.2rem .6rem" onclick="toggleAll(true)">Tout cocher</button>
-            <button type="button" class="btn btn-secondary" style="font-size:.72rem;padding:.2rem .6rem" onclick="toggleAll(false)">Tout décocher</button>
+            <button type="button" class="btn btn-secondary" style="font-size:.72rem;padding:.2rem .6rem" onclick="toggleAll(true)">{{ t.import.check_all }}</button>
+            <button type="button" class="btn btn-secondary" style="font-size:.72rem;padding:.2rem .6rem" onclick="toggleAll(false)">{{ t.import.uncheck_all }}</button>
         </div>
     </div>
     <div style="overflow-x:auto">
@@ -73,15 +73,15 @@
             <tr>
                 <th style="width:36px">
                     <input type="checkbox" id="check-all" checked onchange="toggleAll(this.checked)"
-                           title="Tout cocher/décocher" style="cursor:pointer">
+                           title="{{ t.import.toggle_all }}" style="cursor:pointer">
                 </th>
                 <th>#</th>
-                <th>Référence</th>
-                <th>Description</th>
+                <th>{{ t.import.col_ref }}</th>
+                <th>{{ t.import.col_desc }}</th>
                 {% if report.columns.qty %}<th style="text-align:right">Qté</th>{% endif %}
                 {% if report.columns.price %}<th style="text-align:right">Prix unit.</th>{% endif %}
                 <th>Package</th>
-                <th>Fabricant</th>
+                <th>{{ t.import.col_mfr }}</th>
             </tr>
         </thead>
         <tbody>
@@ -132,9 +132,9 @@
     <table class="data-table" style="font-size:.78rem">
         <thead>
             <tr>
-                <th>Référence CSV</th>
-                <th>Composant en stock</th>
-                <th style="text-align:right">Stock actuel</th>
+                <th>{{ t.import.col_csv_ref }}</th>
+                <th>{{ t.import.col_stock_comp }}</th>
+                <th style="text-align:right">{{ t.import.col_stock_qty }}</th>
                 <th style="text-align:right">Qté CSV</th>
             </tr>
         </thead>
@@ -193,10 +193,10 @@
         📥 Importer <span id="count-badge">{{ report.to_import|length }}</span> composant(s)
     </button>
     {% else %}
-    <span style="color:var(--text-muted);font-size:.85rem">Aucun nouveau composant à importer.</span>
+    <span style="color:var(--text-muted);font-size:.85rem">{{ t.import.no_new }}</span>
     {% endif %}
     <a href="{{ url_for('components.import_csv') }}" class="btn btn-secondary">← Changer de fichier</a>
-    <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">Annuler</a>
+    <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">{{ t.import.btn_cancel }}</a>
 </div>
 
 </form>
@@ -226,7 +226,7 @@ document.getElementById('confirm-form')?.addEventListener('submit', function(e) 
     const btn = document.getElementById('btn-confirm');
     if (btn) {
         btn.disabled  = true;
-        btn.textContent = '⏳ Import en cours…';
+        btn.textContent = {{ t.import.importing | tojson }};
     }
 });
 

@@ -28,15 +28,61 @@ from . import component_bp
 def home():
     """Page d'accueil — dashboard avec stats, alertes, mouvements récents."""
     from ..models.project import ProjectModel
+    from ..models.database import get_db
+    db = get_db()
+
     stats     = ComponentModel.get_dashboard_stats()
-    recent    = ComponentModel.get_recent(limit=6)
-    alerts    = ComponentModel.get_alerts_summary(limit=6)
-    movements = ProjectModel.get_recent_movements(limit=8)
-    projects  = ProjectModel.get_active(limit=4)
+    recent    = ComponentModel.get_recent(limit=8)
+    alerts    = ComponentModel.get_alerts_summary(limit=8)
+    movements = ProjectModel.get_recent_movements(limit=10)
+    projects  = ProjectModel.get_active(limit=5)
+
+    # Top catégories pour le graphe en barres
+    top_cats = db.execute("""
+        SELECT
+          CASE
+            WHEN category LIKE '%/%'
+              THEN TRIM(SUBSTR(category, 1, INSTR(category,'/')-1))
+            WHEN category IS NOT NULL AND category != '' THEN category
+            ELSE 'Autres'
+          END AS cat_group,
+          COUNT(*) as n,
+          SUM(quantity) as qty
+        FROM components
+        WHERE category IS NOT NULL AND category != ''
+        GROUP BY cat_group
+        ORDER BY n DESC
+        LIMIT 8
+    """).fetchall()
+
+    # Top fabricants
+    top_mfr = db.execute("""
+        SELECT manufacturer, COUNT(*) as n
+        FROM components
+        WHERE manufacturer IS NOT NULL AND manufacturer != ''
+        GROUP BY manufacturer
+        ORDER BY n DESC
+        LIMIT 6
+    """).fetchall()
+
+    # Activité des 7 derniers jours (mouvements par jour)
+    activity = db.execute("""
+        SELECT DATE(created_at) as day, COUNT(*) as n,
+               SUM(CASE WHEN type='in' THEN quantity ELSE 0 END) as qty_in,
+               SUM(CASE WHEN type='out' THEN quantity ELSE 0 END) as qty_out
+        FROM stock_movements
+        WHERE created_at >= DATE('now', '-7 days')
+        GROUP BY day
+        ORDER BY day ASC
+    """).fetchall()
 
     return render_template("components/home.html",
         stats=stats, recent=recent, alerts=alerts,
-        movements=movements, projects=projects)
+        movements=movements, projects=projects,
+        top_cats=[dict(r) for r in top_cats],
+        top_mfr=[dict(r) for r in top_mfr],
+        activity=[dict(r) for r in activity],
+    )
 
 
 @component_bp.route("/stock")

@@ -1,422 +1,1025 @@
 {% extends "base.html" %}
 {% block title %}{{ app_name or 'StockEleK' }}{% endblock %}
 
+{% block head %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+:root {
+  --hq-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+  --hq-sans: inherit;
+  --hq-gutter: 1.25rem;
+  --hq-r: 10px;
+}
+
+/* ── Root ─────────────────────────────────────────────────────── */
+.hq {
+  padding: 1.5rem 2rem 4rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+.hq-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+.hq-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.hq-logo-wrap {
+  width: 52px; height: 52px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.hq-logo-img {
+  display: inline-block;
+  width: 52px; height: 52px;
+  background: url('{{ url_for("static", filename="img/Logo.png") }}') center/contain no-repeat;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 40%, transparent));
+}
+[data-theme="light"] .hq-logo-img {
+  background-image: url('{{ url_for("static", filename="img/Logo_c.png") }}');
+  filter: none;
+}
+.hq-title {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 900;
+  letter-spacing: -.04em;
+  margin: 0;
+  line-height: 1;
+}
+.hq-subtitle {
+  font-size: .68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .15em;
+  margin-top: .2rem;
+  font-family: var(--hq-mono);
+}
+.hq-header-right {
+  display: flex; align-items: center; gap: 1rem; flex-shrink: 0;
+}
+.hq-time {
+  font-family: var(--hq-mono);
+  font-size: .8rem;
+  color: var(--text-muted);
+  min-width: 5rem;
+  text-align: right;
+}
+.hq-status {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .3rem .8rem;
+  border-radius: 99px;
+  font-size: .72rem;
+  font-family: var(--hq-mono);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+}
+.hq-status--ok    { border-color: var(--success); color: var(--success); background: color-mix(in srgb, var(--success) 8%, transparent); }
+.hq-status--warn  { border-color: var(--danger);  color: var(--danger);  background: color-mix(in srgb, var(--danger)  8%, transparent); }
+.hq-status-led {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: hq-blink 1.8s ease-in-out infinite;
+}
+@keyframes hq-blink {
+  0%,100% { opacity:1; } 50% { opacity:.3; }
+}
+
+/* ── Search ───────────────────────────────────────────────────── */
+.hq-search-section { margin-bottom: 1.5rem; }
+.hq-search {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--hq-r);
+  overflow: hidden;
+  transition: border-color .2s, box-shadow .2s;
+}
+.hq-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent),
+              0 4px 24px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.hq-search-prefix {
+  padding: .85rem 1rem .85rem 1.2rem;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.hq-search-prompt {
+  font-family: var(--hq-mono);
+  font-size: .8rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.hq-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: .95rem;
+  color: var(--text);
+  padding: .85rem 1.2rem;
+}
+.hq-search-input::placeholder { color: var(--text-muted); opacity: .6; }
+.hq-search-spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: hq-spin .7s linear infinite;
+  margin-right: 1.2rem;
+  flex-shrink: 0;
+}
+@keyframes hq-spin { to { transform: rotate(360deg); } }
+.hq-dd {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--hq-r);
+  box-shadow: 0 12px 40px rgba(0,0,0,.4);
+  z-index: 300;
+  overflow: hidden;
+}
+
+/* ── Stats strip ──────────────────────────────────────────────── */
+.hq-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+.hq-strip-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--hq-r);
+  padding: 1rem 1rem .8rem;
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  display: block;
+  transition: transform .15s, border-color .15s;
+}
+.hq-strip-item:hover { transform: translateY(-2px); border-color: var(--accent); }
+.hq-strip-item--accent { border-top: 2px solid var(--accent); }
+.hq-strip-item--green  { border-top: 2px solid var(--success); }
+.hq-strip-item--danger { border-top: 2px solid var(--danger); }
+.hq-strip-item--warn   { border-top: 2px solid var(--warning); }
+.hq-strip-item--link   { cursor: pointer; border-top: 2px solid var(--text-muted); }
+.hq-strip-val {
+  font-family: var(--hq-mono);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+  transition: color .3s;
+}
+.hq-strip-item--accent .hq-strip-val { color: var(--accent); }
+.hq-strip-item--green  .hq-strip-val { color: var(--success); }
+.hq-strip-item--danger .hq-strip-val { color: var(--danger); }
+.hq-strip-item--warn   .hq-strip-val { color: var(--warning); }
+.hq-strip-lbl {
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-muted);
+  margin-top: .35rem;
+  font-family: var(--hq-mono);
+}
+.hq-strip-bar {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: .3;
+}
+
+/* ── Body grid ────────────────────────────────────────────────── */
+.hq-body {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--hq-gutter);
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .hq-body { grid-template-columns: 1fr; }
+}
+.hq-col-a, .hq-col-b {
+  display: flex; flex-direction: column; gap: var(--hq-gutter);
+}
+
+/* ── Panel ────────────────────────────────────────────────────── */
+.hq-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--hq-r);
+  overflow: hidden;
+  animation: hq-fadein .4s ease both;
+}
+.hq-panel--alert { border-color: color-mix(in srgb, var(--danger) 25%, var(--border)); }
+@keyframes hq-fadein {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.hq-panel-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .65rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-surface) 50%, transparent);
+}
+.hq-panel-badge {
+  font-size: .58rem;
+  font-family: var(--hq-mono);
+  font-weight: 700;
+  letter-spacing: .1em;
+  padding: .15rem .5rem;
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.hq-panel-badge--blue   { background:color-mix(in srgb,#38bdf8 10%,transparent); color:#38bdf8; border-color:#38bdf830; }
+.hq-panel-badge--green  { background:color-mix(in srgb,var(--success) 10%,transparent); color:var(--success); border-color:color-mix(in srgb,var(--success) 30%,transparent); }
+.hq-panel-badge--danger { background:color-mix(in srgb,var(--danger) 12%,transparent); color:var(--danger); border-color:color-mix(in srgb,var(--danger) 30%,transparent); }
+.hq-panel-badge--purple { background:color-mix(in srgb,#a855f7 10%,transparent); color:#a855f7; border-color:#a855f730; }
+.hq-panel-badge--teal   { background:color-mix(in srgb,#14b8a6 10%,transparent); color:#14b8a6; border-color:#14b8a630; }
+.hq-panel-title {
+  font-size: .78rem;
+  font-weight: 600;
+  flex: 1;
+  color: var(--text);
+}
+.hq-panel-link {
+  font-size: .68rem;
+  color: var(--accent);
+  text-decoration: none;
+  opacity: .7;
+  white-space: nowrap;
+}
+.hq-panel-link:hover { opacity: 1; }
+
+/* ── Bars (catégories) ────────────────────────────────────────── */
+.hq-bars { padding: .75rem 1rem; display: flex; flex-direction: column; gap: .45rem; }
+.hq-bar-row {
+  display: flex; align-items: center; gap: .75rem;
+  text-decoration: none; color: var(--text);
+  padding: .25rem .3rem;
+  border-radius: 5px;
+  transition: background .12s;
+}
+.hq-bar-row:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.hq-bar-label {
+  font-size: .72rem;
+  color: var(--text-muted);
+  width: 180px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hq-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-surface);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.hq-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #38bdf8));
+  animation: hq-bar-grow .7s var(--delay, 0ms) cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes hq-bar-grow {
+  from { width: 0 }
+  to   { width: var(--w, 0%) }
+}
+.hq-bar-val {
+  font-family: var(--hq-mono);
+  font-size: .72rem;
+  color: var(--text-muted);
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Sparkline + activité ─────────────────────────────────────── */
+.hq-sparkline-wrap {
+  padding: .75rem 1rem .5rem;
+  border-bottom: 1px solid var(--border);
+}
+#hq-spark { width: 100%; display: block; }
+
+/* ── Mouvement feed ───────────────────────────────────────────── */
+.hq-mvt-feed { display: flex; flex-direction: column; }
+.hq-mvt-row {
+  display: flex; align-items: center; gap: .65rem;
+  padding: .45rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  text-decoration: none; color: var(--text);
+  transition: background .12s;
+}
+.hq-mvt-row:last-child { border-bottom: none; }
+.hq-mvt-row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.hq-mvt-icon {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; font-weight: 700; flex-shrink: 0;
+}
+.hq-mvt-icon--in  { background: color-mix(in srgb,var(--success) 15%,transparent); color:var(--success); }
+.hq-mvt-icon--out { background: color-mix(in srgb,var(--danger)  15%,transparent); color:var(--danger); }
+.hq-mvt-icon--adj { background: color-mix(in srgb,var(--accent)  15%,transparent); color:var(--accent); }
+.hq-mvt-info { flex:1; min-width:0; }
+.hq-mvt-name { font-size:.8rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hq-mvt-note { display:block; font-size:.65rem; color:var(--text-muted); margin-top:.05rem; font-style:italic; }
+.hq-mvt-right { display:flex; flex-direction:column; align-items:flex-end; gap:.1rem; flex-shrink:0; }
+.hq-mvt-qty { font-family:var(--hq-mono); font-size:.78rem; font-weight:700; }
+.hq-mvt-qty--in  { color:var(--success); }
+.hq-mvt-qty--out { color:var(--danger); }
+.hq-mvt-qty--adj { color:var(--accent); }
+.hq-mvt-date { font-family:var(--hq-mono); font-size:.6rem; color:var(--text-muted); }
+
+/* ── Composants list ──────────────────────────────────────────── */
+.hq-comp-list { display:flex; flex-direction:column; }
+.hq-comp-row {
+  display:flex; align-items:center; gap:.6rem;
+  padding:.5rem .9rem;
+  border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent);
+  text-decoration:none; color:var(--text);
+  transition:background .12s;
+}
+.hq-comp-row:last-child { border-bottom:none; }
+.hq-comp-row:hover { background:color-mix(in srgb,var(--accent) 5%,transparent); }
+.hq-comp-thumb {
+  width:30px; height:30px;
+  border-radius:6px;
+  overflow:hidden; flex-shrink:0;
+  background:var(--bg-surface);
+  display:flex; align-items:center; justify-content:center;
+}
+.hq-thumb-img { width:30px; height:30px; object-fit:cover; }
+.hq-thumb-ph { font-size:.8rem; color:var(--text-muted); }
+.hq-comp-info { flex:1; min-width:0; }
+.hq-comp-name { font-size:.78rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hq-comp-ref, .hq-comp-meta {
+  margin-top:.15rem; display:flex; gap:.3rem; flex-wrap:wrap;
+}
+.hq-tag {
+  font-size:.62rem; font-family:var(--hq-mono);
+  padding:.05rem .35rem; border-radius:3px;
+  background:var(--bg-surface); color:var(--text-muted);
+}
+.hq-tag--accent {
+  background:color-mix(in srgb,var(--accent) 12%,transparent);
+  color:var(--accent);
+}
+.hq-comp-ref { font-size:.62rem; font-family:var(--hq-mono); color:var(--accent); opacity:.8; }
+.hq-comp-qty {
+  font-family:var(--hq-mono); font-size:.85rem; font-weight:700; flex-shrink:0;
+}
+.hq-comp-qty--ok   { color:var(--success); }
+.hq-comp-qty--low  { color:var(--warning); }
+.hq-comp-qty--zero { color:var(--danger); }
+
+/* ── Gauge alertes ────────────────────────────────────────────── */
+.hq-comp-gauge {
+  display:flex; align-items:center; gap:.45rem;
+  flex-shrink:0; min-width:80px;
+}
+.hq-gauge-track {
+  flex:1; height:5px;
+  background:var(--bg-surface); border-radius:3px; overflow:hidden;
+}
+.hq-gauge-fill { height:100%; border-radius:3px; transition:width .5s ease; }
+.hq-gauge-fill--zero { background:var(--danger); }
+.hq-gauge-fill--low  { background:var(--warning); }
+.hq-gauge-txt {
+  font-family:var(--hq-mono); font-size:.68rem; font-weight:700;
+  color:var(--warning); white-space:nowrap;
+}
+.hq-gauge-txt--zero { color:var(--danger); }
+
+/* ── Projets ──────────────────────────────────────────────────── */
+.hq-proj-list { display:flex; flex-direction:column; }
+.hq-proj-row {
+  display:flex; align-items:center; gap:.7rem;
+  padding:.5rem .9rem;
+  border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent);
+  text-decoration:none; color:var(--text);
+  transition:background .12s;
+}
+.hq-proj-row:last-child { border-bottom:none; }
+.hq-proj-row:hover { background:color-mix(in srgb,var(--accent) 5%,transparent); }
+.hq-proj-status {
+  width:9px; height:9px; border-radius:50%; flex-shrink:0;
+}
+.hq-proj-status--idea       { background:#06b6d4; box-shadow:0 0 6px #06b6d460; }
+.hq-proj-status--design     { background:var(--accent); box-shadow:0 0 6px color-mix(in srgb,var(--accent) 60%,transparent); }
+.hq-proj-status--ordered    { background:#f97316; box-shadow:0 0 6px #f9731660; }
+.hq-proj-status--production { background:#a855f7; box-shadow:0 0 6px #a855f760; }
+.hq-proj-status--assembly   { background:var(--warning); box-shadow:0 0 6px color-mix(in srgb,var(--warning) 60%,transparent); }
+.hq-proj-status--debug      { background:var(--danger); box-shadow:0 0 6px color-mix(in srgb,var(--danger) 60%,transparent); }
+.hq-proj-status--done       { background:var(--success); }
+.hq-proj-name { flex:1; font-size:.8rem; font-weight:500; }
+.hq-proj-badge {
+  font-family:var(--hq-mono); font-size:.6rem;
+  padding:.1rem .45rem; border-radius:99px; border:1px solid;
+  text-transform:uppercase; letter-spacing:.05em;
+}
+.hq-proj-badge--idea       { color:#06b6d4; border-color:#06b6d430; background:#06b6d410; }
+.hq-proj-badge--design     { color:var(--accent); border-color:color-mix(in srgb,var(--accent) 30%,transparent); background:color-mix(in srgb,var(--accent) 10%,transparent); }
+.hq-proj-badge--ordered    { color:#f97316; border-color:#f9731630; background:#f9731610; }
+.hq-proj-badge--production { color:#a855f7; border-color:#a855f730; background:#a855f710; }
+.hq-proj-badge--assembly   { color:var(--warning); border-color:color-mix(in srgb,var(--warning) 30%,transparent); background:color-mix(in srgb,var(--warning) 10%,transparent); }
+.hq-proj-badge--debug      { color:var(--danger); border-color:color-mix(in srgb,var(--danger) 30%,transparent); background:color-mix(in srgb,var(--danger) 10%,transparent); }
+.hq-proj-badge--done       { color:var(--success); border-color:color-mix(in srgb,var(--success) 30%,transparent); background:color-mix(in srgb,var(--success) 10%,transparent); }
+
+/* ── Fabricants ───────────────────────────────────────────────── */
+.hq-mfr-grid {
+  display:flex; flex-direction:column; gap:0; padding:.5rem 0;
+}
+.hq-mfr-chip {
+  display:flex; align-items:center; gap:.7rem;
+  padding:.4rem .9rem;
+  text-decoration:none; color:var(--text);
+  transition:background .12s;
+}
+.hq-mfr-chip:hover { background:color-mix(in srgb,var(--accent) 5%,transparent); }
+.hq-mfr-name { font-size:.78rem; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hq-mfr-n {
+  font-family:var(--hq-mono); font-size:.72rem; font-weight:700;
+  color:var(--accent); flex-shrink:0; width:28px; text-align:right;
+}
+.hq-mfr-bar {
+  width:60px; height:4px;
+  background:var(--bg-surface); border-radius:2px; overflow:hidden;
+  flex-shrink:0;
+}
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="hq">
 
-<!-- ── Hero + recherche ──────────────────────────────────────────── -->
-<div style="max-width:700px;margin:0 auto 2.5rem;text-align:center;padding:0 1rem">
-    <div class="home-logo"></div>
-    <h1 style="font-size:1.8rem;font-weight:900;letter-spacing:-.03em;margin-bottom:.3rem">
-        {{ app_name or 'StockEleK' }}
-    </h1>
-    <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:1.5rem">
-        {{ stats.n_components or 0 }} {{ t.home.stats_refs }}
-        · {{ stats.n_total_qty or 0 }} {{ t.home.stats_parts }}
-        {% if stats.total_value %} · <strong>{{ "%.2f"|format(stats.total_value) }} €</strong>{% endif %}
-        {% if (stats.n_alerts or 0) > 0 %}
-        · <a href="{{ url_for('components.alerts') }}" style="color:var(--danger)">⚠️ {{ stats.n_alerts }} alerte(s)</a>
-        {% endif %}
-    </p>
-
-    <!-- Barre de recherche avec dropdown instantané -->
-    <form method="get" action="{{ url_for('components.stock') }}" id="home-search-form"
-          style="position:relative" autocomplete="off">
-        <div style="position:relative">
-            <span style="position:absolute;left:1rem;top:50%;transform:translateY(-50%);font-size:1.1rem;pointer-events:none">🔍</span>
-            <input type="text" name="search" id="home-search-input" autofocus
-                   placeholder="{{ t.home.search_placeholder }}"
-                   class="form-input"
-                   style="padding:.85rem 3.5rem .85rem 2.8rem;font-size:1rem;border-radius:var(--radius-lg);border:2px solid var(--border);transition:border-color .15s"
-                   onfocus="this.style.borderColor='var(--accent)'"
-                   onblur="setTimeout(()=>{ this.style.borderColor='var(--border)'; closeHomeDropdown(); }, 150)"/>
-            <span id="home-search-spinner"
-                  style="display:none;position:absolute;right:1rem;top:50%;transform:translateY(-50%);
-                         width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);
-                         border-radius:50%;animation:spin .6s linear infinite"></span>
-        </div>
-        <div id="home-search-dropdown"
-             style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
-                    background:var(--bg-card);border:1px solid var(--border);
-                    border-radius:var(--radius-lg);box-shadow:var(--shadow);
-                    z-index:100;overflow:hidden;text-align:left">
-        </div>
-    </form>
-</div>
-
-<!-- ── Dashboard grid ────────────────────────────────────────────── -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;max-width:1200px;margin:0 auto">
-
-    <!-- Stats rapides -->
-    <div style="grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.75rem">
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
-            <div style="font-size:1.6rem;font-weight:800;color:var(--accent)">{{ stats.n_components or 0 }}</div>
-            <div style="font-size:.72rem;color:var(--text-muted)">{{ t.home.stats_refs }}</div>
-        </div>
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
-            <div style="font-size:1.6rem;font-weight:800">{{ stats.n_total_qty or 0 }}</div>
-            <div style="font-size:.72rem;color:var(--text-muted)">{{ t.home.stats_parts }}</div>
-        </div>
-        {% if stats.total_value %}
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
-            <div style="font-size:1.6rem;font-weight:800;color:var(--success)">{{ "%.0f"|format(stats.total_value) }} €</div>
-            <div style="font-size:.72rem;color:var(--text-muted)">Valeur totale</div>
-        </div>
-        {% endif %}
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
-            <div style="font-size:1.6rem;font-weight:800;color:{{ 'var(--danger)' if (stats.n_alerts or 0) > 0 else 'var(--success)' }}">{{ stats.n_alerts or 0 }}</div>
-            <div style="font-size:.72rem;color:var(--text-muted)">{{ t.home.stats_alerts_plural }}</div>
-        </div>
-        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center">
-            <div style="font-size:1.6rem;font-weight:800;color:{{ 'var(--danger)' if (stats.n_zero or 0) > 0 else 'var(--success)' }}">{{ stats.n_zero or 0 }}</div>
-            <div style="font-size:.72rem;color:var(--text-muted)">Stock zéro</div>
-        </div>
-        <!-- Widget KiCad -->
-        <a href="{{ url_for('components.settings') }}#sec-kicad"
-           id="home-kicad-widget"
-           style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:.85rem 1rem;text-align:center;text-decoration:none;display:block">
-            <div style="font-size:1.6rem;font-weight:800;color:var(--text-muted)" id="home-kicad-count">…</div>
-            <div style="font-size:.72rem;color:var(--text-muted)">sans KiCad</div>
+{# ═══════════════ HEADER ═════════════════════════════════════════════ #}
+<div class="hq-header">
+  <div class="hq-header-left">
+    <div class="hq-logo-wrap">
+      <span class="hq-logo-img"></span>
+    </div>
+    <div>
+      <h1 class="hq-title">{{ app_name or 'StockEleK' }}</h1>
+      <div class="hq-subtitle">{{ t.home.tagline }}</div>
+    </div>
+  </div>
+  <div class="hq-header-right">
+    <div class="hq-time" id="hq-clock"></div>
+    <div class="hq-status {% if (stats.n_alerts or 0) > 0 %}hq-status--warn{% else %}hq-status--ok{% endif %}">
+      <span class="hq-status-led"></span>
+      {% if (stats.n_alerts or 0) > 0 %}
+        <a href="{{ url_for('components.alerts') }}" style="color:inherit;text-decoration:none">
+          {{ stats.n_alerts }} alerte{{ 's' if stats.n_alerts > 1 else '' }}
         </a>
+      {% else %}Système nominal{% endif %}
     </div>
-
-    <!-- Alertes stock -->
-    {% if alerts %}
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <div style="font-size:.75rem;font-weight:600;color:var(--danger);text-transform:uppercase;letter-spacing:.06em">⚠️ Alertes stock</div>
-            <a href="{{ url_for('components.alerts') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
-        </div>
-        {% for c in alerts %}
-        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
-            {% if c.image_path %}
-            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
-                 style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0"/>
-            {% else %}
-            <div style="width:28px;height:28px;border-radius:4px;background:var(--bg-surface);flex-shrink:0"></div>
-            {% endif %}
-            <a href="{{ url_for('components.detail', component_id=c.id) }}"
-               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                {{ c.description or c.lcsc_part_number or '—' }}
-            </a>
-            <span style="font-size:.75rem;font-weight:700;color:{{ 'var(--danger)' if c.quantity == 0 else 'var(--warning)' }};flex-shrink:0">
-                {{ c.quantity }}/{{ c.min_stock }}
-            </span>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Derniers mouvements -->
-    {% if movements %}
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">📋 Mouvements récents</div>
-            <a href="{{ url_for('components.history') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
-        </div>
-        {% for m in movements %}
-        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
-            <span style="font-size:.85rem;flex-shrink:0">{{ '↑' if m.type == 'in' else '↓' if m.type == 'out' else '~' }}</span>
-            <a href="{{ url_for('components.detail', component_id=m.component_id) }}"
-               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                {{ m.description or m.lcsc_part_number or '—' }}
-            </a>
-            <span style="font-size:.75rem;font-weight:700;color:{{ 'var(--success)' if m.type == 'in' else 'var(--danger)' if m.type == 'out' else 'var(--accent)' }};flex-shrink:0">
-                {{ '+' if m.type == 'in' else '-' if m.type == 'out' else '~' }}{{ m.quantity }}
-            </span>
-            <span style="font-size:.65rem;color:var(--text-muted);flex-shrink:0">{{ m.created_at[5:16] }}</span>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Ajouts récents -->
-    {% if recent %}
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">🆕 {{ t.home.recent_title }}</div>
-            <a href="{{ url_for('components.stock') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
-        </div>
-        {% for c in recent %}
-        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
-            {% if c.image_path %}
-            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
-                 style="width:28px;height:28px;border-radius:4px;object-fit:cover;flex-shrink:0"/>
-            {% else %}
-            <div style="width:28px;height:28px;border-radius:4px;background:var(--bg-surface);flex-shrink:0"></div>
-            {% endif %}
-            <a href="{{ url_for('components.detail', component_id=c.id) }}"
-               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                {{ c.description or c.lcsc_part_number or '—' }}
-            </a>
-            <span style="font-size:.72rem;color:var(--text-muted);flex-shrink:0">{{ c.package or '' }}</span>
-            <span style="font-size:.75rem;font-weight:600;flex-shrink:0">{{ c.quantity }}</span>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Projets actifs -->
-    {% if projects %}
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-            <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">📁 Projets actifs</div>
-            <a href="{{ url_for('projects.index') }}" style="font-size:.72rem;color:var(--accent)">Voir tout →</a>
-        </div>
-        {% for p in projects %}
-        <div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;border-bottom:1px solid var(--border-faint, var(--border))">
-            <span class="badge badge-status-{{ p.status|replace(' ','-') }}" style="flex-shrink:0;font-size:.65rem">{{ p.status }}</span>
-            <a href="{{ url_for('projects.detail', project_id=p.id) }}"
-               style="flex:1;font-size:.78rem;color:var(--text);text-decoration:none">{{ p.name }}</a>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
+  </div>
 </div>
+
+{# ═══════════════ SEARCH ════════════════════════════════════════════ #}
+<div class="hq-search-section">
+  <form method="get" action="{{ url_for('components.stock') }}"
+        id="home-search-form" autocomplete="off" style="position:relative">
+    <div class="hq-search">
+      <div class="hq-search-prefix">
+        <span class="hq-search-prompt">{{ t.home.search_prompt }}</span>
+      </div>
+      <input type="text" name="search" id="home-search-input"
+             class="hq-search-input" autofocus
+             placeholder="{{ t.home.search_placeholder }}"/>
+      <div class="hq-search-spinner" id="home-search-spinner" style="display:none"></div>
+    </div>
+    <div id="home-search-dropdown" class="hq-dd" style="display:none"></div>
+  </form>
+</div>
+
+{# ═══════════════ STATS STRIP ════════════════════════════════════════ #}
+<div class="hq-strip">
+  <div class="hq-strip-item hq-strip-item--accent">
+    <div class="hq-strip-val" data-count="{{ stats.n_components or 0 }}">0</div>
+    <div class="hq-strip-lbl">{{ t.home.stat_refs }}</div>
+    <div class="hq-strip-bar" style="width:100%"></div>
+  </div>
+  <div class="hq-strip-item">
+    <div class="hq-strip-val" data-count="{{ stats.n_total_qty or 0 }}">0</div>
+    <div class="hq-strip-lbl">{{ t.home.stat_parts }}</div>
+  </div>
+  <div class="hq-strip-item hq-strip-item--green">
+    <div class="hq-strip-val" data-count="{{ (stats.total_value or 0)|int }}">0</div>
+    <div class="hq-strip-lbl">Valeur totale (€)</div>
+  </div>
+  <div class="hq-strip-item {% if (stats.n_alerts or 0) > 0 %}hq-strip-item--danger{% endif %}">
+    <div class="hq-strip-val" data-count="{{ stats.n_alerts or 0 }}">0</div>
+    <div class="hq-strip-lbl">{{ t.home.stat_alerts }}</div>
+  </div>
+  <div class="hq-strip-item {% if (stats.n_zero or 0) > 0 %}hq-strip-item--warn{% endif %}">
+    <div class="hq-strip-val" data-count="{{ stats.n_zero or 0 }}">0</div>
+    <div class="hq-strip-lbl">{{ t.home.stat_zero }}</div>
+  </div>
+  <a href="{{ url_for('components.settings') }}#sec-kicad" class="hq-strip-item hq-strip-item--link">
+    <div class="hq-strip-val" id="hq-kicad-val">…</div>
+    <div class="hq-strip-lbl">Sans KiCad</div>
+  </a>
+</div>
+
+{# ═══════════════ CORPS PRINCIPAL ════════════════════════════════════ #}
+<div class="hq-body">
+
+  {# ── COL A (gauche large) ────────────────────────────────────── #}
+  <div class="hq-col-a">
+
+    {# Graphe catégories ─────────────────────────────────────────── #}
+    {% if top_cats %}
+    <div class="hq-panel hq-panel--chart">
+      <div class="hq-panel-head">
+        <span class="hq-panel-badge hq-panel-badge--blue">{{ t.home.section_inv }}</span>
+        <span class="hq-panel-title">{{ t.home.chart_title }}</span>
+        <a href="{{ url_for('components.stock') }}" class="hq-panel-link">{{ t.home.chart_link }}</a>
+      </div>
+      <div class="hq-bars">
+        {% set max_n = top_cats | map(attribute='n') | max %}
+        {% for cat in top_cats %}
+        <a href="{{ url_for('components.stock') }}?category={{ cat.cat_group|urlencode }}"
+           class="hq-bar-row">
+          <div class="hq-bar-label">{{ cat.cat_group[:28] }}</div>
+          <div class="hq-bar-track">
+            <div class="hq-bar-fill"
+                 style="--w:{{ ((cat.n / max_n) * 100)|round|int }}%;--delay:{{ loop.index0 * 60 }}ms">
+            </div>
+          </div>
+          <div class="hq-bar-val">{{ cat.n }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Activité 7 jours ──────────────────────────────────────────── #}
+    <div class="hq-panel hq-panel--activity">
+      <div class="hq-panel-head">
+        <span class="hq-panel-badge hq-panel-badge--green">{{ t.home.section_act }}</span>
+        <span class="hq-panel-title">{{ t.home.act_title }}</span>
+        <a href="{{ url_for('components.history') }}" class="hq-panel-link">{{ t.home.hist_link }}</a>
+      </div>
+      <div class="hq-sparkline-wrap">
+        <canvas id="hq-spark" height="72"></canvas>
+        <div class="hq-spark-data" style="display:none">{{ activity|tojson }}</div>
+      </div>
+      <div class="hq-mvt-feed">
+        {% for m in movements %}
+        <a href="{{ url_for('components.detail', component_id=m.component_id) }}"
+           class="hq-mvt-row">
+          <div class="hq-mvt-icon hq-mvt-icon--{{ m.type }}">
+            {{ '↑' if m.type == 'in' else '↓' if m.type == 'out' else '⇌' }}
+          </div>
+          <div class="hq-mvt-info">
+            <span class="hq-mvt-name">{{ m.description or m.lcsc_part_number or '—' }}</span>
+            {% if m.note %}<span class="hq-mvt-note">{{ m.note[:40] }}</span>{% endif %}
+          </div>
+          <div class="hq-mvt-right">
+            <span class="hq-mvt-qty hq-mvt-qty--{{ m.type }}">
+              {{ '+' if m.type=='in' else '-' if m.type=='out' else '~' }}{{ m.quantity }}
+            </span>
+            <span class="hq-mvt-date">{{ m.created_at[8:16] if m.created_at else '' }}</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>{# /hq-col-a #}
+
+  {# ── COL B (droite) ──────────────────────────────────────────── #}
+  <div class="hq-col-b">
+
+    {# Alertes ───────────────────────────────────────────────────── #}
+    {% if alerts %}
+    <div class="hq-panel hq-panel--alert">
+      <div class="hq-panel-head">
+        <span class="hq-panel-badge hq-panel-badge--danger">⚠ ALERTE</span>
+        <span class="hq-panel-title">{{ t.home.alerts_title }}</span>
+        <a href="{{ url_for('components.alerts') }}" class="hq-panel-link">{{ t.home.see_all }}</a>
+      </div>
+      <div class="hq-comp-list">
+        {% for c in alerts %}
+        <a href="{{ url_for('components.detail', component_id=c.id) }}" class="hq-comp-row">
+          <div class="hq-comp-thumb">
+            {% if c.image_path %}
+            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                 class="hq-thumb-img" loading="lazy"/>
+            {% else %}
+            <div class="hq-thumb-ph">⚡</div>
+            {% endif %}
+          </div>
+          <div class="hq-comp-info">
+            <div class="hq-comp-name">{{ (c.description or c.lcsc_part_number or '—')[:35] }}</div>
+            {% if c.lcsc_part_number %}
+            <div class="hq-comp-ref">{{ c.lcsc_part_number }}</div>
+            {% endif %}
+          </div>
+          <div class="hq-comp-gauge">
+            <div class="hq-gauge-track">
+              <div class="hq-gauge-fill hq-gauge-fill--{{ 'zero' if c.quantity==0 else 'low' }}"
+                   style="width:{{ [((c.quantity / c.min_stock * 100)|round|int), 100]|min }}%"></div>
+            </div>
+            <span class="hq-gauge-txt {% if c.quantity == 0 %}hq-gauge-txt--zero{% endif %}">
+              {{ c.quantity }}/{{ c.min_stock }}
+            </span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Projets ───────────────────────────────────────────────────── #}
+    {% if projects %}
+    <div class="hq-panel">
+      <div class="hq-panel-head">
+        <span class="hq-panel-badge hq-panel-badge--purple">{{ t.home.section_proj }}</span>
+        <span class="hq-panel-title">{{ t.home.proj_title }}</span>
+        <a href="{{ url_for('projects.index') }}" class="hq-panel-link">Kanban →</a>
+      </div>
+      <div class="hq-proj-list">
+        {% for p in projects %}
+        <a href="{{ url_for('projects.detail', project_id=p.id) }}" class="hq-proj-row">
+          <div class="hq-proj-status hq-proj-status--{{ p.status }}"></div>
+          <div class="hq-proj-name">{{ p.name }}</div>
+          <div class="hq-proj-badge hq-proj-badge--{{ p.status }}">{{ p.status }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Ajouts récents ────────────────────────────────────────────── #}
+    {% if recent %}
+    <div class="hq-panel">
+      <div class="hq-panel-head">
+        <span class="hq-panel-badge hq-panel-badge--teal">{{ t.home.section_new }}</span>
+        <span class="hq-panel-title">{{ t.home.recent_title }}</span>
+        <a href="{{ url_for('components.stock') }}" class="hq-panel-link">{{ t.home.stock_link }}</a>
+      </div>
+      <div class="hq-comp-list">
+        {% for c in recent %}
+        <a href="{{ url_for('components.detail', component_id=c.id) }}" class="hq-comp-row">
+          <div class="hq-comp-thumb">
+            {% if c.image_path %}
+            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                 class="hq-thumb-img" loading="lazy"/>
+            {% else %}
+            <div class="hq-thumb-ph">⚡</div>
+            {% endif %}
+          </div>
+          <div class="hq-comp-info">
+            <div class="hq-comp-name">{{ (c.description or c.lcsc_part_number or '—')[:35] }}</div>
+            <div class="hq-comp-meta">
+              {% if c.lcsc_part_number %}
+              <span class="hq-tag hq-tag--accent">{{ c.lcsc_part_number }}</span>
+              {% endif %}
+              {% if c.package %}
+              <span class="hq-tag">{{ c.package }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="hq-comp-qty hq-comp-qty--{{ 'zero' if c.quantity==0 else 'low' if c.quantity<=(c.min_stock or 0) else 'ok' }}">
+            {{ c.quantity }}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Top fabricants ────────────────────────────────────────────── #}
+    {% if top_mfr %}
+    <div class="hq-panel">
+      <div class="hq-panel-head">
+        <span class="hq-panel-badge">MFR</span>
+        <span class="hq-panel-title">{{ t.home.mfr_title }}</span>
+      </div>
+      <div class="hq-mfr-grid">
+        {% set max_mfr = top_mfr | map(attribute='n') | max %}
+        {% for m in top_mfr %}
+        <a href="{{ url_for('components.stock') }}?search={{ m.manufacturer|urlencode }}"
+           class="hq-mfr-chip">
+          <span class="hq-mfr-name">{{ m.manufacturer[:18] }}</span>
+          <span class="hq-mfr-n">{{ m.n }}</span>
+          <div class="hq-mfr-bar">
+            <div style="width:{{ ((m.n / max_mfr)*100)|round|int }}%;height:100%;
+                        background:var(--accent);border-radius:2px;opacity:.5;
+                        transition:width .6s ease"></div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>{# /hq-col-b #}
+
+</div>{# /hq-body #}
+</div>{# /hq #}
+
+{# ═══════════════ STYLES ═════════════════════════════════════════════ #}
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  var t_home_no_result    = {{ t.home.no_result    | tojson }};
+  var t_home_see_all_stock= {{ t.home.see_all_stock| tojson }};
+  var t_home_legend_in    = {{ t.home.legend_in    | tojson }};
+  var t_home_legend_out   = {{ t.home.legend_out   | tojson }};
 
-    // ── Compteur KiCad ────────────────────────────────────────────
-    fetch('/kicad/missing-count')
-        .then(function(r) { return r.json(); })
-        .then(function(mc) {
-            var el = document.getElementById('home-kicad-count');
-            if (!el) return;
-            var n = mc.missing || 0;
-            el.textContent = n;
-            el.style.color = n === 0 ? 'var(--success)' : n < 10 ? 'var(--warning)' : 'var(--danger)';
-        })
-        .catch(function() {
-            var el = document.getElementById('home-kicad-count');
-            if (el) el.textContent = '?';
-        });
+  // ── Horloge ───────────────────────────────────────────────────
+  function updateClock() {
+    var el = document.getElementById('hq-clock');
+    if (!el) return;
+    var d = new Date();
+    var p = function(n) { return String(n).padStart(2,'0'); };
+    el.textContent = d.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short'})
+      + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
 
-    // ── Recherche avec dropdown ───────────────────────────────────
-    var inp = document.getElementById('home-search-input');
-    var dd  = document.getElementById('home-search-dropdown');
-    var sp  = document.getElementById('home-search-spinner');
-    if (!inp || !dd) return;
+  // ── Compteurs animés ──────────────────────────────────────────
+  document.querySelectorAll('.hq-strip-val[data-count]').forEach(function(el) {
+    var target = parseInt(el.dataset.count) || 0;
+    var start = 0, dur = 900, t0 = performance.now();
+    function tick(now) {
+      var p = Math.min((now - t0) / dur, 1);
+      var ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(start + (target - start) * ease);
+      if (p < 1) requestAnimationFrame(tick);
+      else el.textContent = target;
+    }
+    requestAnimationFrame(tick);
+  });
 
-    var _timer = null;
-    var _items = [];
-    var _idx   = -1;
-
-    window.closeHomeDropdown = function() {
-        dd.style.display = 'none';
-        _items = []; _idx = -1;
-    };
-
-    inp.addEventListener('input', function() {
-        clearTimeout(_timer);
-        var q = inp.value.trim();
-        if (q.length < 2) { closeHomeDropdown(); return; }
-        if (sp) sp.style.display = 'block';
-        _timer = setTimeout(function() { doSearch(q); }, 200);
+  // ── KiCad widget ─────────────────────────────────────────────
+  fetch('/kicad/missing-count')
+    .then(function(r) { return r.json(); })
+    .then(function(mc) {
+      var el = document.getElementById('hq-kicad-val');
+      if (!el) return;
+      var n = mc.missing || 0;
+      el.textContent = n;
+      el.style.color = n===0 ? 'var(--success)' : n<10 ? 'var(--warning)' : 'var(--danger)';
+    })
+    .catch(function() {
+      var el = document.getElementById('hq-kicad-val');
+      if (el) el.textContent = '?';
     });
 
-    inp.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowDown')  { e.preventDefault(); setActive(Math.min(_idx + 1, _items.length - 1)); }
-        if (e.key === 'ArrowUp')    { e.preventDefault(); setActive(Math.max(_idx - 1, 0)); }
-        if (e.key === 'Escape')     { closeHomeDropdown(); inp.blur(); }
-        if (e.key === 'Enter' && _idx >= 0 && _items[_idx]) {
-            e.preventDefault();
-            closeHomeDropdown();
-            window.location.href = _items[_idx];
-        }
+  // ── Sparkline canvas ─────────────────────────────────────────
+  (function() {
+    var canvas = document.getElementById('hq-spark');
+    var dataEl = document.querySelector('.hq-spark-data');
+    if (!canvas || !dataEl) return;
+
+    var raw = [];
+    try { raw = JSON.parse(dataEl.textContent); } catch(e) {}
+
+    // Générer les 7 derniers jours
+    var days = [];
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(); d.setDate(d.getDate() - i);
+      var key = d.toISOString().slice(0,10);
+      var found = raw.find(function(r) { return r.day === key; });
+      days.push({
+        day: key,
+        n:  found ? found.n       : 0,
+        in: found ? found.qty_in  : 0,
+        out:found ? found.qty_out : 0,
+      });
+    }
+
+    var W = canvas.offsetWidth || 600;
+    var H = 72;
+    canvas.width = W; canvas.height = H;
+
+    var ctx = canvas.getContext('2d');
+    var maxN = Math.max.apply(null, days.map(function(d){return d.n;})) || 1;
+    var barW = W / days.length;
+    var pad = 4;
+
+    days.forEach(function(d, i) {
+      var x = i * barW + pad;
+      var bw = barW - pad * 2;
+
+      // Barre entrées
+      var hIn = d.in > 0 ? Math.max(4, (d.in / (maxN * 2 + 1)) * (H - 20)) : 0;
+      if (hIn) {
+        var gIn = ctx.createLinearGradient(0, H-20-hIn, 0, H-20);
+        gIn.addColorStop(0, 'rgba(34,197,94,.8)');
+        gIn.addColorStop(1, 'rgba(34,197,94,.2)');
+        ctx.fillStyle = gIn;
+        ctx.beginPath();
+        ctx.roundRect(x, H-20-hIn, bw/2-1, hIn, 2);
+        ctx.fill();
+      }
+
+      // Barre sorties
+      var hOut = d.out > 0 ? Math.max(4, (d.out / (maxN * 2 + 1)) * (H - 20)) : 0;
+      if (hOut) {
+        var gOut = ctx.createLinearGradient(0, H-20-hOut, 0, H-20);
+        gOut.addColorStop(0, 'rgba(239,68,68,.8)');
+        gOut.addColorStop(1, 'rgba(239,68,68,.2)');
+        ctx.fillStyle = gOut;
+        ctx.beginPath();
+        ctx.roundRect(x + bw/2 + 1, H-20-hOut, bw/2-1, hOut, 2);
+        ctx.fill();
+      }
+
+      // Barre totale (fond gris si aucun mouvement)
+      if (!d.in && !d.out) {
+        ctx.fillStyle = 'rgba(100,116,139,.15)';
+        ctx.beginPath();
+        ctx.roundRect(x, H-22, bw, 2, 1);
+        ctx.fill();
+      }
+
+      // Label jour
+      ctx.fillStyle = 'rgba(100,116,139,.7)';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      var dayNames = ['dim','lun','mar','mer','jeu','ven','sam'];
+      var dd = new Date(d.day + 'T00:00:00');
+      ctx.fillText(dayNames[dd.getDay()], x + bw/2, H - 4);
     });
 
-    document.addEventListener('click', function(e) {
-        if (!inp.contains(e.target) && !dd.contains(e.target)) closeHomeDropdown();
+    // Légende
+    ctx.font = '9px monospace';
+    ctx.fillStyle = 'rgba(34,197,94,.8)';
+    ctx.fillRect(4, 4, 10, 4);
+    ctx.fillStyle = 'rgba(100,116,139,.7)';
+    ctx.textAlign = 'left';
+    ctx.fillText(t_home_legend_in, 18, 10);
+    ctx.fillStyle = 'rgba(239,68,68,.8)';
+    ctx.fillRect(70, 4, 10, 4);
+    ctx.fillStyle = 'rgba(100,116,139,.7)';
+    ctx.fillText(t_home_legend_out, 84, 10);
+  })();
+
+  // ── Recherche dropdown ────────────────────────────────────────
+  var inp = document.getElementById('home-search-input');
+  var dd  = document.getElementById('home-search-dropdown');
+  var sp  = document.getElementById('home-search-spinner');
+  if (!inp || !dd) return;
+
+  var _timer=null, _items=[], _idx=-1;
+
+  window.closeHomeDropdown = function() {
+    dd.style.display='none'; _items=[]; _idx=-1;
+  };
+
+  inp.addEventListener('input', function() {
+    clearTimeout(_timer);
+    var q = inp.value.trim();
+    if (q.length < 2) { closeHomeDropdown(); return; }
+    if (sp) sp.style.display = 'block';
+    _timer = setTimeout(function() { doSearch(q); }, 200);
+  });
+
+  inp.addEventListener('keydown', function(e) {
+    if (e.key==='ArrowDown') { e.preventDefault(); setActive(Math.min(_idx+1,_items.length-1)); }
+    if (e.key==='ArrowUp')   { e.preventDefault(); setActive(Math.max(_idx-1,0)); }
+    if (e.key==='Escape')    { closeHomeDropdown(); inp.blur(); }
+    if (e.key==='Enter' && _idx>=0 && _items[_idx]) {
+      e.preventDefault(); closeHomeDropdown(); window.location.href=_items[_idx];
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.hq-search-section')) closeHomeDropdown();
+  });
+
+  function doSearch(q) {
+    fetch('/api/search?q='+encodeURIComponent(q))
+      .then(function(r){return r.json();})
+      .then(function(data) { if(sp)sp.style.display='none'; renderDD(data, q); })
+      .catch(function()   { if(sp)sp.style.display='none'; });
+  }
+
+  function esc(s) {
+    var d=document.createElement('div'); d.textContent=s||''; return d.innerHTML;
+  }
+
+  function renderDD(data, q) {
+    dd.innerHTML=''; _items=[]; _idx=-1;
+    var comps=data.components||[], projs=data.projects||[];
+
+    if (!comps.length && !projs.length) {
+      dd.innerHTML='<div style="padding:.9rem 1.2rem;font-size:.82rem;color:var(--text-muted);text-align:center;font-family:var(--hq-mono)">Aucun résultat pour "'+esc(q)+'"</div>';
+      dd.style.display='block'; return;
+    }
+
+    function section(icon, label) {
+      var d=document.createElement('div');
+      d.style.cssText='padding:.35rem 1.2rem .1rem;font-size:.6rem;font-family:var(--hq-mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text-muted);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.4rem';
+      d.innerHTML='<span>'+icon+'</span><span>'+label+'</span>';
+      return d;
+    }
+
+    function row(url, thumbH, name, sub, rightH) {
+      var idx=_items.length; _items.push(url);
+      var a=document.createElement('a');
+      a.href=url; a.dataset.idx=idx;
+      a.style.cssText='display:flex;align-items:center;gap:.65rem;padding:.5rem 1.2rem;text-decoration:none;color:var(--text);transition:background .1s';
+      a.addEventListener('click', closeHomeDropdown);
+      a.addEventListener('mouseenter', function(){setActive(idx);});
+      a.addEventListener('mouseleave', function(){clearActive();});
+      a.innerHTML=(
+        '<div style="width:30px;height:30px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--bg-surface);display:flex;align-items:center;justify-content:center">'+thumbH+'</div>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:.82rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+name+'</div>'+
+          (sub?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.1rem;font-family:var(--hq-mono)">'+sub+'</div>':'')
+        +'</div>'+
+        (rightH?'<div style="flex-shrink:0">'+rightH+'</div>':'')
+      );
+      return a;
+    }
+
+    var C_STATUS={idea:'#06b6d4',design:'var(--accent)',ordered:'#f97316',
+      production:'#a855f7',assembly:'var(--warning)',debug:'var(--danger)',
+      done:'var(--success)',archived:'var(--text-muted)'};
+
+    if (comps.length) {
+      dd.appendChild(section('⚡','Composants ('+comps.length+')'));
+      comps.forEach(function(c) {
+        var th=c.image_path
+          ? '<img src="/images/'+c.image_path.replace(/.*images\//,'')+'" style="width:30px;height:30px;object-fit:cover"/>'
+          : '<span style="font-size:.8rem">⚡</span>';
+        var qc=c.quantity===0?'var(--danger)':c.quantity<5?'var(--warning)':'var(--success)';
+        dd.appendChild(row('/component/'+c.id, th,
+          esc(c.description||c.ref||'—'),
+          (c.ref?'<span style="color:var(--accent)">'+esc(c.ref)+'</span>':'')+
+          (c.package?' · '+esc(c.package):''),
+          '<span style="font-family:var(--hq-mono);font-size:.8rem;font-weight:700;color:'+qc+'">'+c.quantity+'</span>'
+        ));
+      });
+    }
+
+    if (projs.length) {
+      dd.appendChild(section('🗂','Projets'));
+      projs.forEach(function(p) {
+        var sc=C_STATUS[p.status]||'var(--text-muted)';
+        dd.appendChild(row('/projects/'+p.id,
+          '<span style="font-size:.8rem">🗂️</span>',
+          esc(p.name),
+          '<span style="color:'+sc+';font-family:var(--hq-mono)">'+esc(p.status)+'</span>',
+          null));
+      });
+    }
+
+    var footer=document.createElement('div');
+    footer.style.cssText='border-top:1px solid var(--border)';
+    footer.innerHTML='<a href="/stock?search='+encodeURIComponent(q)+'" onclick="closeHomeDropdown()" style="display:block;padding:.6rem 1.2rem;font-size:.75rem;color:var(--text-muted);text-decoration:none;text-align:center;font-family:var(--hq-mono);transition:background .1s" onmouseenter="this.style.background=\'var(--bg-surface)\'" onmouseleave="this.style.background=\'\'">→ Voir tous les résultats dans le stock</a>';
+    dd.appendChild(footer);
+    dd.style.display='block';
+  }
+
+  function setActive(idx) {
+    _idx=idx;
+    dd.querySelectorAll('a[data-idx]').forEach(function(el){
+      el.style.background=parseInt(el.dataset.idx)===idx
+        ?'color-mix(in srgb,var(--accent) 8%,transparent)':'';
     });
-
-    function doSearch(q) {
-        fetch('/api/search?q=' + encodeURIComponent(q))
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (sp) sp.style.display = 'none';
-                renderDropdown(data, q);
-            })
-            .catch(function() {
-                if (sp) sp.style.display = 'none';
-            });
-    }
-
-    function makeRow(url, imgSrc, line1, line2, right) {
-        var idx = _items.length;
-        _items.push(url);
-
-        var a = document.createElement('a');
-        a.href = url;
-        a.dataset.idx = idx;
-        a.style.cssText = 'display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;text-decoration:none;color:var(--text);transition:background .1s;cursor:pointer';
-        a.addEventListener('click', function() { closeHomeDropdown(); });
-        a.addEventListener('mouseenter', function() { setActive(idx); });
-        a.addEventListener('mouseleave', function() { clearActive(); });
-
-        // Thumbnail
-        var thumb = document.createElement('div');
-        thumb.style.cssText = 'width:36px;height:36px;border-radius:6px;background:var(--bg-surface);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center';
-        if (imgSrc) {
-            var img = document.createElement('img');
-            img.src = imgSrc;
-            img.style.cssText = 'width:36px;height:36px;object-fit:cover';
-            img.addEventListener('error', function() { img.style.display = 'none'; });
-            thumb.appendChild(img);
-        } else {
-            thumb.textContent = '';
-        }
-        a.appendChild(thumb);
-
-        // Infos
-        var info = document.createElement('div');
-        info.style.cssText = 'flex:1;min-width:0';
-
-        var l1 = document.createElement('div');
-        l1.style.cssText = 'font-size:.85rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-        l1.innerHTML = line1;
-        info.appendChild(l1);
-
-        if (line2) {
-            var l2 = document.createElement('div');
-            l2.style.cssText = 'margin-top:.1rem';
-            l2.innerHTML = line2;
-            info.appendChild(l2);
-        }
-        a.appendChild(info);
-
-        // Droite (quantité)
-        if (right) {
-            var r = document.createElement('span');
-            r.style.cssText = 'font-size:.8rem;font-weight:700;flex-shrink:0;' + right.style;
-            r.textContent = right.text;
-            a.appendChild(r);
-        }
-
-        return a;
-    }
-
-    function esc(s) {
-        var d = document.createElement('div');
-        d.textContent = s || '';
-        return d.innerHTML;
-    }
-
-    function renderDropdown(data, q) {
-        dd.innerHTML = '';
-        _items = []; _idx = -1;
-
-        var comps = data.components || [];
-        var projs = data.projects   || [];
-
-        if (!comps.length && !projs.length) {
-            var empty = document.createElement('div');
-            empty.style.cssText = 'padding:.85rem 1rem;font-size:.82rem;color:var(--text-muted);text-align:center';
-            empty.textContent = 'Aucun résultat pour « ' + (q || '') + ' »';
-            dd.appendChild(empty);
-            dd.style.display = 'block';
-            return;
-        }
-
-        // Section composants
-        if (comps.length) {
-            var cl = document.createElement('div');
-            cl.style.cssText = 'padding:.35rem 1rem .15rem;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)';
-            cl.textContent = '📦 Composants';
-            dd.appendChild(cl);
-
-            comps.forEach(function(c) {
-                var imgSrc = c.image_path
-                    ? '/images/' + c.image_path.replace(/.*images\//, '')
-                    : null;
-
-                var qColor = c.quantity === 0 ? 'color:var(--danger)'
-                           : c.quantity < 5   ? 'color:var(--warning)'
-                           : 'color:var(--success)';
-
-                var line2 = '';
-                if (c.ref) {
-                    line2 += '<span style="font-family:var(--mono);font-size:.68rem;color:var(--accent);background:var(--accent-dim);padding:.05rem .3rem;border-radius:3px;margin-right:.3rem">' + esc(c.ref) + '</span>';
-                }
-                if (c.package) {
-                    line2 += '<span style="font-size:.68rem;color:var(--text-muted);background:var(--bg-surface);padding:.05rem .3rem;border-radius:3px">' + esc(c.package) + '</span>';
-                }
-
-                var row = makeRow(
-                    '/component/' + c.id,
-                    imgSrc,
-                    esc(c.description || c.ref || '—'),
-                    line2,
-                    { text: String(c.quantity), style: qColor }
-                );
-                dd.appendChild(row);
-            });
-        }
-
-        // Séparateur
-        if (comps.length && projs.length) {
-            var sep = document.createElement('div');
-            sep.style.cssText = 'border-top:1px solid var(--border);margin:.2rem 0';
-            dd.appendChild(sep);
-        }
-
-        // Section projets
-        if (projs.length) {
-            var pl = document.createElement('div');
-            pl.style.cssText = 'padding:.35rem 1rem .15rem;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)';
-            pl.textContent = '🗂️ Projets';
-            dd.appendChild(pl);
-
-            var statusColors = {
-                idea:'#06b6d4', design:'var(--accent)', ordered:'#f97316',
-                production:'#8b5cf6', assembly:'var(--warning)', debug:'var(--danger)',
-                done:'var(--success)', archived:'var(--text-muted)'
-            };
-
-            projs.forEach(function(p) {
-                var sc = statusColors[p.status] || 'var(--text-muted)';
-                var row = makeRow(
-                    '/projects/' + p.id,
-                    null,
-                    esc(p.name),
-                    '<span style="font-size:.7rem;color:' + sc + '">' + esc(p.status) + '</span>',
-                    null
-                );
-                row.querySelector('div').textContent = '🗂️';
-                dd.appendChild(row);
-            });
-        }
-
-        // Lien "voir tout"
-        var sepBottom = document.createElement('div');
-        sepBottom.style.cssText = 'border-top:1px solid var(--border)';
-        var all = document.createElement('a');
-        all.href = '/stock?search=' + encodeURIComponent(q);
-        all.style.cssText = 'display:block;padding:.55rem 1rem;font-size:.78rem;color:var(--text-muted);text-decoration:none;text-align:center;transition:background .1s';
-        all.textContent = '🔍 Voir tous les résultats dans le stock →';
-        all.addEventListener('mouseenter', function() { all.style.background = 'var(--bg-surface)'; });
-        all.addEventListener('mouseleave', function() { all.style.background = ''; });
-        all.addEventListener('click', function() { closeHomeDropdown(); });
-        sepBottom.appendChild(all);
-        dd.appendChild(sepBottom);
-
-        dd.style.display = 'block';
-    }
-
-    function setActive(idx) {
-        _idx = idx;
-        dd.querySelectorAll('a[data-idx]').forEach(function(el) {
-            el.style.background = parseInt(el.dataset.idx) === idx ? 'var(--accent-dim)' : '';
-        });
-    }
-    function clearActive() {
-        _idx = -1;
-        dd.querySelectorAll('a[data-idx]').forEach(function(el) { el.style.background = ''; });
-    }
+  }
+  function clearActive() {
+    _idx=-1;
+    dd.querySelectorAll('a[data-idx]').forEach(function(el){el.style.background='';});
+  }
 
 }); // DOMContentLoaded
 </script>
-<style>@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }</style>
 {% endblock %}

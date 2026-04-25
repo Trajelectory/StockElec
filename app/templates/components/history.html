@@ -7,10 +7,10 @@
 <div class="cd-header" style="margin-bottom:1.25rem">
     <div class="cd-header-left">
         {% if component %}
-        <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">← {{ t.detail.back_stock }}</a>
-        <h1 class="cd-title">📋 {{ t.history.title }} — {{ component.description }}</h1>
+        <a href="{{ url_for('components.detail', component_id=component.id) }}" class="btn-back">{{ t.detail.back_stock }}</a>
+        <h1 class="cd-title">{{ t.history.title }} — {{ component.description }}</h1>
         {% else %}
-        <h1 class="cd-title">📋 {{ t.history.title }}</h1>
+        <h1 class="cd-title">{{ t.history.title }}</h1>
         {% endif %}
     </div>
 </div>
@@ -73,11 +73,11 @@
                     <strong>{{ movements|length }}</strong>
                 </div>
                 <div style="display:flex;justify-content:space-between">
-                    <span style="color:var(--success)">↑ Entrées</span>
+                    <span style="color:var(--success)">{{ t.history.legend_in }}</span>
                     <strong style="color:var(--success)">{{ ins|length }}</strong>
                 </div>
                 <div style="display:flex;justify-content:space-between">
-                    <span style="color:var(--danger)">↓ Sorties</span>
+                    <span style="color:var(--danger)">{{ t.history.legend_out }}</span>
                     <strong style="color:var(--danger)">{{ outs|length }}</strong>
                 </div>
             </div>

@@ -1,324 +1,881 @@
 {% extends "base.html" %}
 {% block title %}{{ t.stock.title }} — StockElec{% endblock %}
 
+{% block head %}
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   STOCK PAGE — redesign complet
+   Conserve toutes les classes JS existantes (qty-btn, row-check,
+   adjustQty, enrichComponent, lightbox...) — seulement le style change
+══════════════════════════════════════════════════════════════════ */
+
+/* ── Layout racine ─────────────────────────────────────────────── */
+.sk-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1.25rem;
+  align-items: start;
+  padding: 1.25rem 1.5rem 4rem;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+@media (max-width: 900px) {
+  .sk-layout { grid-template-columns: 1fr; padding: .75rem .75rem 4rem; }
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────── */
+.sk-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+/* Stats sidebar */
+.sk-stats {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.sk-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .55rem .85rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.sk-stat:last-child { border-bottom: none; }
+.sk-stat-val {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.sk-stat-lbl { font-size: .72rem; color: var(--text-muted); }
+
+/* Titres de section */
+.sk-section-title {
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-muted);
+  padding: .5rem .75rem .35rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-surface) 70%, transparent);
+}
+
+/* Filtres rapides */
+.sk-quick-filters {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.sk-qf-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: .4rem .75rem;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .78rem;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .1s, color .1s;
+  gap: .5rem;
+}
+.sk-qf-btn:last-child { border-bottom: none; }
+.sk-qf-btn:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--text); }
+.sk-qf-active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+.sk-qf-warn { color: var(--warning) !important; }
+.sk-qf-warn.sk-qf-active { background: color-mix(in srgb, var(--warning) 10%, transparent) !important; }
+.sk-qf-count {
+  font-size: .65rem;
+  font-family: var(--mono);
+  font-weight: 700;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: .05rem .4rem;
+  flex-shrink: 0;
+}
+
+/* Catégories */
+.sk-cat-nav {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.sk-cat-group-label {
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-muted);
+  padding: .45rem .75rem .15rem;
+  opacity: .6;
+}
+.sk-cat-btn {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  padding: .32rem .75rem .32rem 1rem;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .76rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+  white-space: normal;
+  word-break: break-word;
+}
+.sk-cat-btn:last-child { border-bottom: none; }
+.sk-cat-btn:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--text); }
+.sk-cat-active {
+  background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+/* Filtre catégories search */
+#cat-search {
+  width: 100%;
+  padding: .32rem .5rem .32rem 1.6rem;
+  font-size: .75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s;
+}
+#cat-search:focus { border-color: var(--accent); }
+
+/* ── Colonne principale ─────────────────────────────────────────── */
+.sk-main { min-width: 0; }
+
+/* Barre de recherche principale */
+.sk-searchbar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.sk-search-wrap {
+  flex: 1;
+  min-width: 180px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.sk-search-icon {
+  position: absolute;
+  left: .7rem;
+  font-size: .85rem;
+  pointer-events: none;
+  opacity: .45;
+}
+.sk-search-input {
+  width: 100%;
+  padding: .52rem .75rem .52rem 2.1rem;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .88rem;
+  font-family: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.sk-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.sk-search-clear {
+  position: absolute;
+  right: .65rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: .88rem;
+  opacity: .5;
+  line-height: 1;
+  transition: opacity .15s;
+}
+.sk-search-clear:hover { opacity: 1; }
+.sk-sort-select, .sk-order-select {
+  padding: .5rem .6rem;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: .82rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.sk-sort-select:focus, .sk-order-select:focus {
+  outline: none; border-color: var(--accent);
+}
+.sk-search-btn, .sk-export-btn { white-space: nowrap; flex-shrink: 0; }
+
+/* Toolbar résultats */
+.sk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .6rem;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.sk-result-count {
+  font-size: .78rem;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+.sk-active-cat { color: var(--accent); font-weight: 600; }
+.sk-perpage { display: flex; align-items: center; gap: .25rem; }
+.sk-perpage-btn {
+  padding: .2rem .55rem;
+  border-radius: 5px;
+  font-size: .72rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all .1s;
+}
+.sk-perpage-btn:hover { background: var(--bg-hover); color: var(--text); }
+.sk-perpage-btn.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  font-weight: 700;
+}
+
+/* ── TABLE ─────────────────────────────────────────────────────── */
+.table-wrapper {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+.sk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .82rem;
+}
+.sk-table thead tr {
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  border-bottom: 1.5px solid var(--border);
+}
+.sk-table th {
+  padding: .6rem .75rem;
+  font-size: .67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: left;
+}
+.sk-table td {
+  padding: .5rem .75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  vertical-align: middle;
+}
+.sk-table tbody tr:last-child td { border-bottom: none; }
+.sk-table tbody tr {
+  transition: background .1s;
+}
+.sk-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.sk-table tbody tr.row-empty {
+  background: color-mix(in srgb, var(--danger) 4%, transparent);
+}
+.sk-table tbody tr.row-low {
+  background: color-mix(in srgb, var(--warning) 4%, transparent);
+}
+
+/* Colonnes */
+.th-check, .td-check { width: 30px; padding-left: .85rem; }
+.th-img,   .td-thumb  { width: 44px; padding: .35rem .5rem; }
+.th-center { text-align: center; }
+.th-right  { text-align: right; }
+.td-center { text-align: center; }
+
+/* Thumbnail */
+.thumb {
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  cursor: zoom-in;
+  border: 1px solid var(--border);
+  transition: transform .15s, box-shadow .15s;
+  display: block;
+}
+.thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+.thumb-placeholder {
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-fetch-img {
+  background: none; border: none; cursor: pointer;
+  font-size: .9rem; opacity: .5; transition: opacity .15s;
+  padding: 0;
+}
+.btn-fetch-img:hover { opacity: 1; }
+.thumb-na { color: var(--text-muted); font-size: .7rem; }
+
+/* Description */
+.td-description { max-width: 0; width: 30%; }
+.td-desc-line {
+  display: flex; align-items: center; gap: .35rem;
+  overflow: hidden;
+}
+.td-desc-link {
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color .15s;
+  flex: 1;
+  min-width: 0;
+}
+.td-desc-link:hover { color: var(--accent); }
+.sk-td-cat {
+  font-size: .67rem;
+  color: var(--text-muted);
+  margin-top: .1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tri */
+.sk-sort-link {
+  color: inherit; text-decoration: none;
+  display: inline-flex; align-items: center; gap: .25rem;
+  transition: color .15s;
+}
+.sk-sort-link:hover { color: var(--accent); }
+.sk-sort-icon { opacity: .6; font-size: .85em; }
+
+/* Source badges (LCSC, Mouser...) */
+.src-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .15rem .45rem;
+  border-radius: 5px;
+  font-size: .7rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: border-color .15s;
+}
+.src-badge:hover { border-color: var(--accent); color: var(--text); }
+.src-badge-lcsc    { color: #0066cc; border-color: #0066cc30; background: #0066cc08; }
+.src-badge-mouser  { color: #e03000; border-color: #e0300030; background: #e0300008; }
+.src-badge-digikey { color: #cc0000; border-color: #cc000030; background: #cc000008; }
+.src-icon { width: 12px; height: 12px; border-radius: 2px; object-fit: contain; }
+
+/* Package badge */
+.badge-gray {
+  display: inline-flex; align-items: center;
+  padding: .12rem .45rem;
+  border-radius: 4px;
+  font-size: .7rem; font-weight: 600;
+  font-family: var(--mono);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* Badges RoHS / DS */
+.badge-xs {
+  display: inline-flex; align-items: center;
+  padding: .1rem .35rem;
+  border-radius: 3px;
+  font-size: .62rem; font-weight: 700;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.badge-green { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
+.badge-blue  { background: color-mix(in srgb, #38bdf8 12%, transparent); color: #38bdf8; }
+
+/* Quantité */
+.td-qty-wrap { vertical-align: middle !important; }
+.sk-qty {
+  display: flex; align-items: center; gap: .3rem; justify-content: center;
+}
+.qty-btn {
+  width: 24px; height: 24px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: .9rem; font-weight: 700;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .12s; padding: 0;
+}
+.qty-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.qty-value {
+  font-family: var(--mono);
+  font-size: .9rem; font-weight: 700;
+  min-width: 2rem; text-align: center;
+}
+.qty-zero { color: var(--danger); }
+.qty-low  { color: var(--warning); }
+.min-stock-pip {
+  font-size: .6rem; color: var(--text-muted);
+  opacity: .6; white-space: nowrap;
+}
+
+/* Prix */
+.td-price {
+  font-family: var(--mono);
+  font-size: .78rem;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+/* Emplacement */
+.td-secondary { color: var(--text-muted); }
+.td-mono { font-family: var(--mono); }
+
+/* Actions */
+.td-actions { white-space: nowrap; text-align: right; }
+.btn-icon {
+  background: none; border: none; cursor: pointer;
+  font-size: .9rem; opacity: .5;
+  padding: .2rem .25rem; border-radius: 4px;
+  transition: opacity .15s, background .15s;
+  text-decoration: none; display: inline-flex;
+  align-items: center; vertical-align: middle;
+}
+.btn-icon:hover { opacity: 1; background: var(--bg-surface); }
+
+/* ── Pagination ─────────────────────────────────────────────────── */
+.sk-pagination { margin-top: .85rem; }
+.pagination { display: flex; align-items: center; gap: .3rem; }
+.page-btn {
+  padding: .28rem .6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: .8rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  text-decoration: none;
+  transition: all .12s;
+}
+.page-btn:hover { border-color: var(--accent); color: var(--accent); }
+.page-btn.active {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+  font-weight: 700;
+}
+.page-btn.disabled { opacity: .3; pointer-events: none; }
+.page-ellipsis { color: var(--text-muted); font-size: .85rem; padding: 0 .2rem; }
+
+/* ── Empty state ───────────────────────────────────────────────── */
+.sk-empty {
+  padding: 5rem 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+.empty-icon { font-size: 3rem; opacity: .3; margin-bottom: 1rem; }
+
+/* ── Barre sélection flottante ─────────────────────────────────── */
+.selection-bar {
+  position: fixed; bottom: 1.75rem; left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 20%, transparent), var(--shadow);
+  border-radius: 99px;
+  padding: .55rem 1rem .55rem .85rem;
+  display: none; align-items: center; gap: .6rem;
+  z-index: 500; white-space: nowrap;
+  animation: sk-popup .2s cubic-bezier(.22,1,.36,1);
+}
+@keyframes sk-popup {
+  from { opacity:0; transform:translateX(-50%) translateY(8px) scale(.97); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+}
+.selection-bar.visible { display: flex; }
+.selection-count {
+  font-size: .82rem; font-weight: 700; color: var(--accent);
+  font-family: var(--mono);
+}
+
+/* ── Lightbox ──────────────────────────────────────────────────── */
+.lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: none; align-items: center; justify-content: center;
+}
+.lightbox.open { display: flex; }
+.lightbox-inner {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem;
+  max-width: 90vw; max-height: 90vh;
+  display: flex; flex-direction: column; align-items: center; gap: .5rem;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5);
+}
+.lightbox-close {
+  position: absolute; top: .5rem; right: .5rem;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 50%; width: 28px; height: 28px;
+  font-size: .85rem; cursor: pointer; color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.lightbox-close:hover { color: var(--text); border-color: var(--accent); }
+#lightbox-img {
+  max-width: 80vw; max-height: 75vh;
+  border-radius: 6px; object-fit: contain;
+}
+#lightbox-caption { font-size: .8rem; color: var(--text-muted); }
+
+/* ── Masquage colonnes responsive ──────────────────────────────── */
+@media (max-width: 1100px) { .col-hide-md { display: none; } }
+@media (max-width: 700px)  { .col-hide-sm { display: none; } }
+</style>
+{% endblock %}
+
 {% block content %}
 {%- macro sort_url(col) -%}
 {%- set new_order = 'asc' if (sort_by == col and order == 'desc') else ('desc' if sort_by == col else 'asc') -%}
 {{ url_for('components.stock', search=search, category=selected_category, sort_by=col, order=new_order, per_page=per_page, page=1, low_stock='1' if low_only else '') }}
 {%- endmacro -%}
-
 {%- macro sort_icon(col) -%}
 {% if sort_by == col %}<span class="sk-sort-icon">{{ '↑' if order == 'asc' else '↓' }}</span>{% endif %}
 {%- endmacro -%}
 
-<!-- ══ LAYOUT PRINCIPAL ══════════════════════════════════════════ -->
 <div class="sk-layout">
 
-    <!-- ── Sidebar gauche ────────────────────────────────────────── -->
-    <aside class="sk-sidebar">
+  {# ── Sidebar ─────────────────────────────────────────────────── #}
+  <aside class="sk-sidebar">
 
-        <!-- Stats -->
-        <div class="sk-stats">
-            <div class="sk-stat">
-                <span class="sk-stat-val">{{ stats.total_references }}</span>
-                <span class="sk-stat-lbl">{{ t.stock.stats_refs }}</span>
-            </div>
-            <div class="sk-stat">
-                <span class="sk-stat-val">{{ stats.total_quantity }}</span>
-                <span class="sk-stat-lbl">{{ t.stock.stats_parts }}</span>
-            </div>
-            <div class="sk-stat">
-                <span class="sk-stat-val">{{ "%.0f"|format(stats.total_value) }} €</span>
-                <span class="sk-stat-lbl">{{ t.stock.stats_value }}</span>
-            </div>
-        </div>
+    <div class="sk-stats">
+      <div class="sk-stat">
+        <span class="sk-stat-lbl">{{ t.stock.stats_refs }}</span>
+        <span class="sk-stat-val">{{ stats.total_references }}</span>
+      </div>
+      <div class="sk-stat">
+        <span class="sk-stat-lbl">{{ t.stock.stats_parts }}</span>
+        <span class="sk-stat-val">{{ stats.total_quantity }}</span>
+      </div>
+      <div class="sk-stat">
+        <span class="sk-stat-lbl">{{ t.stock.stats_value }}</span>
+        <span class="sk-stat-val">{{ "%.0f"|format(stats.total_value) }} €</span>
+      </div>
+    </div>
 
-        <!-- Filtres rapides -->
-        <div class="sk-quick-filters">
-            <div class="sk-section-title">{{ t.stock.filter }}</div>
-            <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
-               class="sk-qf-btn {% if not low_only and not selected_category %}sk-qf-active{% endif %}">
-                {{ t.stock.all_categories }}
-                <span class="sk-qf-count">{{ stats.total_references }}</span>
-            </a>
-            {% if low_count > 0 %}
-            <a href="{{ url_for('components.stock', low_stock='1', sort_by=sort_by, order=order, per_page=per_page) }}"
-               class="sk-qf-btn sk-qf-warn {% if low_only %}sk-qf-active{% endif %}">
-                🔔 {{ t.stock.alert_banner if low_count == 1 else t.stock.alert_banner_plural }}
-                <span class="sk-qf-count">{{ low_count }}</span>
-            </a>
-            {% endif %}
-        </div>
+    <div class="sk-quick-filters">
+      <div class="sk-section-title">{{ t.stock.filter }}</div>
+      <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
+         class="sk-qf-btn {% if not low_only and not selected_category %}sk-qf-active{% endif %}">
+        {{ t.stock.all_categories }}
+        <span class="sk-qf-count">{{ stats.total_references }}</span>
+      </a>
+      {% if low_count > 0 %}
+      <a href="{{ url_for('components.stock', low_stock='1', sort_by=sort_by, order=order, per_page=per_page) }}"
+         class="sk-qf-btn sk-qf-warn {% if low_only %}sk-qf-active{% endif %}">
+        🔔 {{ t.stock.alert_banner if low_count == 1 else t.stock.alert_banner_plural }}
+        <span class="sk-qf-count">{{ low_count }}</span>
+      </a>
+      {% endif %}
+    </div>
 
-        <!-- Catégories -->
-        <!-- Filtre par tiroir / emplacement -->
-        {% if drawer_letters %}
-        <div style="margin-bottom:.75rem">
-            <div class="sk-section-title">Tiroir</div>
-            <div style="display:flex;flex-wrap:wrap;gap:.25rem">
-                <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
-                   class="sk-qf-btn {% if not location_filter %}sk-qf-active{% endif %}"
-                   style="font-family:var(--mono);font-size:.72rem;padding:.2rem .45rem">Tout</a>
-                {% for letter in drawer_letters %}
-                <a href="{{ url_for('components.stock', location=letter, sort_by=sort_by, order=order, per_page=per_page) }}"
-                   class="sk-qf-btn {% if location_filter == letter %}sk-qf-active{% endif %}"
-                   style="font-family:var(--mono);font-size:.72rem;padding:.2rem .45rem">{{ letter }}</a>
-                {% endfor %}
-            </div>
-        </div>
+    {% if drawer_letters %}
+    <div class="sk-quick-filters">
+      <div class="sk-section-title">Tiroir</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.25rem;padding:.5rem .6rem">
+        <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
+           class="sk-qf-btn {% if not location_filter %}sk-qf-active{% endif %}"
+           style="flex:0;padding:.2rem .5rem;font-family:var(--mono);font-size:.72rem;border-radius:5px;border:1px solid var(--border)">{{ t.stock.filter_all }}</a>
+        {% for letter in drawer_letters %}
+        <a href="{{ url_for('components.stock', location=letter, sort_by=sort_by, order=order, per_page=per_page) }}"
+           class="sk-qf-btn {% if location_filter == letter %}sk-qf-active{% endif %}"
+           style="flex:0;padding:.2rem .5rem;font-family:var(--mono);font-size:.72rem;border-radius:5px;border:1px solid var(--border)">{{ letter }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if category_groups %}
+    <div class="sk-cat-nav">
+      <div class="sk-section-title">{{ t.stock.sort_category }}</div>
+      <div style="padding:.4rem .6rem .35rem;position:relative">
+        <input type="text" id="cat-search" placeholder="{{ t.stock.ph_cat }}"
+               oninput="filterCats(this.value)"/>
+        <span style="position:absolute;left:1rem;top:50%;transform:translateY(-50%);font-size:.65rem;color:var(--text-muted);pointer-events:none">🔍</span>
+      </div>
+      {% for group in category_groups %}
+      <div class="sk-cat-group">
+        {% if group.group %}
+        <div class="sk-cat-group-label">{{ group.group }}</div>
         {% endif %}
+        {% for cat in group.options %}
+        <a href="{{ url_for('components.stock', category=cat.value, sort_by=sort_by, order=order, per_page=per_page, page=1) }}"
+           class="sk-cat-btn {% if selected_category == cat.value %}sk-cat-active{% endif %}"
+           title="{{ cat.label }}">{{ cat.label }}</a>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
 
-        {% if category_groups %}
-        <div class="sk-cat-nav">
-            <div class="sk-section-title">{{ t.stock.sort_category }}</div>
-            <!-- Filtre rapide catégories -->
-            <div style="position:relative;margin-bottom:.5rem">
-                <input type="text" id="cat-search"
-                       placeholder="Filtrer…"
-                       oninput="filterCats(this.value)"
-                       style="width:100%;padding:.3rem .5rem .3rem 1.6rem;font-size:.75rem;
-                              background:var(--bg-surface);border:1px solid var(--border);
-                              border-radius:var(--radius-sm);color:var(--text);outline:none"/>
-                <span style="position:absolute;left:.45rem;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--text-muted);pointer-events:none">🔍</span>
-            </div>
-            {% for group in category_groups %}
-            <div class="sk-cat-group">
-                {% if group.group %}
-                <div class="sk-cat-group-label">{{ group.group }}</div>
-                {% endif %}
-                {% for cat in group.options %}
-                <a href="{{ url_for('components.stock', category=cat.value, sort_by=sort_by, order=order, per_page=per_page, page=1) }}"
-                   class="sk-cat-btn {% if selected_category == cat.value %}sk-cat-active{% endif %}"
-                   title="{{ cat.label }}">
-                    {{ cat.label }}
-                </a>
-                {% endfor %}
-            </div>
-            {% endfor %}
-        </div>
+  </aside>
+
+  {# ── Main ────────────────────────────────────────────────────── #}
+  <div class="sk-main">
+
+    <form method="get" id="filter-form" class="sk-searchbar">
+      <input type="hidden" name="page" value="1"/>
+      {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}"/>{% endif %}
+      {% if low_only %}<input type="hidden" name="low_stock" value="1"/>{% endif %}
+
+      <div class="sk-search-wrap">
+        <span class="sk-search-icon">🔍</span>
+        <input type="text" name="search" class="sk-search-input"
+               placeholder="{{ t.stock.search_placeholder }}" value="{{ search }}" autofocus/>
+        {% if search %}
+        <a href="{{ url_for('components.stock', category=selected_category, sort_by=sort_by, order=order, per_page=per_page, low_stock='1' if low_only else '') }}"
+           class="sk-search-clear" title="{{ t.stock.reset }}">✕</a>
         {% endif %}
+      </div>
 
-    </aside>
+      <select name="sort_by" class="sk-sort-select">
+        <option value="description" {% if sort_by=='description' %}selected{% endif %}>{{ t.stock.sort_description }}</option>
+        <option value="category"    {% if sort_by=='category'    %}selected{% endif %}>{{ t.stock.sort_category }}</option>
+        <option value="manufacturer"{% if sort_by=='manufacturer'%}selected{% endif %}>{{ t.stock.sort_manufacturer }}</option>
+        <option value="quantity"    {% if sort_by=='quantity'    %}selected{% endif %}>{{ t.stock.sort_quantity }}</option>
+        <option value="unit_price"  {% if sort_by=='unit_price'  %}selected{% endif %}>{{ t.stock.sort_price }}</option>
+        <option value="created_at"  {% if sort_by=='created_at'  %}selected{% endif %}>{{ t.stock.sort_date }}</option>
+      </select>
 
-    <!-- ── Colonne principale ─────────────────────────────────────── -->
-    <div class="sk-main">
+      <select name="order" class="sk-order-select">
+        <option value="asc"  {% if order=='asc'  %}selected{% endif %}>{{ t.stock.order_asc }}</option>
+        <option value="desc" {% if order=='desc' %}selected{% endif %}>{{ t.stock.order_desc }}</option>
+      </select>
 
-        <!-- Barre de recherche + tri -->
-        <form method="get" id="filter-form" class="sk-searchbar">
-            <input type="hidden" name="page" value="1"/>
-            {% if selected_category %}
-            <input type="hidden" name="category" value="{{ selected_category }}"/>
-            {% endif %}
-            {% if low_only %}
-            <input type="hidden" name="low_stock" value="1"/>
-            {% endif %}
-            <div class="sk-search-wrap">
-                <span class="sk-search-icon">🔍</span>
-                <input type="text" name="search" class="sk-search-input"
-                       placeholder="{{ t.stock.search_placeholder }}" value="{{ search }}"
-                       autofocus/>
-                {% if search %}
-                <a href="{{ url_for('components.stock', category=selected_category, sort_by=sort_by, order=order, per_page=per_page, low_stock='1' if low_only else '') }}"
-                   class="sk-search-clear" title="{{ t.stock.reset }}">✕</a>
-                {% endif %}
-            </div>
-            <select name="sort_by" class="input-select sk-sort-select">
-                <option value="description" {% if sort_by=='description' %}selected{% endif %}>{{ t.stock.sort_description }}</option>
-                <option value="category"    {% if sort_by=='category'    %}selected{% endif %}>{{ t.stock.sort_category }}</option>
-                <option value="manufacturer"{% if sort_by=='manufacturer'%}selected{% endif %}>{{ t.stock.sort_manufacturer }}</option>
-                <option value="quantity"    {% if sort_by=='quantity'    %}selected{% endif %}>{{ t.stock.sort_quantity }}</option>
-                <option value="unit_price"  {% if sort_by=='unit_price'  %}selected{% endif %}>{{ t.stock.sort_price }}</option>
-                <option value="created_at"  {% if sort_by=='created_at'  %}selected{% endif %}>{{ t.stock.sort_date }}</option>
-            </select>
-            <select name="order" class="input-select sk-order-select">
-                <option value="asc"  {% if order=='asc'  %}selected{% endif %}>{{ t.stock.order_asc }}</option>
-                <option value="desc" {% if order=='desc' %}selected{% endif %}>{{ t.stock.order_desc }}</option>
-            </select>
-            <button type="submit" class="btn btn-primary sk-search-btn">{{ t.stock.filter }}</button>
-            <a href="{{ url_for('components.export_csv') }}" class="btn btn-secondary sk-export-btn"
-               title="{{ t.stock.export_csv_title }}">{{ t.stock.export_csv }}</a>
-        </form>
+      <button type="submit" class="btn btn-primary sk-search-btn">{{ t.stock.filter }}</button>
+      <a href="{{ url_for('components.export_csv') }}" class="btn btn-secondary sk-export-btn"
+         title="{{ t.stock.export_csv_title }}">{{ t.stock.export_csv }}</a>
+    </form>
 
-        {% if components %}
+    {% if components %}
 
-        <!-- Toolbar résultat + per-page -->
-        <div class="sk-toolbar">
-            <span class="sk-result-count">
-                {{ total }} {{ t.stock.stats_refs }}
-                {% if search %} — <em>{{ search }}</em>{% endif %}
-                {% if selected_category %} — <span class="sk-active-cat">{{ selected_category.split(' / ')|last }}</span>{% endif %}
-                — {{ t.stock.show }} {{ page }}/{{ total_pages }}
-            </span>
-            <div class="sk-perpage">
-                {% for n in [5, 25, 50, 100] %}
-                <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, page=1, per_page=n, low_stock='1' if low_only else '') }}"
-                   class="sk-perpage-btn {% if per_page == n %}active{% endif %}">{{ n }}</a>
-                {% endfor %}
-            </div>
-        </div>
+    <div class="sk-toolbar">
+      <span class="sk-result-count">
+        {{ total }} {{ t.stock.stats_refs }}
+        {% if search %} — <em>{{ search }}</em>{% endif %}
+        {% if selected_category %} — <span class="sk-active-cat">{{ selected_category.split(' / ')|last }}</span>{% endif %}
+        — {{ t.stock.show }} {{ page }}/{{ total_pages }}
+      </span>
+      <div class="sk-perpage">
+        {% for n in [5, 25, 50, 100] %}
+        <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, page=1, per_page=n, low_stock='1' if low_only else '') }}"
+           class="sk-perpage-btn {% if per_page == n %}active{% endif %}">{{ n }}</a>
+        {% endfor %}
+      </div>
+    </div>
 
-        <!-- Tableau -->
-        <div class="table-wrapper">
-        <table class="data-table sk-table">
-            <thead>
-                <tr>
-                    <th class="th-check">
-                        <input type="checkbox" id="check-all" title="{{ t.stock.select_all }}"
-                               onchange="toggleAll(this.checked)"/>
-                    </th>
-                    <th class="th-img"></th>
-                    <th><a href="{{ sort_url('description') }}" class="sk-sort-link">{{ t.stock.sort_description }}{{ sort_icon('description') }}</a></th>
-                    <th>{{ t.stock.col_reference }}</th>
-                    <th class="th-center col-hide-sm"><a href="{{ sort_url('package') }}" class="sk-sort-link">{{ t.stock.sort_package }}{{ sort_icon('package') }}</a></th>
-                    <th class="th-center"><a href="{{ sort_url('quantity') }}" class="sk-sort-link">{{ t.stock.sort_quantity }}{{ sort_icon('quantity') }}</a></th>
-                    <th class="th-right col-hide-sm"><a href="{{ sort_url('unit_price') }}" class="sk-sort-link">{{ t.stock.sort_price }}{{ sort_icon('unit_price') }}</a></th>
-                    <th class="col-hide-md"><a href="{{ sort_url('location') }}" class="sk-sort-link">{{ t.stock.sort_date }}{{ sort_icon('location') }}</a></th>
-                    <th class="th-center">{{ t.stock.col_actions }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for c in components %}
-                <tr class="{% if c.quantity == 0 %}row-empty{% elif c.is_low_stock %}row-low{% endif %}" id="row-{{ c.id }}">
-                    <td class="td-check">
-                        <input type="checkbox" class="row-check" value="{{ c.id }}" onchange="onCheckChange()"/>
-                    </td>
-                    <td class="td-thumb">
-                        {% if c.image_path %}
-                        <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
-                             alt="{{ c.description }}" class="thumb" loading="lazy"
-                             onclick="openLightbox(this.src, '{{ c.description|e }}')"/>
-                        {% else %}
-                        <div class="thumb-placeholder">
-                            {% if c.lcsc_part_number or c.mouser_part_number %}
-                            <button type="button" class="btn-fetch-img" title="{{ t.stock.btn_fetch }}"
-                                    onclick="enrichComponent({{ c.id }}, this)">📷</button>
-                            {% else %}
-                            <span class="thumb-na">—</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    </td>
-                    <td class="td-description">
-                        <div class="td-desc-line">
-                            <a href="{{ url_for('components.detail', component_id=c.id) }}" class="td-desc-link">{{ c.description or '—' }}</a>
-                            {% if c.rohs == 'YES' %}<span class="badge badge-green badge-xs">{{ t.stock.badge_rohs }}</span>{% endif %}
-                            {% if c.datasheet_url %}<a href="{{ c.datasheet_url }}" target="_blank" rel="noopener" class="badge badge-blue badge-xs">{{ t.stock.badge_ds }}</a>{% endif %}
-                        </div>
-                        {% if c.category %}<div class="sk-td-cat">{{ c.category.split(' / ')|last }}</div>{% endif %}
-                    </td>
-                    <td class="td-mono td-secondary" style="font-size:.78rem;white-space:nowrap">
-                        {% if c.lcsc_part_number %}
-                        <a href="https://www.lcsc.com/product-detail/{{ c.lcsc_part_number }}.html" target="_blank" rel="noopener" style="text-decoration:none">
-                            <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ c.lcsc_part_number }}</span>
-                        </a>
-                        {% elif c.mouser_part_number %}
-                        <a href="{{ 'https://www.mouser.fr/ProductDetail/' ~ c.mouser_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
-                            <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ c.mouser_part_number }}</span>
-                        </a>
-                        {% elif c.digikey_part_number %}
-                        <a href="{{ c.product_url if c.product_url and 'digikey' in (('' ~ (c.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ c.digikey_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
-                            <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ c.digikey_part_number }}</span>
-                        </a>
-                        {% elif c.source_url %}
-                        <a href="{{ c.source_url }}" target="_blank" rel="noopener" style="text-decoration:none">
-                            <span class="src-badge src-badge-other">
-                                <img class="src-icon src-favicon"
-                                     data-src-url="{{ c.source_url }}"
-                                     data-fallback="{{ url_for('static', filename='img/other.png') }}"
-                                     src="{{ url_for('static', filename='img/other.png') }}"
-                                     alt="Autre"/>
-                                {{ c.source_url|replace('https://','',1)|replace('http://','',1)|truncate(25, True, '…') }}
-                            </span>
-                        </a>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td class="col-hide-sm td-center"><span class="badge badge-gray">{{ c.package or '—' }}</span></td>
-                    <td class="td-qty-wrap">
-                        <div class="sk-qty">
-                            <button class="qty-btn" onclick="adjustQty({{ c.id }}, -1, this)" title="{{ t.stock.qty_remove }}">−</button>
-                            <span class="qty-value {% if c.quantity == 0 %}qty-zero{% elif c.is_low_stock %}qty-low{% endif %}"
-                                  id="qty-{{ c.id }}">{{ c.quantity }}</span>
-                            <button class="qty-btn" onclick="adjustQty({{ c.id }}, +1, this)" title="{{ t.stock.qty_add }}">+</button>
-                            {% if c.min_stock > 0 %}
-                            <span class="min-stock-pip" id="ms-{{ c.id }}" title="{{ c.min_stock }}">⚡{{ c.min_stock }}</span>
-                            {% endif %}
-                        </div>
-                    </td>
-                    <td class="td-price col-hide-sm" style="white-space:nowrap;text-align:right">
-                        {% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}
-                    </td>
-                    <td class="td-secondary col-hide-md" style="white-space:nowrap">{{ c.location or '—' }}</td>
-                    <td class="td-actions" style="white-space:nowrap;text-align:right">
-                        <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon" title="{{ t.stock.btn_edit }}">✏️</a>
-                        <form method="post" action="{{ url_for('components.delete', component_id=c.id) }}"
-                              style="display:inline"
-                              onsubmit="return confirm('{{ t.stock.confirm_delete }}'.replace('{name}', '{{ c.description or c.lcsc_part_number }}')+'')">
-                            <input type="hidden" name="confirm_delete" value="yes"/>
-                            <button type="submit" class="btn-icon" title="{{ t.stock.btn_delete }}">🗑️</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        </div>
-
-        <!-- Pagination -->
-        {% if total_pages > 1 %}
-        <nav class="pagination sk-pagination">
-            {% if page > 1 %}
-            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=1) }}" class="page-btn">«</a>
-            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page-1) }}" class="page-btn">‹</a>
+    <div class="table-wrapper">
+    <table class="sk-table">
+      <thead>
+        <tr>
+          <th class="th-check">
+            <input type="checkbox" id="check-all" title="{{ t.stock.select_all }}"
+                   onchange="toggleAll(this.checked)"/>
+          </th>
+          <th class="th-img"></th>
+          <th><a href="{{ sort_url('description') }}" class="sk-sort-link">{{ t.stock.sort_description }}{{ sort_icon('description') }}</a></th>
+          <th>{{ t.stock.col_reference }}</th>
+          <th class="th-center col-hide-sm"><a href="{{ sort_url('package') }}" class="sk-sort-link">{{ t.stock.sort_package }}{{ sort_icon('package') }}</a></th>
+          <th class="th-center"><a href="{{ sort_url('quantity') }}" class="sk-sort-link">{{ t.stock.sort_quantity }}{{ sort_icon('quantity') }}</a></th>
+          <th class="th-right col-hide-sm"><a href="{{ sort_url('unit_price') }}" class="sk-sort-link">{{ t.stock.sort_price }}{{ sort_icon('unit_price') }}</a></th>
+          <th class="col-hide-md"><a href="{{ sort_url('location') }}" class="sk-sort-link">{{ t.stock.sort_date }}{{ sort_icon('location') }}</a></th>
+          <th class="th-center">{{ t.stock.col_actions }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in components %}
+        <tr class="{% if c.quantity == 0 %}row-empty{% elif c.is_low_stock %}row-low{% endif %}" id="row-{{ c.id }}">
+          <td class="td-check">
+            <input type="checkbox" class="row-check" value="{{ c.id }}" onchange="onCheckChange()"/>
+          </td>
+          <td class="td-thumb">
+            {% if c.image_path %}
+            <img src="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) }}"
+                 alt="{{ c.description }}" class="thumb" loading="lazy"
+                 onclick="openLightbox(this.src, '{{ c.description|e }}')"/>
             {% else %}
-            <span class="page-btn disabled">«</span>
-            <span class="page-btn disabled">‹</span>
+            <div class="thumb-placeholder">
+              {% if c.lcsc_part_number or c.mouser_part_number %}
+              <button type="button" class="btn-fetch-img" title="{{ t.stock.btn_fetch }}"
+                      onclick="enrichComponent({{ c.id }}, this)">📷</button>
+              {% else %}
+              <span class="thumb-na">—</span>
+              {% endif %}
+            </div>
             {% endif %}
-            {% set win = 2 %}
-            {% for p in range(1, total_pages + 1) %}
-                {% if p == 1 or p == total_pages or (p >= page - win and p <= page + win) %}
-                    {% if loop.index > 1 and range(1, total_pages+1)|list|select("lt", p)|list|last < p - 1 %}
-                    <span class="page-ellipsis">…</span>
-                    {% endif %}
-                    <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=p) }}"
-                       class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
-                {% endif %}
-            {% endfor %}
-            {% if page < total_pages %}
-            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page+1) }}" class="page-btn">›</a>
-            <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=total_pages) }}" class="page-btn">»</a>
-            {% else %}
-            <span class="page-btn disabled">›</span>
-            <span class="page-btn disabled">»</span>
-            {% endif %}
-        </nav>
-        {% endif %}
+          </td>
+          <td class="td-description">
+            <div class="td-desc-line">
+              <a href="{{ url_for('components.detail', component_id=c.id) }}" class="td-desc-link">{{ c.description or '—' }}</a>
+              {% if c.rohs == 'YES' %}<span class="badge badge-green badge-xs">{{ t.stock.badge_rohs }}</span>{% endif %}
+              {% if c.datasheet_url %}<a href="{{ c.datasheet_url }}" target="_blank" rel="noopener" class="badge badge-blue badge-xs">{{ t.stock.badge_ds }}</a>{% endif %}
+            </div>
+            {% if c.category %}<div class="sk-td-cat">{{ c.category.split(' / ')|last }}</div>{% endif %}
+          </td>
+          <td class="td-mono td-secondary" style="font-size:.78rem;white-space:nowrap">
+            {% if c.lcsc_part_number %}
+            <a href="https://www.lcsc.com/product-detail/{{ c.lcsc_part_number }}.html" target="_blank" rel="noopener" style="text-decoration:none">
+              <span class="src-badge src-badge-lcsc"><img src="{{ url_for('static', filename='img/lcsc.png') }}" class="src-icon" alt="LCSC"/>{{ c.lcsc_part_number }}</span>
+            </a>
+            {% elif c.mouser_part_number %}
+            <a href="{{ 'https://www.mouser.fr/ProductDetail/' ~ c.mouser_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+              <span class="src-badge src-badge-mouser"><img src="{{ url_for('static', filename='img/mouser.png') }}" class="src-icon" alt="Mouser"/>{{ c.mouser_part_number }}</span>
+            </a>
+            {% elif c.digikey_part_number %}
+            <a href="{{ c.product_url if c.product_url and 'digikey' in (('' ~ (c.product_url or ''))|lower) else 'https://www.digikey.fr/fr/products/result?keywords=' ~ c.digikey_part_number }}" target="_blank" rel="noopener" style="text-decoration:none">
+              <span class="src-badge src-badge-digikey"><img src="{{ url_for('static', filename='img/digikey.png') }}" class="src-icon" alt="DigiKey"/>{{ c.digikey_part_number }}</span>
+            </a>
+            {% elif c.source_url %}
+            <a href="{{ c.source_url }}" target="_blank" rel="noopener" style="text-decoration:none">
+              <span class="src-badge src-badge-other">
+                <img class="src-icon src-favicon" data-src-url="{{ c.source_url }}"
+                     data-fallback="{{ url_for('static', filename='img/other.png') }}"
+                     src="{{ url_for('static', filename='img/other.png') }}" alt="Autre"/>
+                {{ c.source_url|replace('https://','',1)|replace('http://','',1)|truncate(25, True, '…') }}
+              </span>
+            </a>
+            {% else %}—{% endif %}
+          </td>
+          <td class="col-hide-sm td-center"><span class="badge-gray">{{ c.package or '—' }}</span></td>
+          <td class="td-qty-wrap">
+            <div class="sk-qty">
+              <button class="qty-btn" onclick="adjustQty({{ c.id }}, -1, this)" title="{{ t.stock.qty_remove }}">−</button>
+              <span class="qty-value {% if c.quantity == 0 %}qty-zero{% elif c.is_low_stock %}qty-low{% endif %}"
+                    id="qty-{{ c.id }}">{{ c.quantity }}</span>
+              <button class="qty-btn" onclick="adjustQty({{ c.id }}, +1, this)" title="{{ t.stock.qty_add }}">+</button>
+              {% if c.min_stock > 0 %}
+              <span class="min-stock-pip" id="ms-{{ c.id }}" title="{{ c.min_stock }}">⚡{{ c.min_stock }}</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="td-price col-hide-sm">
+            {% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}
+          </td>
+          <td class="td-secondary col-hide-md" style="white-space:nowrap;font-family:var(--mono);font-size:.78rem">{{ c.location or '—' }}</td>
+          <td class="td-actions">
+            <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon" title="{{ t.stock.btn_edit }}">✏️</a>
+            <form method="post" action="{{ url_for('components.delete', component_id=c.id) }}"
+                  style="display:inline"
+                  onsubmit="return confirm('{{ t.stock.confirm_delete }}'.replace('{name}', '{{ c.description or c.lcsc_part_number }}')+'')">
+              <input type="hidden" name="confirm_delete" value="yes"/>
+              <button type="submit" class="btn-icon" title="{{ t.stock.btn_delete }}">🗑️</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
 
-        {% else %}
-        <div class="empty-state sk-empty">
-            <p class="empty-icon">📭</p>
-            <p>{{ t.stock.empty }}</p>
-            <a href="{{ url_for('components.import_csv') }}" class="btn btn-primary">{{ t.stock.import_csv }}</a>
-            <a href="{{ url_for('components.add') }}" class="btn btn-secondary">{{ t.stock.add_manual }}</a>
-        </div>
+    {% if total_pages > 1 %}
+    <nav class="pagination sk-pagination">
+      {% if page > 1 %}
+      <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=1) }}" class="page-btn">«</a>
+      <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page-1) }}" class="page-btn">‹</a>
+      {% else %}
+      <span class="page-btn disabled">«</span>
+      <span class="page-btn disabled">‹</span>
+      {% endif %}
+      {% set win = 2 %}
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == 1 or p == total_pages or (p >= page - win and p <= page + win) %}
+          {% if loop.index > 1 and range(1, total_pages+1)|list|select("lt", p)|list|last < p - 1 %}
+          <span class="page-ellipsis">…</span>
+          {% endif %}
+          <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=p) }}"
+             class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
         {% endif %}
+      {% endfor %}
+      {% if page < total_pages %}
+      <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=page+1) }}" class="page-btn">›</a>
+      <a href="{{ url_for('components.stock', search=search, category=selected_category, sort_by=sort_by, order=order, per_page=per_page, page=total_pages) }}" class="page-btn">»</a>
+      {% else %}
+      <span class="page-btn disabled">›</span>
+      <span class="page-btn disabled">»</span>
+      {% endif %}
+    </nav>
+    {% endif %}
 
-    </div>{# /sk-main #}
+    {% else %}
+    <div class="sk-empty">
+      <div class="empty-icon">📭</div>
+      <p>{{ t.stock.empty }}</p>
+      <div style="display:flex;gap:.75rem;justify-content:center;margin-top:1rem">
+        <a href="{{ url_for('components.import_csv') }}" class="btn btn-primary">{{ t.stock.import_csv }}</a>
+        <a href="{{ url_for('components.add') }}" class="btn btn-secondary">{{ t.stock.add_manual }}</a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>{# /sk-main #}
 </div>{# /sk-layout #}
 
-<!-- Lightbox -->
+{# Lightbox #}
 <div id="lightbox" class="lightbox" onclick="closeLightbox()">
-    <div class="lightbox-inner" onclick="event.stopPropagation()">
-        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-        <img id="lightbox-img" src="" alt=""/>
-        <p id="lightbox-caption"></p>
-    </div>
+  <div class="lightbox-inner" onclick="event.stopPropagation()">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <img id="lightbox-img" src="" alt=""/>
+    <p id="lightbox-caption"></p>
+  </div>
 </div>
 
-<!-- Barre sélection flottante -->
-<div id="selection-bar" class="selection-bar" style="display:none">
-    <span id="selection-count" class="selection-count"></span>
-    <button class="btn btn-primary" onclick="printSelected()">{{ t.stock.print_labels }}</button>
-    <button class="btn btn-secondary" onclick="clearSelection()">{{ t.stock.deselect }}</button>
+{# Barre sélection flottante #}
+<div id="selection-bar" class="selection-bar">
+  <span id="selection-count" class="selection-count"></span>
+  <button class="btn btn-primary btn-sm" onclick="printSelected()">{{ t.stock.print_labels }}</button>
+  <button class="btn btn-secondary btn-sm" onclick="clearSelection()">{{ t.stock.deselect }}</button>
 </div>
 
 <script>
