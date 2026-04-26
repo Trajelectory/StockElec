@@ -578,22 +578,22 @@
         {% set total_bytes = (stats.total_size or '0 o') %}
         <div class="cfg-storage-bar">
           <div class="cfg-storage-row">
-            <span class="cfg-storage-icon">🗄️</span>
+            <span class="cfg-storage-icon"></span>
             <span class="cfg-storage-label">{{ t.settings.stats_db }}</span>
             <span class="cfg-storage-val">{{ backup_db_size }}</span>
           </div>
           <div class="cfg-storage-row">
-            <span class="cfg-storage-icon">🖼️</span>
+            <span class="cfg-storage-icon"></span>
             <span class="cfg-storage-label">{{ t.settings.stats_images }}</span>
             <span class="cfg-storage-val">{{ backup_img_size }}</span>
           </div>
           <div class="cfg-storage-row">
-            <span class="cfg-storage-icon">📁</span>
+            <span class="cfg-storage-icon"></span>
             <span class="cfg-storage-label">{{ t.settings.stats_proj_images }}</span>
             <span class="cfg-storage-val">{{ backup_proj_size }}</span>
           </div>
           <div class="cfg-storage-row" style="border-top:1px solid var(--border);padding-top:.5rem;margin-top:.25rem">
-            <span class="cfg-storage-icon">📦</span>
+            <span class="cfg-storage-icon"></span>
             <span class="cfg-storage-label" style="font-weight:600;color:var(--text)">Total</span>
             <span class="cfg-storage-val" style="color:var(--accent);font-weight:700">{{ backup_total_size }}</span>
           </div>

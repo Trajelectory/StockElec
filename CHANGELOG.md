@@ -2,6 +2,98 @@
 
 ---
 
+## v4.0 — Refonte UI complète & audit qualité final 🎨
+
+> Refonte totale de l'interface (home, settings, add, rangement), audit de code P1+P2+P3 complet, corrections de bugs, optimisations SQL et architecture.
+
+### 🎨 Refonte de l'interface
+
+**Page d'accueil — minimaliste**
+- Logo centré + titre + barre de recherche pleine largeur — plus de dashboard
+- Suppression des 5 requêtes SQL au chargement (stats, graphes, fabricants, alertes, mouvements)
+- Autocomplete amélioré : navigation clavier ↑↓, badge source coloré (LCSC bleu · Mouser orange · DigiKey rouge), section Projets
+- `home.css` : 950L → 212L · `home.html` : 568L → 171L
+
+**Page Settings — sidebar 8 sections**
+- Navigation sidebar fixe : Général, Intégrations, EasyEDA, ESP32 & LEDs, KiCad, Statistiques, Maintenance, Zone de danger
+- Hash URL (`/settings#esp32`) — onglet actif survit aux rechargements POST
+- Toggle debug toolbar instantané (sans recharger)
+- Test connexion ESP32 en live (`/api/led/ping`) + chenillard par plateau depuis l'interface
+- Color picker natif pour les 18 couleurs LED par catégorie + bouton reset global
+- Progression KiCad en temps réel avec log live
+- Toasts auto-dismiss (4s)
+- Stats en cards avec code couleur automatique (vert = ok · orange = à vérifier)
+- Badges de notification sur les onglets sidebar (nb. composants sans EasyEDA, à enrichir)
+- `settings.css` : 901L → 438L · `settings.html` : 1416L → 842L
+
+**Page Add — layout 2 colonnes**
+- Sidebar droite sticky : Stock & Prix avec stepper +/− et calcul total automatique
+- Références fournisseurs en grille colorée (dot LCSC bleu, Mouser orange, DigiKey rouge)
+- Zone upload image avec drag & drop natif + aperçu
+- Attributs personnalisés en grille propre avec bouton suppression discret
+- Titre et lien retour au stock en haut de page (hors sidebar)
+- `add.html` : 365L · CSS `nadd-*` dans `legacy.css`
+
+**Page Rangement — réécriture totale**
+- Zéro héritage de l'ancien code : `rangement.html`, `rangement.css`, `rangement.js` réécrits de zéro
+- Barre de recherche globale avec navigation ↑↓ (F3/Shift+F3), cellule courante en vert distinct
+- Points de notification orange sur les onglets si résultats sur d'autres plateaux
+- Barre de remplissage animée par plateau dans les onglets
+- Filtre catégorie dans le popup d'assignation (pills dynamiques)
+- Export PNG via iframe isolée — résout définitivement le bug `color-mix()` avec html2canvas
+- Chargement AJAX lazy des composants au premier clic popup (`_comp_loaded = false`)
+- Mode lecture / édition avec verrouillage visuel (pointer-events, bouton Save masqué)
+- Zoom slider 44→160px via `--cell` CSS variable
+- `rangement.js` : JS pur extrait du template (33Ko, zéro Jinja)
+- `rangement.html` : 303L · `rangement.css` : 626L · `rangement.js` : 568L
+
+### 🔧 Audit P1 — Corrections immédiates
+
+- Suppression des imports inutilisés (`requests`, `json`, `threading`) dans 5 controllers
+- **6 index SQLite** créés au démarrage : `idx_comp_category`, `idx_comp_location`, `idx_comp_manufacturer`, `idx_comp_lcsc`, `idx_movements_comp`, `idx_movements_created`
+- Whitelists SQL explicites : `_ALLOWED_ENRICH_COLS` dans `component.py`, `_ALLOWED_COMP_UPDATE_COLS` dans `project_controller.py`
+- Silencing des loggers tiers verbeux : `PIL`, `PIL.PngImagePlugin`, `urllib3`, `werkzeug` → niveau WARNING dans `__init__.py`
+
+### 🔧 Audit P2 — Migration JS/CSS et refactoring
+
+- `rangement.js` extrait depuis `rangement.html` (33Ko JS pur, variables Jinja restent dans le template)
+- `home.css` créé depuis `home.html` (styles migrés)
+- `detail_dc.css` créé depuis `detail.html` (20Ko — classes `dc-*`)
+- `stock.css` complété depuis `index.html`
+- `bom_analyser.py` extrait de `project_controller.py` (997L → 779L)
+- `_settings_get_context(db)` extrait de `settings()` (322L → 230L)
+- Route `/rangement` optimisée : `SELECT *` → `SELECT assignés seulement`
+- Route API `/api/components/for-rangement` créée pour le popup AJAX
+
+### 🔧 Audit P3 — Découpage des fonctions longues
+
+- `render_toolbar()` : 315L → **238L** — 4 sous-fonctions créées : `_build_tpl_panel`, `_build_logs_panel`, `_build_req_panel`, `_build_config_panel`
+- `settings()` : 322L → **230L** — `_settings_get_context(db)` extrait
+- `generate_library()` : 205L → **185L** — `_setup_library_dirs()` extrait
+- `_C_ACCENT` défini au niveau module dans `debugtoolbar.py` (fix bug post-refactoring des sous-fonctions)
+
+### 🐛 Corrections de bugs
+
+- **App context dans les threads** : `_fetch_all_easyeda()` dans `routes_settings.py` et `_enrich()` dans `project_controller.py` n'avaient pas de `with app.app_context()` → erreur `Working outside of application context` lors de la génération EasyEDA depuis les Paramètres. Corrigé avec le pattern `_app = current_app._get_current_object()` + `with _app.app_context():`
+- **`url_for()` dans les CSS statiques** : lors de la migration P2, `url_for("static", filename="img/Logo.png")` avait été copié dans `home.css` — non interprété par Jinja2 dans un fichier statique → logo invisible. Corrigé en `<img src="{{ url_for(...) }}">` dans le template + script JS swap thème clair/sombre
+- **Classes `lcsc-*` perdues** : les styles du Quick Import LCSC étaient dans l'ancien `settings.css` supprimé lors de la refonte → page Add visuellement cassée. Restaurées dans `legacy.css`
+- **Radios natifs dans History** : `<input type="radio">` avec apparence navigateur par défaut → `display:none`, seuls les labels colorés restent visibles
+- **Double emoji dans les titres** : emoji présent à la fois dans la clé i18n (`t.settings.card_backup = '💾 Sauvegarde'`) et dans le template (`💾 {{ t.settings.card_backup }}`). Corrigé sur 6 titres
+- **Double loupe dans Stock** : un `<span>🔍</span>` inline en doublon retiré du champ de filtrage catégorie
+- **16 clés i18n manquantes** : `labels.toggle_image`, `labels.toggle_lcsc`, `labels.badge_package`… — Jinja2 retournait silencieusement une chaîne vide → labels invisibles dans Label Settings. Toutes ajoutées dans `fr.json` et `en.json`
+- **Endpoint `components.kicad_download`** : blueprint KiCad s'appelle `kicad`, pas `components` → `kicad.download`
+- **`/kicad/generate` body JSON** : la route attend `{"delay": 2.0}` en JSON, pas en query string `?delay=2`
+- **Toggle debug toolbar** : le track cliquait sur la checkbox via son event `change`, mais comme la checkbox était dans le form `save_general` et `dbg-form` séparé, le submit partait sur le mauvais form. Réécrit avec listener direct sur le track
+
+### 🌍 i18n
+
+- **799 clés** FR/EN synchronisées (était 765 en v3.1)
+- 16 nouvelles clés `labels.toggle_*` et `labels.badge_*`
+- Tagline raccourci : "Centre de contrôle — Atelier électronique" → "Atelier électronique"
+- Nouvelles clés settings : `label_esp32_test_plateau`, `label_esp32_test_delay`, `btn_esp32_test_seq`
+
+---
+
 ## v3.1 — Audit qualité, KiCad intelligent & robustesse 🔒
 
 > Audit de sécurité complet (3 rounds), génération KiCad unitaire, fusion intelligente des librairies, corrections de performances et de robustesse.
@@ -10,63 +102,44 @@
 
 **Transactions SQLite — couverture complète**
 - 22 commits protégés par `try/except + db.rollback()` dans tous les models et controllers
-- `rangement_save()`, `clear_history`, `reset_db` couverts (manquaient au premier audit)
-- `database.py` : migrations de boot intentionnellement sans rollback (erreur visible immédiatement au démarrage)
+- `rangement_save()`, `clear_history`, `reset_db` couverts
 
 **SQLite — performances et fiabilité**
-- Mode **WAL** activé (`PRAGMA journal_mode=WAL`) : lectures concurrentes sans bloquer les écritures sous Waitress multi-thread
-- `timeout=10` sur toutes les connexions : plus de crash immédiat si la base est verrouillée
-- `PRAGMA foreign_keys=ON` activé systématiquement
-- `PRAGMA synchronous=NORMAL` pour des performances optimales en WAL
-- **Fix bug critique** `_migrate_v2` : `existing_cols` était un snapshot stale — remplacé par `_col_exists()` qui relit `PRAGMA table_info` à chaque vérification (colonnes `symbol_png` / `footprint_png` correctement migrées)
+- Mode **WAL** (`PRAGMA journal_mode=WAL`), `timeout=10`, `PRAGMA foreign_keys=ON`, `PRAGMA synchronous=NORMAL`
+- Fix bug critique `_migrate_v2` : `_col_exists()` relit `PRAGMA table_info` à chaque vérification
 - **11 index** au total : ajout de `description`, `manufacturer`, `mouser_part_number`, `digikey_part_number`, `(min_stock, quantity)`
 
 **Performances**
-- `_get_led_config()` : 5 requêtes `SettingsModel.get()` → 1 seule via `get_all()`
+- `_get_led_config()` : 5 requêtes `SettingsModel.get()` → 1 via `get_all()`
 - `settings()` : 7 appels `get_db()` → 1 seul en tête de fonction
-- `context_processor` : cache TTL 5s avec `threading.Lock()` — plus de requête SQL à chaque page vue
-- Cache P4 thread-safe : `led_on._p4_cache` (non thread-safe) → dict module-level protégé par `threading.Lock()`
+- Context processor cache TTL 5s avec `threading.Lock()`
+- Cache P4 thread-safe : dict module-level protégé par `threading.Lock()`
 
 **Qualité du code**
-- Tous les imports lazy déplacés en haut de fichier (hors `easyeda.fetch_and_save` dans thread worker)
-- `except Exception` typés : `RequestException`, `(TypeError, KeyError)`, `sqlite3.OperationalError` selon le contexte
-- `import shutil` doublon supprimé dans `routes_settings.py`
-- `__import__('datetime')` remplacé par un import normal
-- Doublon `"sensor"` dans `LED_COLOR_DEFAULTS` supprimé
-- Gestionnaires d'erreur HTTP 404 et 500 enregistrés dans `__init__.py` (JSON pour les routes API, HTML pour les autres)
+- Imports lazy déplacés en haut de fichier
+- `except Exception` typés selon le contexte
+- `__import__('datetime')` remplacé par import normal
+- Gestionnaires d'erreur HTTP 404 et 500 (JSON pour API, HTML pour les autres)
 
 **Sécurité**
-- `require_esp32_token` : le navigateur est maintenant autorisé via `Referer` **ou** `X-Requested-With: XMLHttpRequest` — corrige le bug d'ajustement de stock depuis l'interface web
-- `detail.js` : les deux `fetch()` vers `/adjust` envoient `X-Requested-With: XMLHttpRequest`
-- `_save_project_image` : vérification des **magic bytes** (12 premiers octets) avant d'accepter un upload — ne se fie plus au `Content-Type` déclaré par le navigateur
-- `digikey_scraper` : log d'erreur token masqué — `err_msg` au lieu de `data` brut (évite l'exposition de `client_secret`)
-- Suppression des images fichier lors de la suppression d'un composant (`ComponentModel.delete()`)
-- `requirements.txt` : versions fixées avec `==` pour garantir la reproductibilité des installations
+- `require_esp32_token` : navigateur autorisé via `Referer` ou `X-Requested-With: XMLHttpRequest`
+- Vérification des **magic bytes** (12 premiers octets) avant d'accepter un upload image
+- Log token DigiKey masqué (`err_msg` au lieu de `data` brut)
+- Suppression des images fichier lors de la suppression d'un composant
+- `requirements.txt` : versions fixées avec `==`
 
 ### ⚡ KiCad — génération unitaire & fusion intelligente
 
-**Bouton "⚙ Générer KiCad" sur la fiche composant**
-- Route `POST /kicad/generate-one` : génère 1 seul composant par sa référence LCSC
-- Délai minimal (0.5s au lieu de 2s — pas besoin d'attendre pour 1 seul composant)
+- Route `POST /kicad/generate-one` : génère 1 seul composant par sa référence LCSC (délai 0.5s au lieu de 2s)
 - Bouton visible uniquement si au moins un fichier manque (sym/fp/3D)
-- Rechargement automatique de la fiche après ~12s pour afficher les badges mis à jour
-- Fini de relancer le job sur tout le stock pour un nouveau composant !
+- Rechargement automatique de la fiche après ~12s
+- Fusion intelligente avec `skip_existing=True` : lit les noms présents dans `.kicad_sym`, n'ajoute que les nouveaux
+- `merge_footprints` : ne copie pas les `.kicad_mod` déjà présents
+- Feedback : `+N symbole(s) ajouté(s)` / `N lib(s) protégée(s)` / `déjà à jour`
 
-**Fusion intelligente — `skip_existing` avec merge**
-- Checkbox **"Ne pas écraser les libs existantes"** dans les settings KiCad, **cochée par défaut**
-- `merge_symbols` avec `skip_existing=True` : lit les noms déjà présents dans le `.kicad_sym`, n'ajoute que les symboles **nouveaux** en fin de fichier — préserve les modifications manuelles
-- `merge_footprints` avec `skip_existing=True` : ne copie pas les `.kicad_mod` déjà présents dans le `.pretty/`
-- Feedback dans l'interface : `+N symbole(s) ajouté(s)` / `N lib(s) protégée(s)` / `déjà à jour`
-- `get_library_stats()` corrigé : ne compte plus les fichiers fusionnés (`.pretty/`, `packages3d/`) — compteurs sym/fp/3D maintenant cohérents
+### 🌍 i18n — 14 nouvelles clés KiCad
 
-### 🌍 Internationalisation
-
-- 14 nouvelles clés dans `fr.json` et `en.json` : `kicad_gen_btn`, `kicad_gen_running`, `kicad_gen_launched`, `kicad_gen_in_progress`, `kicad_skip_existing`, `kicad_skip_existing_hint`, `kicad_merge_protected`, `kicad_merge_added`, `kicad_merge_uptodate`, `kicad_merge_preserved`, `kicad_reg_sym_added`, `kicad_reg_fp_added`, `kicad_reg_added`, `kicad_reg_uptodate`
-- Toutes les nouvelles strings hardcodées dans les templates remplacées par des clés `t.*`
-
-### 🎨 Interface
-
-- **Noms de catégories tronqués** dans la sidebar stock : `white-space: normal` + `word-break: break-word` sur `.sk-cat-btn` — "Signal Switches, Multiplexers, Decoders" s'affiche maintenant en entier
+`kicad_gen_btn`, `kicad_gen_running`, `kicad_gen_launched`, `kicad_skip_existing`, `kicad_merge_protected`, `kicad_merge_added`, `kicad_merge_uptodate`, `kicad_reg_sym_added`, `kicad_reg_fp_added`, `kicad_reg_added`, `kicad_reg_uptodate`
 
 ---
 
@@ -76,105 +149,52 @@
 
 ### 💡 Intégration ESP32 & LEDs
 
-- **Firmware v4.0 → v6.1** développé de zéro :
-  - Ruban 1 (WS2812B) : emplacement exact du composant avec fade in/out
-  - Ruban 2 (WS2812B) : tiroir A-Z avec **breathing doux non-bloquant** (v6.1)
-  - Afficheur HT16K33 14-segments : affiche la case (`A 16`), veille clignotante après 33s
-  - File d'attente de 4 commandes LED
-  - OTA (mise à jour firmware sans câble)
-  - Reconnexion WiFi automatique (watchdog dans `loop()`)
-  - Fix VLA `fadeOut` → buffer statique `MAX_LEDS_PER_CMD`
-  - Queue allégée : `MAX_LEDS_PER_CMD=16` au lieu de `NUM_LEDS=500`
-  - Headers CORS sur toutes les routes
-  - Sweep de boot propre sur le ruban tiroir
-  - Config runtime via `POST /config` sauvegardée en Preferences flash
-  - **Page web embarquée** sur `GET /` : statut live, contrôle manuel, paramètres
-  - **`POST /reboot`** : redémarrer l'ESP32 depuis la page web
+- Firmware v4.0 → **v6.1** :
+  - Ruban WS2812B : fade in/out position + breathing doux tiroir (non-bloquant)
+  - Afficheur HT16K33 14-segments : veille clignotante après 33s
+  - File d'attente 4 commandes, OTA, reconnexion WiFi watchdog
+  - Headers CORS, sweep de boot, config runtime via `POST /config`
+  - **Page web embarquée** `GET /` : statut live, contrôle, `POST /reboot`
   - `/status` retourne `wifi_rssi`, `free_heap`, `display_sleeping`
-  - Forward declarations pour compatibilité avec le préprocesseur Arduino IDE
-
-- **Couleurs LED automatiques par catégorie** :
-  - 18 familles avec couleurs par défaut (résistances orange, condensateurs bleu, ICs violet…)
-  - 49 catégories LCSC réelles couvertes avec matching par mot-clé ordonné
-  - Ordre de matching optimisé (sensor avant resistor, connector avant ic, led driver avant led…)
-  - **Éditeur dans les Paramètres** : color picker natif + champ hex synchronisé + bouton reset par famille
-  - Couleurs sauvegardées dans la DB settings, relues à chaque allumage
-  - Couleur du ruban tiroir configurable séparément (`DRAWER_COLOR_STR`)
-
-- **Intégration côté Flask** :
-  - `POST /api/led/<cell_id>/on` : accepte `component_id` optionnel → résout la catégorie → couleur adaptée
-  - `flashLed(cellId, componentId)` dans `detail.js` et `rangement.html`
-  - Test de connexion ESP32 depuis les Paramètres
+- **18 familles de couleurs LED** avec matching par mot-clé ordonné
+- Éditeur dans les Paramètres : color picker natif + champ hex synchronisé + reset
+- `POST /api/led/<cell_id>/on` accepte `component_id` → couleur adaptée à la catégorie
 
 ### 📁 Projets — refonte complète
 
-- **Vue Kanban** avec 8 colonnes de statut, drag & drop AJAX
-- **Sélecteur de statut rapide** dans le hero de la fiche projet
-- **Onglets BOM / Notes / Checklist / Liens / Journal** avec barre sticky
-- **Notes Markdown** avec parser JS maison complet
-- **Checklist** avec 3 templates (PCB, Code, 3D), barre de progression
-- **Liens** avec icônes auto par domaine (GitHub, KiCad, JLCPCB, Thingiverse…)
-- Import/export BOM, création des composants manquants en un clic
-- **Préparer le kit** : débit automatique de tous les composants BOM
-- Journal des mouvements de stock par projet
-- Tags de discipline : PCB, Code, 3D, Mécanique, Design, Recherche
-
-### ⚙️ Paramètres — enrichissements
-
-- Section **ESP32** : URL, token, couleur LED, durée, offsets par tiroir, éditeur couleurs par catégorie
-- Section **Backup** : panneau avec tailles affichées avant téléchargement
-- Section **Ressources** : liens vers le Manuel et la Documentation CSS
-
-### 🗄️ Base de données & performance
-
-- **6 index SQLite** ajoutés au démarrage
-- Migration `notes` ajoutée pour les nouvelles installations
-- Colonnes `notes`, `checklist`, `links`, `image_path` sur la table `projects`
+- Vue Kanban 8 colonnes, drag & drop AJAX
+- Notes Markdown (parser JS maison complet), Checklist (3 templates, barre progression)
+- Liens avec icônes auto par domaine, import/export BOM, kit automatique
+- Journal des mouvements par projet
 
 ### 📖 Documentation intégrée
 
-- **`/docs`** : documentation CSS interactive (20 namespaces, 750+ classes)
-- **`/docs/manuel`** : manuel d'utilisation complet (23 sections)
+- `/docs` : documentation CSS interactive (25 namespaces)
+- `/docs/manuel` : manuel d'utilisation complet (23 sections)
 
-### 🎨 CSS & Interface
+### 🗄️ Base de données
 
-- Nettoyage `legacy.css` : 67 règles mortes supprimées
-- 2 clés i18n ajoutées — 751 clés FR/EN synchronisées
+- Mode WAL activé, 6 index ajoutés, migration `notes` sur la table `projects`
 
 ---
 
-## v2.2 — i18n, audit de code & rangement interactif 🌍
+## v2.2 — i18n, audit & rangement interactif 🌍
 
-> Internationalisation complète FR/EN, audit qualité de code, refonte du plan de rangement avec menu contextuel et infobulle.
+> Internationalisation complète FR/EN, audit qualité, refonte du plan de rangement.
 
-### 🌍 Internationalisation (i18n) — FR / EN
-- Infrastructure complète : `locales/fr.json` + `en.json` (558 clés, 19 sections)
-- Context processor Flask, helper `_t()`, cache locale en mémoire
-- Sélecteur de langue dans **⚙️ Paramètres → Général**
+- Infrastructure i18n complète : `locales/fr.json` + `en.json` (558 clés, 19 sections)
 - 22 templates HTML traduits, tous les messages Python traduits
-
-### 🗃️ Plan de rangement — refonte
-- Survol → infobulle contextuelle (image, référence, quantité, package)
-- Clic droit → menu contextuel : Assigner, Allumer LED, Vider
-- Correction du bug de timing `_ctxCell`
-
-### 🔧 Audit de code & corrections
-- Imports centralisés, types de mouvements `project_use` / `project_return`
-- Pagination historique, macro `sort_th`, `TOKEN_URL` DigiKey centralisé
-- Doublons CSS supprimés, `legacy.css` nettoyé (263 lignes)
-- Logo adaptatif sombre/clair, bouton thème dans le menu mobile
+- Rangement : infobulle survol, menu contextuel clic droit (Assigner / LED / Vider)
+- Imports centralisés, pagination historique, doublons CSS supprimés, `legacy.css` nettoyé
 
 ---
 
 ## v2.1 — Support multi-distributeurs 🌐
 
-> Intégration complète Mouser et DigiKey, corrections de fond.
-
 - **Mouser** via API officielle v1, **DigiKey** via API v4 + OAuth2 automatique
 - Prévisualisation unifiée à l'ajout, badges cliquables
 - Double enrichissement Mouser → LCSC si attributs incomplets
 - Export CSV 19 colonnes, encodage `utf-8-sig`
-- Reset BDD complet dans les Paramètres
 
 ---
 
