@@ -235,5 +235,15 @@ def _migrate_v2(db):
                 ELSE status
             END
         """)
+        
         db.commit()
         logger.info("[DB] Migration v3.2 : %d projet(s) migrés vers slugs anglais", fr_statuts)
+
+    # Index sur les colonnes fréquemment filtrées (audit priorité 1)
+    db.execute("CREATE INDEX IF NOT EXISTS idx_comp_category     ON components(category)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_comp_location     ON components(location)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_comp_manufacturer ON components(manufacturer)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_comp_lcsc         ON components(lcsc_part_number)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_movements_comp    ON stock_movements(component_id)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_movements_created ON stock_movements(created_at)")
+    db.commit()

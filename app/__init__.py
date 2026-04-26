@@ -7,6 +7,13 @@ from .models.database import init_db
 
 logger = logging.getLogger(__name__)
 
+# Réduire le bruit des loggers tiers — PIL et urllib3 en DEBUG sont inutiles
+logging.getLogger("PIL").setLevel(logging.WARNING)
+logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
 # Cache des locales chargées en mémoire — protégé par un Lock pour la sécurité thread
 _locale_cache: dict = {}
 _locale_lock  = threading.Lock()
@@ -53,7 +60,7 @@ import time as _time
 
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
-    app.config["SECRET_KEY"] = _get_or_create_secret_key(app.instance_path)
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', '5dea9bf41a808b7f72c90722294f0e5fab826cce9ba99982091f3a9f73885dcb')  # généré audit - à mettre dans .env
     app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
     _CACHE_BUSTER = int(_time.time())
 

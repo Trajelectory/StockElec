@@ -24,13 +24,13 @@ function detectSource(val) {
     const src = detectSourceType(ref);
     if (src === 'lcsc') {
         badge.innerHTML = `<img src="/static/img/lcsc.png" style="width:13px;height:13px;object-fit:contain;border-radius:2px;margin-right:.2rem"> LCSC`;
-        badge.className = 'src-badge src-badge-lcsc';
+        badge.className = 'nadd-src-badge'; badge.style.background='color-mix(in srgb,#00b4d8 12%,transparent)'; badge.style.color='#00b4d8';
     } else if (src === 'digikey') {
         badge.innerHTML = `<img src="/static/img/digikey.png" style="width:13px;height:13px;object-fit:contain;border-radius:2px;margin-right:.2rem"> DigiKey`;
-        badge.className = 'src-badge src-badge-digikey';
+        badge.className = 'nadd-src-badge'; badge.style.background='color-mix(in srgb,#cc0000 12%,transparent)'; badge.style.color='#cc0000';
     } else {
         badge.innerHTML = `<img src="/static/img/mouser.png" style="width:13px;height:13px;object-fit:contain;border-radius:2px;margin-right:.2rem"> Mouser`;
-        badge.className = 'src-badge src-badge-mouser';
+        badge.className = 'nadd-src-badge'; badge.style.background='color-mix(in srgb,#e8600a 12%,transparent)'; badge.style.color='#e8600a';
     }
 }
 
@@ -67,7 +67,7 @@ function lookupSmart() {
             btn.disabled = false;
             btn.textContent = t_form_search_btn;
             if (!data.ok) {
-                status.className = 'lcsc-status lcsc-status-error';
+                status.className = 'nadd-import-status nadd-import-status--error';
                 status.textContent = '❌ ' + data.error;
                 status.style.display = 'block';
                 return;
@@ -91,7 +91,7 @@ function lookupSmart() {
         .catch(() => {
             btn.disabled = false;
             btn.textContent = t_form_search_btn;
-            status.className = 'lcsc-status lcsc-status-error';
+            status.className = 'nadd-import-status nadd-import-status--error';
             status.textContent = '❌ ' + t_form_error_network;
             status.style.display = 'block';
         });
@@ -135,7 +135,7 @@ function applySmartPreview() {
     document.getElementById('smart-preview-box').style.display = 'none';
     const status = document.getElementById('smart-lookup-status');
     const src    = d._source === 'lcsc' ? 'LCSC' : d._source === 'digikey' ? 'DigiKey' : 'Mouser';
-    status.className   = 'lcsc-status lcsc-status-ok';
+    status.className   = 'nadd-import-status nadd-import-status--ok';
     status.textContent = `✅ Formulaire pré-rempli depuis ${src} — vérifie la quantité puis enregistre.`;
     status.style.display = 'block';
 

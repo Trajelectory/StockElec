@@ -22,7 +22,6 @@ from flask import (
     current_app,
 )
 
-import requests as _requests
 
 from ..models.component import ComponentModel
 from ..models.settings import SettingsModel
@@ -33,6 +32,98 @@ from .utils import _t
 from . import component_bp
 from .routes_misc import _enrich_async
 
+
+
+
+def _settings_get_context(db):
+    """Collecte les stats et paramètres pour la page settings (section GET)."""
+    n_components = db.execute("SELECT COUNT(*) FROM components").fetchone()[0]
+    n_projects   = db.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
+    n_no_image   = db.execute(
+        "SELECT COUNT(*) FROM components WHERE image_path IS NULL OR image_path = ''"
+    ).fetchone()[0]
+    n_no_cat     = db.execute(
+        "SELECT COUNT(*) FROM components WHERE category IS NULL OR category = ''"
+    ).fetchone()[0]
+    n_to_enrich  = db.execute(
+        """SELECT COUNT(*) FROM components
+           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+             AND (image_path IS NULL OR image_path = ''
+                  OR category IS NULL OR category = '')"""
+    ).fetchone()[0]
+    n_no_easyeda = db.execute(
+        """SELECT COUNT(*) FROM components
+           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+             AND (symbol_png IS NULL OR symbol_png = ''
+                  OR footprint_png IS NULL OR footprint_png = '')"""
+    ).fetchone()[0]
+    no_easyeda_list = db.execute(
+        """SELECT id, description, lcsc_part_number, symbol_png, footprint_png
+           FROM components
+           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
+             AND (symbol_png IS NULL OR symbol_png = ''
+                  OR footprint_png IS NULL OR footprint_png = '')
+           ORDER BY description"""
+    ).fetchall()
+
+    instance_path = os.path.abspath(current_app.instance_path)
+
+    def dir_size(path):
+        total = 0
+        if os.path.isdir(path):
+            for root, dirs, files in os.walk(path):
+                total += sum(os.path.getsize(os.path.join(root, f)) for f in files)
+        return total
+
+    db_size  = (os.path.getsize(os.path.join(instance_path, "stock.db"))
+                if os.path.exists(os.path.join(instance_path, "stock.db")) else 0)
+    img_size = dir_size(os.path.join(instance_path, "images"))
+    prj_size = dir_size(os.path.join(instance_path, "project_images"))
+
+    def fmt_size(b):
+        if b < 1024:    return f"{b} o"
+        if b < 1024**2: return f"{b/1024:.1f} Ko"
+        return f"{b/1024**2:.1f} Mo"
+
+    current = {
+        "app_name":               SettingsModel.get("app_name", "StockElec"),
+        "base_url":               SettingsModel.get("base_url", ""),
+        "default_min_stock":      SettingsModel.get("default_min_stock", "0"),
+        "home_recent_limit":      SettingsModel.get("home_recent_limit", "5"),
+        "lang":                   SettingsModel.get("lang", "fr"),
+        "mouser_api_key":         SettingsModel.get("mouser_api_key", ""),
+        "digikey_client_id":      SettingsModel.get("digikey_client_id", ""),
+        "digikey_client_secret":  SettingsModel.get("digikey_client_secret", ""),
+        "esp32_url":              SettingsModel.get("esp32_url",      ""),
+        "esp32_color":            SettingsModel.get("esp32_color",    "purple"),
+        "esp32_duration":         SettingsModel.get("esp32_duration", "5"),
+        "esp32_offsets":          SettingsModel.get("esp32_offsets",  "{}"),
+        "esp32_token":            SettingsModel.get("esp32_token",    ""),
+        "debug_toolbar":          SettingsModel.get("debug_toolbar",  "0"),
+        "kicad_prefix":           SettingsModel.get("kicad_prefix",   "StockElec_"),
+    }
+
+    stats = {
+        "n_components":    n_components,
+        "n_projects":      n_projects,
+        "n_no_image":      n_no_image,
+        "n_no_cat":        n_no_cat,
+        "n_to_enrich":     n_to_enrich,
+        "n_no_easyeda":    n_no_easyeda,
+        "no_easyeda_list": [dict(r) for r in no_easyeda_list],
+        "db_size":         fmt_size(db_size),
+        "img_size":        fmt_size(img_size),
+        "prj_size":        fmt_size(prj_size),
+        "total_size":      fmt_size(db_size + img_size + prj_size),
+    }
+
+    raw_rang = SettingsModel.get("rangement_config", "")
+    try:
+        config_plateaux = json.loads(raw_rang).get("plateaux", []) if raw_rang else []
+    except Exception:
+        config_plateaux = []
+
+    return current, stats, config_plateaux
 
 @component_bp.route("/alerts")
 def alerts():
@@ -197,24 +288,26 @@ def settings():
                 instance_path = os.path.abspath(
                     current_app.instance_path
                 )
-                def _fetch_all_easyeda(items, inst_path):
+                app = current_app._get_current_object()
+
+                def _fetch_all_easyeda(items, inst_path, _app):
                     import time
-                    _db_app = component_bp.wsgi_app if hasattr(component_bp, 'wsgi_app') else None
-                    for comp_id, lcsc_ref in items:
-                        try:
-                            result = fetch_and_save(lcsc_ref, inst_path)
-                            sym = result.get("symbol_png")
-                            fp  = result.get("footprint_png")
-                            if sym or fp:
-                                ComponentModel.save_easyeda_pngs(comp_id, sym, fp)
-                            time.sleep(0.5)
-                        except Exception as e:
-                            logger.debug("Ignored: %s", e)
+                    with _app.app_context():
+                        for comp_id, lcsc_ref in items:
+                            try:
+                                result = fetch_and_save(lcsc_ref, inst_path)
+                                sym = result.get("symbol_png")
+                                fp  = result.get("footprint_png")
+                                if sym or fp:
+                                    ComponentModel.save_easyeda_pngs(comp_id, sym, fp)
+                                time.sleep(0.5)
+                            except Exception as e:
+                                logger.debug("Ignored: %s", e)
 
                 items = [(r["id"], r["lcsc_part_number"]) for r in rows]
                 t = threading.Thread(
                     target=_fetch_all_easyeda,
-                    args=(items, instance_path),
+                    args=(items, instance_path, app),
                     daemon=True
                 )
                 t.start()
@@ -275,98 +368,5 @@ def settings():
 
         return redirect(url_for("components.settings"))
 
-    # ── GET : collecte les stats ─────────────────────────────────────
-    # db déjà défini en début de fonction
-
-    n_components = db.execute("SELECT COUNT(*) FROM components").fetchone()[0]
-    n_projects   = db.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
-    n_no_image   = db.execute(
-        "SELECT COUNT(*) FROM components WHERE image_path IS NULL OR image_path = ''"
-    ).fetchone()[0]
-    n_no_cat     = db.execute(
-        "SELECT COUNT(*) FROM components WHERE category IS NULL OR category = ''"
-    ).fetchone()[0]
-    n_to_enrich  = db.execute(
-        """SELECT COUNT(*) FROM components
-           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
-             AND (image_path IS NULL OR image_path = ''
-                  OR category IS NULL OR category = '')"""
-    ).fetchone()[0]
-    n_no_easyeda = db.execute(
-        """SELECT COUNT(*) FROM components
-           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
-             AND (symbol_png IS NULL OR symbol_png = ''
-                  OR footprint_png IS NULL OR footprint_png = '')"""
-    ).fetchone()[0]
-
-    no_easyeda_list = db.execute(
-        """SELECT id, description, lcsc_part_number, symbol_png, footprint_png
-           FROM components
-           WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''
-             AND (symbol_png IS NULL OR symbol_png = ''
-                  OR footprint_png IS NULL OR footprint_png = '')
-           ORDER BY description"""
-    ).fetchall()
-
-    # Taille des fichiers
-    instance_path = os.path.abspath(
-        current_app.instance_path
-    )
-    def dir_size(path):
-        total = 0
-        if os.path.isdir(path):
-            for root, dirs, files in os.walk(path):
-                total += sum(os.path.getsize(os.path.join(root, f)) for f in files)
-        return total
-
-    db_size  = os.path.getsize(os.path.join(instance_path, "stock.db"))                if os.path.exists(os.path.join(instance_path, "stock.db")) else 0
-    img_size = dir_size(os.path.join(instance_path, "images"))
-    prj_size = dir_size(os.path.join(instance_path, "project_images"))
-
-    def fmt_size(b):
-        if b < 1024: return f"{b} o"
-        if b < 1024**2: return f"{b/1024:.1f} Ko"
-        return f"{b/1024**2:.1f} Mo"
-
-    # Paramètres courants
-    current = {
-        "app_name":               SettingsModel.get("app_name", "StockElec"),
-        "base_url":               SettingsModel.get("base_url", ""),
-        "default_min_stock":      SettingsModel.get("default_min_stock", "0"),
-        "home_recent_limit":      SettingsModel.get("home_recent_limit", "5"),
-        "lang":                   SettingsModel.get("lang", "fr"),
-        "mouser_api_key":         SettingsModel.get("mouser_api_key", ""),
-        "digikey_client_id":      SettingsModel.get("digikey_client_id", ""),
-        "digikey_client_secret":  SettingsModel.get("digikey_client_secret", ""),
-        "esp32_url":              SettingsModel.get("esp32_url",      ""),
-        "esp32_color":            SettingsModel.get("esp32_color",    "purple"),
-        "esp32_duration":         SettingsModel.get("esp32_duration", "5"),
-        "esp32_offsets":          SettingsModel.get("esp32_offsets",  "{}"),
-        "esp32_token":            SettingsModel.get("esp32_token",    ""),
-        "debug_toolbar":          SettingsModel.get("debug_toolbar",  "0"),
-        "kicad_prefix":           SettingsModel.get("kicad_prefix",   "StockElec_"),
-    }
-
-    stats = {
-        "n_components": n_components,
-        "n_projects":   n_projects,
-        "n_no_image":   n_no_image,
-        "n_no_cat":     n_no_cat,
-        "n_to_enrich":  n_to_enrich,
-        "n_no_easyeda":    n_no_easyeda,
-        "no_easyeda_list": [dict(r) for r in no_easyeda_list],
-        "db_size":      fmt_size(db_size),
-        "img_size":     fmt_size(img_size),
-        "prj_size":     fmt_size(prj_size),
-        "total_size":   fmt_size(db_size + img_size + prj_size),
-    }
-
-    # Config plateaux pour le sélecteur de test ESP32
-    raw_rang = SettingsModel.get("rangement_config", "")
-    try:
-        config_plateaux = json.loads(raw_rang).get("plateaux", []) if raw_rang else []
-    except Exception:
-        config_plateaux = []
-
+    current, stats, config_plateaux = _settings_get_context(db)
     return ComponentView.render_settings(current, stats, config_plateaux=config_plateaux)
-

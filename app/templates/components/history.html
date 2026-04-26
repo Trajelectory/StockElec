@@ -28,21 +28,23 @@
                 <input type="hidden" name="component_id" value="{{ component.id }}"/>
                 {% endif %}
 
-                <div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.75rem">
+                <div style="display:flex;flex-direction:column;gap:.2rem;margin-bottom:.75rem">
                     {% for key, val in movement_types.items() %}
                     {% set mv_parts = val[1].split('.') %}
                     {% set mv_label = t[mv_parts[0]][mv_parts[1]] if mv_parts|length == 2 else val[1] %}
-                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer;padding:.25rem .4rem;border-radius:var(--radius-sm);{% if type_filter == key %}background:var(--accent-dim);color:var(--accent);{% endif %}">
+                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer;padding:.3rem .5rem;border-radius:var(--radius-sm);transition:background .12s;{% if type_filter == key %}background:var(--accent-dim);color:var(--accent);font-weight:600;{% endif %}">
                         <input type="radio" name="type" value="{{ key }}"
                                {% if type_filter == key %}checked{% endif %}
-                               onchange="this.form.submit()" style="accent-color:var(--accent)">
+                               onchange="this.form.submit()"
+                               style="display:none">
                         {{ val[0] }} {{ mv_label }}
                     </label>
                     {% endfor %}
-                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer;padding:.25rem .4rem;border-radius:var(--radius-sm);{% if not type_filter %}background:var(--accent-dim);color:var(--accent);{% endif %}">
+                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;cursor:pointer;padding:.3rem .5rem;border-radius:var(--radius-sm);transition:background .12s;{% if not type_filter %}background:var(--accent-dim);color:var(--accent);font-weight:600;{% endif %}">
                         <input type="radio" name="type" value=""
                                {% if not type_filter %}checked{% endif %}
-                               onchange="this.form.submit()" style="accent-color:var(--accent)">
+                               onchange="this.form.submit()"
+                               style="display:none">
                         {{ t.history.filter_all }}
                     </label>
                 </div>

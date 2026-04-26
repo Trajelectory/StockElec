@@ -19,7 +19,6 @@ from flask import (
     current_app,
 )
 
-import requests as _requests
 
 from ..models.component import ComponentModel
 from ..models.category import CategoryModel

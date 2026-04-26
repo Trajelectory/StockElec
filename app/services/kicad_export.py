@@ -260,6 +260,33 @@ def rebuild_index(instance_path: str) -> dict:
     return {"rebuilt": rebuilt}
 
 
+
+def _setup_library_dirs(instance_path: str, lib_suffix: str):
+    """Crée les dossiers de sortie et prépare l'environnement KiCad.
+    
+    Retourne (output_prefix, lib_name, api, index) ou lève ImportError.
+    """
+    kicad_dir = _kicad_dir(instance_path)
+    lib_name  = LIB_NAME + (f"_{lib_suffix}" if lib_suffix else "")
+
+    cat_dir = os.path.join(kicad_dir, lib_suffix) if lib_suffix else kicad_dir
+    os.makedirs(cat_dir, exist_ok=True)
+    output_prefix = os.path.join(cat_dir, lib_name)
+
+    for d in [output_prefix + ".pretty", output_prefix + ".3dshapes"]:
+        os.makedirs(d, exist_ok=True)
+
+    (EasyedaApi, EasyedaSymbolImporter, EasyedaFootprintImporter,
+     Easyeda3dModelImporter, ExporterSymbolKicad, ExporterFootprintKicad,
+     Exporter3dModelKicad) = _import_libs()
+
+    api = EasyedaApi()
+    api.headers = dict(EASYEDA_HEADERS)
+
+    index = _load_index(output_prefix)
+    return output_prefix, lib_name, api, index
+
+
 def generate_library(lcsc_refs: list[str], instance_path: str,
                      progress_cb=None, lib_suffix: str = "") -> dict:
     """
@@ -269,37 +296,17 @@ def generate_library(lcsc_refs: list[str], instance_path: str,
     if not lcsc_refs:
         return get_status(instance_path)
 
-    kicad_dir = _kicad_dir(instance_path)
-    lib_name  = LIB_NAME + (f"_{lib_suffix}" if lib_suffix else "")
-
-    # Sous-dossier par catégorie (ou racine si pas de suffix)
-    cat_dir = os.path.join(kicad_dir, lib_suffix) if lib_suffix else kicad_dir
-    os.makedirs(cat_dir, exist_ok=True)
-    output_prefix = os.path.join(cat_dir, lib_name)
-
-    # Créer les dossiers de sortie
-    for d in [output_prefix + ".pretty", output_prefix + ".3dshapes"]:
-        os.makedirs(d, exist_ok=True)
-
-    # Importer les libs locales
     try:
-        (EasyedaApi, EasyedaSymbolImporter, EasyedaFootprintImporter,
-         Easyeda3dModelImporter, ExporterSymbolKicad, ExporterFootprintKicad,
-         Exporter3dModelKicad) = _import_libs()
+        output_prefix, lib_name, api, index = _setup_library_dirs(instance_path, lib_suffix)
     except ImportError as e:
         logger.error("[KiCad] Impossible d'importer easyeda2kicad local: %s", e)
         return get_status(instance_path)
 
-    # Une seule instance API = une seule session HTTP persistante
-    # On remplace ENTIÈREMENT les headers par défaut qui causent le 403
-    api = EasyedaApi()
-    api.headers = dict(EASYEDA_HEADERS)
-
+    sym_path    = output_prefix + ".kicad_sym"
+    fp_path     = output_prefix + ".pretty"
+    shapes_dir  = output_prefix + ".3dshapes"
     n_ok = n_failed = 0
     failed = []
-
-    # Charger l'index une seule fois au démarrage
-    index = _load_index(output_prefix)
 
     for i, ref in enumerate(lcsc_refs):
         ref = ref.strip().upper()

@@ -4,23 +4,6 @@
  * Ce fichier importe les modules CSS dans l'ordre.
  * Pour modifier le style, éditez le fichier correspondant
  * dans le dossier modules/.
- *
- * modules/
- *   variables.css  — couleurs, polices, rayons, ombres
- *   reset.css      — reset box-model et body
- *   navbar.css     — barre de navigation
- *   layout.css     — conteneur principal
- *   components.css — alertes, boutons, badges, formulaires
- *   tables.css     — tableaux, thumbnails, cards
- *   stock.css      — barre stats, filtres, pagination, sélection
- *   forms.css      — layout add/edit, upload image
- *   detail.css     — fiche composant
- *   lightbox.css   — lightbox image
- *   settings.css   — page paramètres, LCSC import
- *   projects.css   — projets, BOM, import CSV
- *   labels.css     — étiquettes imprimables
- *   dashboard.css  — dashboard, historique, commandes, catégories
- *   legacy.css     — classes spécifiques pages (compatibilité)
  */
 
 @import url('modules/variables.css');
@@ -47,3 +30,5 @@
 @import url('modules/labels_print.css');
 @import url('modules/rangement.css');
 @import url('modules/responsive.css');
+@import url('modules/home.css');
+@import url('modules/detail_dc.css');

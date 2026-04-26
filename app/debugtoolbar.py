@@ -40,6 +40,15 @@ _history_lock = threading.Lock()
 
 
 # ── Collecteur par requête ────────────────────────────────────────────
+
+# ── Constantes de couleur partagées (toolbar) ─────────────────────
+_C_ACCENT = "#7c3aed"
+_C_OK     = "#22c55e"
+_C_WARN   = "#f59e0b"
+_C_ERR    = "#ef4444"
+_C_MUTED  = "#475569"
+
+
 def get_collector():
     if not hasattr(_local, "collector"):
         _local.collector = None
@@ -604,6 +613,100 @@ def _build_http_panel(data):
     return incoming + outgoing
 
 
+def _build_tpl_panel(templates: list) -> str:
+    """Panneau Templates — tableau des templates rendus avec durée."""
+    tpl_rows = "".join(
+        f'<tr style="background:{"#0d1117" if i%2==0 else "#0f1923"}">'
+        f'<td style="padding:5px 8px;color:#64748b;font-size:11px;white-space:nowrap;border-right:1px solid #1e293b;vertical-align:top">{t["duration_ms"]:.1f}ms</td>'
+        f'<td style="padding:5px 8px;color:#475569;font-size:10px;white-space:nowrap;border-right:1px solid #1e293b;vertical-align:top">+{t["t_offset"]}ms</td>'
+        f'<td style="padding:5px 8px"><div style="font-family:monospace;font-size:11px;color:#8b5cf6;margin-bottom:5px">{_esc(t["name"])}</div>'
+        f'<div style="line-height:2">'
+        + " ".join(f'<span style="background:#1e293b;color:#94a3b8;font-size:9px;padding:1px 5px;border-radius:2px;margin:1px;display:inline-block">{_esc(k)}</span>' for k in sorted(t["context_keys"])[:30])
+        + f'</div></td></tr>'
+        for i,t in enumerate(templates)
+    )
+    return (f'<table style="width:100%;border-collapse:collapse"><tbody>{tpl_rows}</tbody></table>'
+            if templates else '<div style="padding:12px;color:#475569;font-size:11px">Aucun template rendu.</div>')
+
+
+def _build_logs_panel(errors: list, logs: list) -> str:
+    """Panneau Logs — erreurs en rouge puis logs colorés par niveau."""
+    LCOLORS = {"DEBUG":("#64748b","#0f172a"),"INFO":("#38bdf8","#0c1a2e"),
+               "WARNING":("#fbbf24","#1a1200"),"ERROR":("#f87171","#1a0000"),"CRITICAL":("#ef4444","#200000")}
+    errors_html = "".join(
+        f'<div style="padding:8px 12px;border-bottom:1px solid #2a0000;background:#100000">'
+        f'<div style="color:#f87171;font-weight:700;font-size:12px;margin-bottom:4px">{_esc(e["type"])}: {_esc(e["message"])}</div>'
+        f'<pre style="color:#94a3b8;font-size:10px;overflow-x:auto;margin:0;white-space:pre-wrap;background:#0a0000;padding:6px;border-radius:3px">{_esc(e["tb"])}</pre>'
+        f'</div>' for e in errors
+    )
+    logs_html = "".join(
+        f'<div style="padding:4px 8px;border-bottom:1px solid #1e293b;background:{LCOLORS.get(l["level"],("#94a3b8","#0d1117"))[1]};display:grid;grid-template-columns:65px 1fr;gap:8px;align-items:baseline">'
+        f'<span style="color:{LCOLORS.get(l["level"],("#94a3b8","#0d1117"))[0]};font-weight:700;font-size:11px">{l["level"]}</span>'
+        f'<div><span style="color:#475569;font-size:10px;margin-right:8px">{_esc(l["name"])}</span>'
+        f'<span style="color:#cbd5e1;font-size:11px;word-break:break-all">{_esc(l["message"])}</span></div></div>'
+        for l in logs
+    )
+    return errors_html + (logs_html or '<div style="padding:12px;color:#475569;font-size:11px">Aucun log.</div>')
+
+
+def _build_req_panel(req, response_status: int, response_size_kb: float) -> str:
+    """Panneau Requête — méthode, headers, form data, session."""
+    useful_hdrs = ["Content-Type","Accept","Accept-Language","Referer","X-Requested-With","User-Agent","Origin"]
+    hdr_items = [(k, req.headers.get(k)) for k in useful_hdrs if req.headers.get(k)]
+    sess_items = []
+    try:
+        from flask import session as _s
+        sess_items = [(k, v) for k, v in _s.items() if not str(k).startswith("_")]
+    except Exception:
+        pass
+    return (
+        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr">'
+        f'<div style="padding:10px;border-right:1px solid #1e293b">'
+        f'<div style="color:{_C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Requête HTTP</div>'
+        f'<div style="margin-bottom:8px"><span style="background:#064e3b;color:#34d399;font-size:13px;font-weight:700;padding:2px 10px;border-radius:4px">{req.method}</span>'
+        f'<span style="color:#f59e0b;font-size:11px;margin-left:8px">{_esc(str(req.url_rule or req.path))}</span></div>'
+        + _kv([("Path",req.path),("Endpoint",req.endpoint or ""),("View args",str(req.view_args or {})),("IP",req.remote_addr or ""),("Status",str(response_status)),("Taille",f"{response_size_kb} Ko")])
+        + f'</div>'
+        f'<div style="padding:10px;border-right:1px solid #1e293b">'
+        f'<div style="color:{_C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">GET / POST</div>'
+        + (f'<div style="color:#64748b;font-size:10px;margin-bottom:4px">Query params</div>'+_kv(list(req.args.items())) if req.args else '<div style="color:#475569;font-size:11px">Pas de query params</div>')
+        + (f'<div style="color:#64748b;font-size:10px;margin:8px 0 4px">Form data</div>'+_kv(list(req.form.items())) if req.form else '<div style="color:#475569;font-size:11px;margin-top:8px">Pas de form data</div>')
+        + f'</div>'
+        f'<div style="padding:10px">'
+        f'<div style="color:{_C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Headers</div>'
+        + _kv(hdr_items)
+        + (f'<div style="color:{_C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 6px">Session</div>'+_kv(sess_items) if sess_items else "")
+        + f'</div></div>'
+    )
+
+
+def _build_config_panel(mem_start, mem_end, response_size_kb: float) -> str:
+    """Panneau Config — Flask config, système, variables d'environnement."""
+    try:
+        from flask import current_app as _ca
+        flask_cfg = [("ENV",_ca.config.get("ENV","production")),("DEBUG",str(_ca.config.get("DEBUG",False))),
+                     ("TESTING",str(_ca.config.get("TESTING",False))),
+                     ("MAX_CONTENT_LENGTH",f'{(_ca.config.get("MAX_CONTENT_LENGTH") or 0)//1024//1024} Mo'),
+                     ("SECRET_KEY","✓ configurée" if _ca.config.get("SECRET_KEY") else "❌ absente")]
+    except Exception:
+        flask_cfg = []
+    sys_cfg = [("Python",sys.version.split()[0]),("Platform",sys.platform),("PID",str(os.getpid())),
+               ("Threads",str(threading.active_count())),("CWD",os.getcwd()[:55])]
+    if mem_start is not None:
+        sys_cfg.append(("Mémoire RSS",f"{mem_end}Mo (Δ{round(mem_end-mem_start,1):+}Mo)"))
+    sys_cfg.append(("Taille réponse",f"{response_size_kb} Ko"))
+    env_cfg = [(k,os.environ.get(k,"—")) for k in ["FLASK_ENV","FLASK_DEBUG","PYTHONPATH","PORT"]]
+    return (
+        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr">'
+        f'<div style="padding:10px;border-right:1px solid #1e293b">'
+        f'<div style="color:{_C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Flask config</div>'+_kv(flask_cfg)+f'</div>'
+        f'<div style="padding:10px;border-right:1px solid #1e293b">'
+        f'<div style="color:{_C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Système & Perf</div>'+_kv(sys_cfg)+f'</div>'
+        f'<div style="padding:10px">'
+        f'<div style="color:{_C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Variables env.</div>'+_kv(env_cfg)+f'</div></div>'
+    )
+
+
 def render_toolbar(data, response_status=200, response_size_kb=0):
     import datetime
     from flask import request as req
@@ -664,90 +767,13 @@ def render_toolbar(data, response_status=200, response_size_kb=0):
     sql_panel     = _build_sql_panel(queries, sql_counts, n_dup)
     history_panel = _build_history_panel()
 
-    tpl_rows = "".join(
-        f'<tr style="background:{"#0d1117" if i%2==0 else "#0f1923"}">'
-        f'<td style="padding:5px 8px;color:#64748b;font-size:11px;white-space:nowrap;border-right:1px solid #1e293b;vertical-align:top">{t["duration_ms"]:.1f}ms</td>'
-        f'<td style="padding:5px 8px;color:#475569;font-size:10px;white-space:nowrap;border-right:1px solid #1e293b;vertical-align:top">+{t["t_offset"]}ms</td>'
-        f'<td style="padding:5px 8px"><div style="font-family:monospace;font-size:11px;color:#8b5cf6;margin-bottom:5px">{_esc(t["name"])}</div>'
-        f'<div style="line-height:2">'
-        + " ".join(f'<span style="background:#1e293b;color:#94a3b8;font-size:9px;padding:1px 5px;border-radius:2px;margin:1px;display:inline-block">{_esc(k)}</span>' for k in sorted(t["context_keys"])[:30])
-        + f'</div></td></tr>'
-        for i,t in enumerate(templates)
-    )
-    tpl_panel = (f'<table style="width:100%;border-collapse:collapse"><tbody>{tpl_rows}</tbody></table>'
-                 if templates else '<div style="padding:12px;color:#475569;font-size:11px">Aucun template rendu.</div>')
+    tpl_panel = _build_tpl_panel(templates)
 
-    LCOLORS = {"DEBUG":("#64748b","#0f172a"),"INFO":("#38bdf8","#0c1a2e"),
-               "WARNING":("#fbbf24","#1a1200"),"ERROR":("#f87171","#1a0000"),"CRITICAL":("#ef4444","#200000")}
-    errors_html = "".join(
-        f'<div style="padding:8px 12px;border-bottom:1px solid #2a0000;background:#100000">'
-        f'<div style="color:#f87171;font-weight:700;font-size:12px;margin-bottom:4px">{_esc(e["type"])}: {_esc(e["message"])}</div>'
-        f'<pre style="color:#94a3b8;font-size:10px;overflow-x:auto;margin:0;white-space:pre-wrap;background:#0a0000;padding:6px;border-radius:3px">{_esc(e["tb"])}</pre>'
-        f'</div>' for e in errors
-    )
-    logs_html = "".join(
-        f'<div style="padding:4px 8px;border-bottom:1px solid #1e293b;background:{LCOLORS.get(l["level"],("#94a3b8","#0d1117"))[1]};display:grid;grid-template-columns:65px 1fr;gap:8px;align-items:baseline">'
-        f'<span style="color:{LCOLORS.get(l["level"],("#94a3b8","#0d1117"))[0]};font-weight:700;font-size:11px">{l["level"]}</span>'
-        f'<div><span style="color:#475569;font-size:10px;margin-right:8px">{_esc(l["name"])}</span>'
-        f'<span style="color:#cbd5e1;font-size:11px;word-break:break-all">{_esc(l["message"])}</span></div></div>'
-        for l in logs
-    )
-    logs_panel = errors_html + (logs_html or '<div style="padding:12px;color:#475569;font-size:11px">Aucun log.</div>')
+    logs_panel = _build_logs_panel(errors, logs)
 
-    useful_hdrs = ["Content-Type","Accept","Accept-Language","Referer","X-Requested-With","User-Agent","Origin"]
-    hdr_items = [(k,req.headers.get(k)) for k in useful_hdrs if req.headers.get(k)]
-    sess_items = []
-    try:
-        from flask import session as _s
-        sess_items = [(k,v) for k,v in _s.items() if not str(k).startswith("_")]
-    except Exception:
-        pass
+    req_panel = _build_req_panel(req, response_status, response_size_kb)
 
-    req_panel = (
-        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr">'
-        f'<div style="padding:10px;border-right:1px solid #1e293b">'
-        f'<div style="color:{C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Requête HTTP</div>'
-        f'<div style="margin-bottom:8px"><span style="background:#064e3b;color:#34d399;font-size:13px;font-weight:700;padding:2px 10px;border-radius:4px">{req.method}</span>'
-        f'<span style="color:#f59e0b;font-size:11px;margin-left:8px">{_esc(str(req.url_rule or req.path))}</span></div>'
-        + _kv([("Path",req.path),("Endpoint",req.endpoint or ""),("View args",str(req.view_args or {})),("IP",req.remote_addr or ""),("Status",str(response_status)),("Taille",f"{response_size_kb} Ko")])
-        + f'</div>'
-        f'<div style="padding:10px;border-right:1px solid #1e293b">'
-        f'<div style="color:{C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">GET / POST</div>'
-        + (f'<div style="color:#64748b;font-size:10px;margin-bottom:4px">Query params</div>'+_kv(list(req.args.items())) if req.args else '<div style="color:#475569;font-size:11px">Pas de query params</div>')
-        + (f'<div style="color:#64748b;font-size:10px;margin:8px 0 4px">Form data</div>'+_kv(list(req.form.items())) if req.form else '<div style="color:#475569;font-size:11px;margin-top:8px">Pas de form data</div>')
-        + f'</div>'
-        f'<div style="padding:10px">'
-        f'<div style="color:{C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Headers</div>'
-        + _kv(hdr_items)
-        + (f'<div style="color:{C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 6px">Session</div>'+_kv(sess_items) if sess_items else "")
-        + f'</div></div>'
-    )
-
-    try:
-        from flask import current_app as _ca
-        flask_cfg = [("ENV",_ca.config.get("ENV","production")),("DEBUG",str(_ca.config.get("DEBUG",False))),
-                     ("TESTING",str(_ca.config.get("TESTING",False))),
-                     ("MAX_CONTENT_LENGTH",f'{(_ca.config.get("MAX_CONTENT_LENGTH") or 0)//1024//1024} Mo'),
-                     ("SECRET_KEY","✓ configurée" if _ca.config.get("SECRET_KEY") else "❌ absente")]
-    except Exception:
-        flask_cfg = []
-
-    sys_cfg = [("Python",sys.version.split()[0]),("Platform",sys.platform),("PID",str(os.getpid())),
-               ("Threads",str(threading.active_count())),("CWD",os.getcwd()[:55])]
-    if mem_start is not None:
-        sys_cfg.append(("Mémoire RSS",f"{mem_end}Mo (Δ{round(mem_end-mem_start,1):+}Mo)"))
-    sys_cfg.append(("Taille réponse",f"{response_size_kb} Ko"))
-    env_cfg = [(k,os.environ.get(k,"—")) for k in ["FLASK_ENV","FLASK_DEBUG","PYTHONPATH","PORT"]]
-
-    config_panel = (
-        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr">'
-        f'<div style="padding:10px;border-right:1px solid #1e293b">'
-        f'<div style="color:{C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Flask config</div>'+_kv(flask_cfg)+f'</div>'
-        f'<div style="padding:10px;border-right:1px solid #1e293b">'
-        f'<div style="color:{C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Système & Perf</div>'+_kv(sys_cfg)+f'</div>'
-        f'<div style="padding:10px">'
-        f'<div style="color:{C_ACCENT};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Variables env.</div>'+_kv(env_cfg)+f'</div></div>'
-    )
+    config_panel = _build_config_panel(mem_start, mem_end, response_size_kb)
 
     # Slow queries pour console.log
     slow_queries = [{"sql":q["sql"],"ms":q["duration_ms"]} for q in queries if q["slow"]]

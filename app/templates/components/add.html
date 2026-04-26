@@ -1,315 +1,365 @@
 {% extends "base.html" %}
 {% from "partials/category_select.html" import category_select %}
-{% block title %}Ajouter un composant — StockElec{% endblock %}
+{% block title %}{{ t.form.title_add }} — StockEleK{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <a href="{{ url_for('components.stock') }}" class="btn-back">{{ t.form.back_stock }}</a>
-    <h1>{{ t.form.title_add }}</h1>
-</div>
 
 {% if request.args.get('added') %}
-<div class="add-success-banner">
-    ✅ <strong>{{ request.args.get('added') }}</strong> ajouté avec succès —
-    <a href="{{ url_for('components.stock') }}" class="add-success-link">{{ t.form.see_stock }}</a>
+<div class="nadd-success" role="alert">
+  <span>✅</span>
+  <div>
+    <strong>{{ request.args.get('added') }}</strong> ajouté —
+    <a href="{{ url_for('components.stock') }}" class="nadd-success-link">{{ t.form.see_stock }}</a>
+  </div>
+  <button onclick="this.parentElement.remove()" class="nadd-success-close">✕</button>
 </div>
 {% endif %}
 
-<!-- ══ Formulaire ════════════════════════════════════════════════════ -->
-<form method="post" action="{{ url_for('components.add') }}" id="add-form" enctype="multipart/form-data">
-<input type="hidden" name="datasheet_url" id="f-datasheet"/>
-<input type="hidden" name="image_url"    id="f-image-url"/>
-
-<div class="add-layout">
-
-    <!-- ── Colonne principale ──────────────────────────────────────── -->
-    <div class="add-col-main">
-
-        <!-- Bloc unique : Import + Identification + Organisation -->
-        <div class="add-section">
-
-            <!-- Import rapide unifié LCSC / Mouser -->
-            <div id="smart-lookup">
-                <div class="lcsc-lookup-header" style="margin-bottom:.75rem">
-                    <div>
-                        <span class="lcsc-lookup-title">{{ t.form.quick_import }}</span>
-                        <span class="lcsc-lookup-hint">{{ t.form.label_lcsc_hint }} <span style="opacity:.5">·</span> {{ t.form.hint_or_mouser }}</span>
-                    </div>
-                    <div id="smart-source-badge" style="display:none;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:99px;background:var(--accent-dim);color:var(--accent)"></div>
-                </div>
-                <div class="lcsc-lookup-row">
-                    <input type="text" id="smart-ref-input" class="form-input lcsc-ref-input"
-                           placeholder="ex: C149504 ou 652-3852A-282101AL"
-                           autocomplete="off" spellcheck="false"
-                           oninput="detectSource(this.value)"/>
-                    <button type="button" class="btn btn-primary" id="smart-lookup-btn" onclick="lookupSmart()">
-                        🔍 Rechercher
-                    </button>
-                </div>
-                <div id="smart-lookup-status" class="lcsc-status" style="display:none"></div>
-                <div id="smart-preview-box" class="lcsc-preview" style="display:none">
-                    <img id="smart-preview-img" src="" alt="" class="lcsc-preview-img"/>
-                    <div class="lcsc-preview-info">
-                        <div class="lcsc-preview-name" id="smart-preview-name"></div>
-                        <div class="lcsc-preview-meta" id="smart-preview-meta"></div>
-                    </div>
-                    <button type="button" class="btn btn-primary" onclick="applySmartPreview()">
-                        ✓ Utiliser ces données
-                    </button>
-                </div>
-            </div>
-
-            <div class="add-inner-sep"></div>
-
-            <!-- Identification -->
-            <div class="add-section-title">
-                <span class="add-section-icon">🔖</span> {{ t.add.section_identification }}
-            </div>
-
-            <div class="add-field-full">
-                <label class="add-label">{{ t.form.label_description }} <span class="add-required">*</span></label>
-                <input type="text" name="description" id="f-description" class="form-input" required
-                       placeholder="{{ t.form.ph_desc_long }}"/>
-            </div>
-
-            <div class="add-field-full">
-                <label class="add-label">{{ t.form.label_desc_long }} <span class="add-hint-inline">{{ t.form.hint_optional_lcsc }}</span></label>
-                <input type="text" name="description_long" id="f-description-long" class="form-input"
-                       placeholder="ex: Resistors - Chip Resistor - Surface Mount RoHS"/>
-            </div>
-
-            <div class="add-row-3">
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_lcsc }}</label>
-                    <input type="text" name="lcsc_part_number" id="f-lcsc" class="form-input mono-input"
-                           placeholder="C149504"/>
-                </div>
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_mouser }}</label>
-                    <input type="text" name="mouser_part_number" id="f-mouser" class="form-input mono-input"
-                           placeholder="{{ t.form.ph_mouser }}"/>
-                </div>
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_digikey }}</label>
-                    <input type="text" name="digikey_part_number" id="f-digikey" class="form-input mono-input"
-                           placeholder="{{ t.form.ph_digikey }}"/>
-                </div>
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_mpn }}</label>
-                    <input type="text" name="manufacture_part_number" id="f-mfr-part" class="form-input mono-input"
-                           placeholder="0805W8F1003T5E"/>
-                </div>
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_manufacturer }}</label>
-                    <input type="text" name="manufacturer" id="f-manufacturer" class="form-input"
-                           placeholder="{{ t.form.ph_manufacturer }}"/>
-                </div>
-            </div>
-
-            <div class="add-row-2">
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_package }}</label>
-                    <input type="text" name="package" id="f-package" class="form-input mono-input"
-                           placeholder="{{ t.form.ph_package }}"/>
-                </div>
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_rohs }}</label>
-                    <select name="rohs" id="f-rohs" class="form-input">
-                        <option value="">{{ t.form.rohs_none }}</option>
-                        <option value="YES">{{ t.form.rohs_yes }}</option>
-                        <option value="NO">{{ t.form.rohs_no }}</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Image manuelle (optionnel, utile pour composants hors LCSC) -->
-            <div class="add-field-full">
-                <label class="add-label">{{ t.form.label_image }} <span class="add-hint-inline">{{ t.form.hint_optional }}</span></label>
-                <div class="img-upload-wrap">
-                    <div class="img-upload-placeholder" id="img-preview-empty">
-                        <span>📷</span><span style="font-size:.75rem;color:var(--text-muted)">{{ t.form.no_image }}</span>
-                    </div>
-                    <img src="" class="img-upload-preview" id="img-preview" style="display:none" alt=""/>
-                    <div class="img-upload-controls">
-                        <label class="btn btn-secondary btn-sm img-upload-btn">
-                            📂 Choisir une image
-                            <input type="file" name="image_file" id="image_file"
-                                   accept=".jpg,.jpeg,.png,.webp" hidden
-                                   onchange="previewImage(this)"/>
-                        </label>
-                        <span class="img-upload-hint">{{ t.form.hint_image_add }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="add-inner-sep"></div>
-
-            <!-- Organisation -->
-            <div class="add-section-title">
-                <span class="add-section-icon">🗂️</span> Organisation
-            </div>
-
-            <div class="add-row-2">
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_category }}</label>
-                    <select name="category" id="f-category" class="form-input input-select">
-                        <option value="">{{ t.form.cat_none }}</option>
-                        {% for group in category_groups %}
-                            {% if group.group %}
-                                <optgroup label="{{ group.group }}">
-                                    {% for opt in group.options %}
-                                        <option value="{{ opt.value }}">{{ opt.label }}</option>
-                                    {% endfor %}
-                                </optgroup>
-                            {% else %}
-                                {% for opt in group.options %}
-                                    <option value="{{ opt.value }}">{{ opt.label }}</option>
-                                {% endfor %}
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                    <span class="add-hint">{{ t.form.hint_desc_prefilled }}</span>
-                </div>
-                <div class="add-field">
-                    <label class="add-label">{{ t.form.label_location }}</label>
-                    <input type="text" name="location" class="form-input"
-                           placeholder="{{ t.form.ph_location }}"/>
-                </div>
-            </div>
-
-            <div class="add-field-full">
-                <label class="add-label">{{ t.form.label_notes }}</label>
-                <textarea name="notes" class="form-input" rows="3"
-                          placeholder="{{ t.form.ph_notes }}"></textarea>
-            </div>
-            <div class="add-field-full">
-                <label class="add-label">{{ t.form.label_attributes }}</label>
-                <span class="add-hint">{{ t.form.hint_attributes }}</span>
-                <div id="attr-editor" style="margin-top:.5rem">
-                    <table style="width:100%;border-collapse:collapse">
-                        <thead>
-                            <tr>
-                                <th style="text-align:left;font-size:.72rem;color:var(--text-muted);font-weight:600;padding:.2rem .4rem .4rem 0;width:45%">{{ t.form.label_attr_name }}</th>
-                                <th style="text-align:left;font-size:.72rem;color:var(--text-muted);font-weight:600;padding:.2rem .4rem .4rem 0">{{ t.form.label_attr_value }}</th>
-                                <th style="width:28px"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="attr-rows"></tbody>
-                    </table>
-                    <button type="button" onclick="attrAddRow()"
-                            style="margin-top:.5rem;font-size:.75rem;padding:.25rem .65rem;background:none;border:1px dashed var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;transition:all .15s"
-                            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-                            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
-                        {{ t.form.btn_add_attr }}
-                    </button>
-                </div>
-                <input type="hidden" name="attributes" id="attr-json"/>
-            </div>
-
-            <div class="add-field-full">
-                <label class="add-label">{{ t.form.label_source_url }} <span class="add-hint-inline">{{ t.form.hint_optional }}</span></label>
-                <input type="url" name="source_url" id="f-source-url" class="form-input"
-                       placeholder="https://aliexpress.com/item/... ou https://amazon.fr/dp/..."/>
-                <span class="add-hint">{{ t.form.hint_source_url }}</span>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- ── Colonne latérale : Stock & Prix ────────────────────────── -->
-    <div class="add-col-side">
-        <div class="add-section add-section-sticky">
-            <div class="add-section-title">
-                <span class="add-section-icon">📦</span> {{ t.form.section_stock }}
-            </div>
-
-            <div class="add-field">
-                <label class="add-label">{{ t.form.label_qty }} <span class="add-required">*</span></label>
-                <input type="number" name="quantity" id="f-quantity" class="form-input add-qty-input"
-                       value="0" min="0" required/>
-            </div>
-
-            <div class="add-field">
-                <label class="add-label">{{ t.form.label_min_stock }}</label>
-                <input type="number" name="min_stock" class="form-input"
-                       value="0" min="0"/>
-                <span class="add-hint">{{ t.form.hint_0_alert }}</span>
-            </div>
-
-            <div class="add-separator"></div>
-
-            <div class="add-field">
-                <label class="add-label">{{ t.form.label_unit_price }}</label>
-                <input type="number" name="unit_price" id="f-unit-price" class="form-input"
-                       step="0.0001" min="0" placeholder="0.0000"
-                       oninput="autoCalcTotal()"/>
-            </div>
-
-            <div class="add-field">
-                <label class="add-label">{{ t.add.section_price }}
-                    <span class="add-hint-inline" id="total-auto-hint">{{ t.form.hint_auto }}</span>
-                </label>
-                <input type="number" name="ext_price" id="f-ext-price" class="form-input"
-                       step="0.01" min="0" placeholder="0.00"/>
-            </div>
-
-            <div class="add-separator"></div>
-
-            <button type="submit" class="btn btn-primary btn-full">{{ t.form.btn_save }}</button>
-            <a href="{{ url_for('components.stock') }}" class="btn btn-secondary btn-full" style="margin-top:.4rem">
-                Annuler
-            </a>
-        </div>
-    </div>
-
+<div class="nadd-page-top">
+  <a href="{{ url_for('components.stock') }}" class="nadd-back">{{ t.form.back_stock }}</a>
+  <h1 class="nadd-page-title">{{ t.form.title_add }}</h1>
 </div>
-<script>
-(function(){
-    var _ex=null;
-    try{var r=document.getElementById('attr-json-init');if(r&&r.value)_ex=JSON.parse(r.value);}catch(e){}
-    function mkRow(n,v){
-        var tr=document.createElement('tr');
-        function mkTd(cls,ph,val){
-            var td=document.createElement('td');td.style.cssText='padding-right:.4rem;padding-bottom:.3rem';
-            var inp=document.createElement('input');inp.type='text';inp.className='form-input '+cls;
-            inp.value=val||'';inp.placeholder=ph;inp.style.cssText='font-size:.78rem;padding:.3rem .5rem';
-            inp.addEventListener('input',save);td.appendChild(inp);return td;
-        }
-        tr.appendChild(mkTd('attr-k','ex: Voltage Rating',n));
-        tr.appendChild(mkTd('attr-v','ex: 12V',v));
-        var td=document.createElement('td');td.style.cssText='padding-bottom:.3rem;text-align:center';
-        var btn=document.createElement('button');btn.type='button';btn.textContent='×';
-        btn.style.cssText='background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:.1rem .3rem;border-radius:3px';
-        btn.addEventListener('click',function(){tr.remove();save();});
-        btn.addEventListener('mouseover',function(){btn.style.color='var(--danger)';});
-        btn.addEventListener('mouseout',function(){btn.style.color='var(--text-muted)';});
-        td.appendChild(btn);tr.appendChild(td);return tr;
-    }
-    window.attrAddRow=function(n,v){
-        var tb=document.getElementById('attr-rows');if(!tb)return;
-        tb.appendChild(mkRow(n,v));save();
-        var ins=tb.querySelectorAll('.attr-k');if(ins.length)ins[ins.length-1].focus();
-    };
-    function save(){
-        var obj={};
-        document.querySelectorAll('#attr-rows tr').forEach(function(tr){
-            var k=tr.querySelector('.attr-k'),v=tr.querySelector('.attr-v');
-            if(k&&v&&k.value.trim())obj[k.value.trim()]=v.value.trim();
-        });
-        var h=document.getElementById('attr-json');if(h)h.value=JSON.stringify(obj);
-    }
-    document.addEventListener('DOMContentLoaded',function(){
-        if(_ex&&typeof _ex==='object'){Object.keys(_ex).forEach(function(k){attrAddRow(k,_ex[k]);});}
-        save();
-    });
-})();
-</script>
+
+<form method="post" action="{{ url_for('components.add') }}"
+      id="add-form" enctype="multipart/form-data" novalidate>
+<input type="hidden" name="datasheet_url" id="f-datasheet"/>
+<input type="hidden" name="image_url"     id="f-image-url"/>
+<input type="hidden" name="attributes"    id="attr-json"/>
+
+<div class="nadd-root">
+
+{# ════════ COLONNE PRINCIPALE (gauche) ═══════════════════════════ #}
+<div class="nadd-main">
+
+  {# ── QUICK IMPORT ──────────────────────────────────────────── #}
+  <div class="nadd-card nadd-card--import" id="smart-lookup">
+    <div class="nadd-card-head">
+      <div class="nadd-card-icon">⚡</div>
+      <div style="flex:1">
+        <div class="nadd-card-title">{{ t.form.quick_import }}</div>
+        <div class="nadd-card-desc">{{ t.form.label_lcsc_hint }} · {{ t.form.hint_or_mouser }}</div>
+      </div>
+      <div id="smart-source-badge" class="nadd-src-badge" style="display:none"></div>
+    </div>
+    <div class="nadd-card-body" style="gap:.6rem">
+      <div class="nadd-import-row">
+        <input type="text" id="smart-ref-input"
+               class="nadd-input nadd-import-input"
+               placeholder="C149504  ·  652-3852A-282101AL  ·  296-6501-1-ND"
+               autocomplete="off" spellcheck="false"
+               oninput="detectSource(this.value)"/>
+        <button type="button" class="nadd-import-btn" id="smart-lookup-btn" onclick="lookupSmart()">
+          Rechercher
+        </button>
+      </div>
+      <div id="smart-lookup-status" class="nadd-import-status" style="display:none"></div>
+      <div id="smart-preview-box" class="nadd-preview" style="display:none">
+        <img id="smart-preview-img" src="" alt="" class="nadd-preview-img"/>
+        <div class="nadd-preview-body">
+          <div class="nadd-preview-name" id="smart-preview-name"></div>
+          <div class="nadd-preview-meta" id="smart-preview-meta"></div>
+        </div>
+        <button type="button" class="nadd-preview-apply" onclick="applySmartPreview()">
+          ✓ Utiliser ces données
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {# ── IDENTIFICATION ─────────────────────────────────────────── #}
+  <div class="nadd-card">
+    <div class="nadd-card-head">
+      <div class="nadd-card-icon">🔖</div>
+      <div>
+        <div class="nadd-card-title">{{ t.add.section_identification }}</div>
+        <div class="nadd-card-desc">Description, références fournisseurs, fabricant</div>
+      </div>
+    </div>
+    <div class="nadd-card-body">
+
+      <div class="nadd-field">
+        <label class="nadd-label">{{ t.form.label_description }} <span class="nadd-required">*</span></label>
+        <input type="text" name="description" id="f-description"
+               class="nadd-input" required autofocus
+               placeholder="{{ t.form.ph_desc_long }}"/>
+      </div>
+
+      <div class="nadd-field">
+        <label class="nadd-label">
+          {{ t.form.label_desc_long }}
+          <span class="nadd-hint-inline">{{ t.form.hint_optional_lcsc }}</span>
+        </label>
+        <input type="text" name="description_long" id="f-description-long"
+               class="nadd-input"
+               placeholder="ex: Resistors - Chip Resistor - Surface Mount RoHS"/>
+      </div>
+
+      {# Références en grille colorée #}
+      <div class="nadd-refs-grid">
+        <div class="nadd-ref-item nadd-ref-item--lcsc">
+          <div class="nadd-ref-label"><span class="nadd-ref-dot nadd-ref-dot--lcsc"></span>LCSC</div>
+          <input type="text" name="lcsc_part_number" id="f-lcsc"
+                 class="nadd-input nadd-input--mono" placeholder="C149504"/>
+        </div>
+        <div class="nadd-ref-item nadd-ref-item--mouser">
+          <div class="nadd-ref-label"><span class="nadd-ref-dot nadd-ref-dot--mouser"></span>Mouser</div>
+          <input type="text" name="mouser_part_number" id="f-mouser"
+                 class="nadd-input nadd-input--mono" placeholder="{{ t.form.ph_mouser }}"/>
+        </div>
+        <div class="nadd-ref-item nadd-ref-item--digikey">
+          <div class="nadd-ref-label"><span class="nadd-ref-dot nadd-ref-dot--digikey"></span>DigiKey</div>
+          <input type="text" name="digikey_part_number" id="f-digikey"
+                 class="nadd-input nadd-input--mono" placeholder="{{ t.form.ph_digikey }}"/>
+        </div>
+        <div class="nadd-ref-item">
+          <div class="nadd-ref-label"><span class="nadd-ref-dot"></span>MPN</div>
+          <input type="text" name="manufacture_part_number" id="f-mfr-part"
+                 class="nadd-input nadd-input--mono" placeholder="0805W8F1003T5E"/>
+        </div>
+        <div class="nadd-ref-item">
+          <div class="nadd-ref-label"><span class="nadd-ref-dot"></span>Fabricant</div>
+          <input type="text" name="manufacturer" id="f-manufacturer"
+                 class="nadd-input" placeholder="{{ t.form.ph_manufacturer }}"/>
+        </div>
+      </div>
+
+      <div class="nadd-row-2">
+        <div class="nadd-field">
+          <label class="nadd-label">{{ t.form.label_package }}</label>
+          <input type="text" name="package" id="f-package"
+                 class="nadd-input nadd-input--mono" placeholder="{{ t.form.ph_package }}"/>
+        </div>
+        <div class="nadd-field">
+          <label class="nadd-label">{{ t.form.label_rohs }}</label>
+          <select name="rohs" id="f-rohs" class="nadd-input nadd-select">
+            <option value="">{{ t.form.rohs_none }}</option>
+            <option value="YES">✅ {{ t.form.rohs_yes }}</option>
+            <option value="NO">❌ {{ t.form.rohs_no }}</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── IMAGE ─────────────────────────────────────────────────── #}
+  <div class="nadd-card">
+    <div class="nadd-card-head">
+      <div class="nadd-card-icon">📷</div>
+      <div>
+        <div class="nadd-card-title">{{ t.form.label_image }}</div>
+        <div class="nadd-card-desc">{{ t.form.hint_image_add }} · ignorée si LCSC fournit une image</div>
+      </div>
+    </div>
+    <div class="nadd-card-body">
+      <div class="nadd-img-zone" id="nadd-img-zone"
+           onclick="document.getElementById('image_file').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleImgDrop(event)">
+        <div id="nadd-img-empty" class="nadd-img-empty">
+          <span style="font-size:2rem">📷</span>
+          <span style="font-size:.8rem;color:var(--text-muted);font-weight:500">Glisser une image ou cliquer</span>
+          <span style="font-size:.68rem;color:var(--text-muted);opacity:.6">JPG · PNG · WebP</span>
+        </div>
+        <img id="img-preview" src="" alt="" class="nadd-img-preview" style="display:none"/>
+        <input type="file" name="image_file" id="image_file"
+               accept=".jpg,.jpeg,.png,.webp" hidden
+               onchange="previewImage(this)"/>
+      </div>
+    </div>
+  </div>
+
+  {# ── ORGANISATION ──────────────────────────────────────────── #}
+  <div class="nadd-card">
+    <div class="nadd-card-head">
+      <div class="nadd-card-icon">🗂️</div>
+      <div>
+        <div class="nadd-card-title">Organisation</div>
+        <div class="nadd-card-desc">Catégorie, emplacement, notes, attributs</div>
+      </div>
+    </div>
+    <div class="nadd-card-body">
+
+      <div class="nadd-row-2">
+        <div class="nadd-field">
+          <label class="nadd-label">{{ t.form.label_category }}</label>
+          <select name="category" id="f-category" class="nadd-input nadd-select">
+            <option value="">{{ t.form.cat_none }}</option>
+            {% for group in category_groups %}
+              {% if group.group %}
+                <optgroup label="{{ group.group }}">
+                  {% for opt in group.options %}
+                    <option value="{{ opt.value }}">{{ opt.label }}</option>
+                  {% endfor %}
+                </optgroup>
+              {% else %}
+                {% for opt in group.options %}
+                  <option value="{{ opt.value }}">{{ opt.label }}</option>
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+          </select>
+          <div class="nadd-hint">{{ t.form.hint_desc_prefilled }}</div>
+        </div>
+        <div class="nadd-field">
+          <label class="nadd-label">{{ t.form.label_location }}</label>
+          <input type="text" name="location" class="nadd-input"
+                 placeholder="{{ t.form.ph_location }}"/>
+        </div>
+      </div>
+
+      <div class="nadd-field">
+        <label class="nadd-label">{{ t.form.label_notes }}</label>
+        <textarea name="notes" class="nadd-input nadd-textarea" rows="3"
+                  placeholder="{{ t.form.ph_notes }}"></textarea>
+      </div>
+
+      <div class="nadd-field">
+        <label class="nadd-label">{{ t.form.label_source_url }}
+          <span class="nadd-hint-inline">{{ t.form.hint_optional }}</span>
+        </label>
+        <input type="url" name="source_url" id="f-source-url" class="nadd-input"
+               placeholder="https://aliexpress.com/item/..."/>
+        <div class="nadd-hint">{{ t.form.hint_source_url }}</div>
+      </div>
+
+      {# Attributs #}
+      <div class="nadd-field">
+        <label class="nadd-label">{{ t.form.label_attributes }}
+          <span class="nadd-hint-inline">{{ t.form.hint_attributes }}</span>
+        </label>
+        <div class="nadd-attrs">
+          <div class="nadd-attr-head">
+            <span>{{ t.form.label_attr_name }}</span>
+            <span>{{ t.form.label_attr_value }}</span>
+            <span></span>
+          </div>
+          <div id="attr-rows"></div>
+          <button type="button" onclick="attrAddRow()" class="nadd-attr-add">
+            + {{ t.form.btn_add_attr }}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>{# /nadd-main #}
+
+{# ════════ SIDEBAR STOCK (droite) ════════════════════════════════ #}
+<aside class="nadd-side">
+
+  <div class="nadd-card nadd-card--stock nadd-card--sticky">
+    <div class="nadd-card-head">
+      <div class="nadd-card-icon">📦</div>
+      <div><div class="nadd-card-title">{{ t.form.section_stock }}</div></div>
+    </div>
+    <div class="nadd-card-body">
+
+      <div class="nadd-field">
+        <label class="nadd-label">{{ t.form.label_qty }} <span class="nadd-required">*</span></label>
+        <div class="nadd-qty-wrap">
+          <button type="button" class="nadd-qty-btn" onclick="changeQty(-1)">−</button>
+          <input type="number" name="quantity" id="f-quantity"
+                 class="nadd-input nadd-qty-input"
+                 value="0" min="0" required oninput="autoCalcTotal()"/>
+          <button type="button" class="nadd-qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+      </div>
+
+      <div class="nadd-field">
+        <label class="nadd-label">{{ t.form.label_min_stock }}</label>
+        <input type="number" name="min_stock" class="nadd-input"
+               value="{{ default_min_stock or 0 }}" min="0"/>
+        <div class="nadd-hint">{{ t.form.hint_0_alert }}</div>
+      </div>
+
+      <div class="nadd-sep"></div>
+
+      <div class="nadd-field">
+        <label class="nadd-label">{{ t.form.label_unit_price }}</label>
+        <div class="nadd-price-wrap">
+          <input type="number" name="unit_price" id="f-unit-price"
+                 class="nadd-input" step="0.0001" min="0"
+                 placeholder="0.0000" oninput="autoCalcTotal()"/>
+          <span class="nadd-price-unit">€</span>
+        </div>
+      </div>
+
+      <div class="nadd-field">
+        <label class="nadd-label">
+          {{ t.add.section_price }}
+          <span class="nadd-hint-inline" id="total-auto-hint">auto</span>
+        </label>
+        <div class="nadd-price-wrap">
+          <input type="number" name="ext_price" id="f-ext-price"
+                 class="nadd-input" step="0.01" min="0" placeholder="0.00"/>
+          <span class="nadd-price-unit">€</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="nadd-card-foot">
+      <button type="submit" class="nadd-submit">{{ t.form.btn_save }}</button>
+      <a href="{{ url_for('components.stock') }}" class="nadd-cancel">Annuler</a>
+    </div>
+  </div>
+
+</aside>
+
+</div>{# /nadd-root #}
 </form>
 
 <script>
-/* Variables injectées par Jinja */
-const t_form_search_btn = {{ t.form.search_btn | tojson }};
+const t_form_search_btn    = {{ t.form.search_btn    | tojson }};
 const t_form_error_network = {{ t.form.error_network | tojson }};
+
+function changeQty(d) {
+  const inp = document.getElementById('f-quantity');
+  inp.value = Math.max(0, (parseInt(inp.value) || 0) + d);
+  autoCalcTotal();
+}
+
+function handleImgDrop(e) {
+  e.preventDefault();
+  document.getElementById('nadd-img-zone')?.classList.remove('drag');
+  const file = e.dataTransfer.files?.[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  const dt = new DataTransfer(); dt.items.add(file);
+  const inp = document.getElementById('image_file');
+  inp.files = dt.files; previewImage(inp);
+}
+
+(function(){
+  function mkRow(n, v) {
+    const row = document.createElement('div'); row.className = 'nadd-attr-row';
+    const mk = (ph, val) => {
+      const i = document.createElement('input');
+      i.type = 'text'; i.className = 'nadd-input'; i.placeholder = ph;
+      i.value = val || ''; i.addEventListener('input', save); return i;
+    };
+    const del = document.createElement('button');
+    del.type = 'button'; del.textContent = '×'; del.className = 'nadd-attr-del';
+    del.addEventListener('click', () => { row.remove(); save(); });
+    row.append(mk('ex: Voltage', n), mk('ex: 12V', v), del); return row;
+  }
+  window.attrAddRow = function(n, v) {
+    const c = document.getElementById('attr-rows'); if (!c) return;
+    const row = mkRow(n, v); c.appendChild(row); save();
+    row.querySelector('input')?.focus();
+  };
+  function save() {
+    const obj = {};
+    document.querySelectorAll('#attr-rows .nadd-attr-row').forEach(row => {
+      const [k, v] = row.querySelectorAll('input');
+      if (k?.value.trim()) obj[k.value.trim()] = v?.value.trim() || '';
+    });
+    const h = document.getElementById('attr-json'); if (h) h.value = JSON.stringify(obj);
+  }
+  document.addEventListener('DOMContentLoaded', save);
+})();
 </script>
 <script src="{{ url_for('static', filename='js/add.js') }}?v={{ cache_buster }}"></script>
 {% endblock %}

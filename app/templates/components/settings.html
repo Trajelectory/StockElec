@@ -1,1416 +1,930 @@
 {% extends "base.html" %}
-{% block title %}{{ t.settings.title }} — StockElec
-
-{% endblock %}
+{% block title %}{{ t.settings.title }} — StockEleK{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>{{ t.settings.title }}</h1>
+<div class="cfg-root">
+
+{# ═══════════════ SIDEBAR ═══════════════════════════════════════ #}
+<nav class="cfg-sidebar">
+  <div class="cfg-sidebar-title">Paramètres</div>
+
+  <button class="cfg-nav-item active" data-sec="general" onclick="showSec('general')">
+    <span class="cfg-nav-icon">⚙️</span>Général
+  </button>
+  <button class="cfg-nav-item" data-sec="integrations" onclick="showSec('integrations')">
+    <span class="cfg-nav-icon">🔌</span>Intégrations
+    <span class="cfg-nav-badge {% if stats.n_to_enrich > 0 %}visible{% endif %}"
+          id="nav-badge-integ">{{ stats.n_to_enrich or '' }}</span>
+  </button>
+  <button class="cfg-nav-item" data-sec="easyeda" onclick="showSec('easyeda')">
+    <span class="cfg-nav-icon">🖼️</span>EasyEDA
+    <span class="cfg-nav-badge {% if stats.n_no_easyeda > 0 %}visible{% endif %}"
+          id="nav-badge-easyeda">{{ stats.n_no_easyeda or '' }}</span>
+  </button>
+  <button class="cfg-nav-item" data-sec="esp32" onclick="showSec('esp32')">
+    <span class="cfg-nav-icon">💡</span>ESP32 & LEDs
+  </button>
+  <button class="cfg-nav-item" data-sec="kicad" onclick="showSec('kicad')">
+    <span class="cfg-nav-icon">📐</span>KiCad
+  </button>
+  <div class="cfg-nav-sep"></div>
+  <button class="cfg-nav-item" data-sec="stats" onclick="showSec('stats')">
+    <span class="cfg-nav-icon">📊</span>Statistiques
+  </button>
+  <button class="cfg-nav-item" data-sec="maintenance" onclick="showSec('maintenance')">
+    <span class="cfg-nav-icon">🛠️</span>Maintenance
+  </button>
+  <button class="cfg-nav-item" data-sec="danger" onclick="showSec('danger')">
+    <span class="cfg-nav-icon">⚠️</span>Zone de danger
+  </button>
+</nav>
+
+{# ═══════════════ CONTENU ════════════════════════════════════════ #}
+<main class="cfg-main">
+
+{# ── GÉNÉRAL ─────────────────────────────────────────────────── #}
+<section class="cfg-section active" id="sec-general">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">⚙️ Général</h1>
+    <p class="cfg-section-desc">{{ t.settings.desc_general }}</p>
+  </div>
+  <form method="post" class="cfg-cards">
+    <input type="hidden" name="action" value="save_general"/>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ t.settings.card_app }}</h2>
+          <p class="cfg-card-desc">Nom, langue et préférences globales</p>
+        </div>
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_appname }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_appname }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="text" name="app_name" class="cfg-input"
+                   value="{{ current.app_name }}" placeholder="{{ t.settings.ph_appname }}"/>
+          </div>
+        </div>
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_lang }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_lang }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <select name="lang" class="cfg-input cfg-select">
+              <option value="fr" {% if current.lang == 'fr' %}selected{% endif %}>🇫🇷 Français</option>
+              <option value="en" {% if current.lang == 'en' %}selected{% endif %}>🇬🇧 English</option>
+            </select>
+          </div>
+        </div>
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_minstock }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_minstock }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="number" name="default_min_stock" class="cfg-input cfg-input-mono"
+                   value="{{ current.default_min_stock }}" min="0" style="max-width:100px"/>
+          </div>
+        </div>
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_baseurl }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_baseurl }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="text" name="base_url" class="cfg-input cfg-input-mono"
+                   value="{{ current.base_url }}" placeholder="http://192.168.1.10:5000"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Debug toolbar #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">🛠 Debug Toolbar</h2>
+          <p class="cfg-card-desc">Panneau de débogage SQL / logs en bas de page</p>
+        </div>
+        <label class="cfg-toggle">
+          <input type="hidden"   name="debug_toolbar" value="0"/>
+          <input type="checkbox" name="debug_toolbar" value="1"
+                 id="toggle-debug" class="cfg-toggle-input"
+                 {% if current.debug_toolbar == '1' %}checked{% endif %}
+                 onchange="document.getElementById('dbg-form').submit()"/>
+          <div class="cfg-toggle-track {% if current.debug_toolbar == '1' %}on{% endif %}"
+               id="toggle-debug-track"
+               onclick="document.getElementById('toggle-debug').click()">
+            <div class="cfg-toggle-thumb"></div>
+          </div>
+          <span class="cfg-toggle-label">
+            {% if current.debug_toolbar == '1' %}Activée{% else %}Désactivée{% endif %}
+          </span>
+        </label>
+      </div>
+    </div>
+    <form id="dbg-form" method="post" style="display:none">
+      <input type="hidden" name="action" value="save_debug"/>
+      <input type="hidden" name="debug_toolbar" value="0"/>
+    </form>
+
+    <div class="cfg-btn-row" style="margin-top:.5rem">
+      <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_save }}</button>
+    </div>
+  </form>
+</section>
+
+{# ── INTÉGRATIONS ────────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-integrations">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">🔌 Intégrations</h1>
+    <p class="cfg-section-desc">Clés API pour l'enrichissement automatique des composants</p>
+  </div>
+  <form method="post" class="cfg-cards">
+    <input type="hidden" name="action" value="save_general"/>
+
+    {% if stats.n_to_enrich > 0 %}
+    <div class="cfg-info cfg-info--warn">
+      ⚠️ <span><strong>{{ stats.n_to_enrich }}</strong> {{ t.settings.enrich_lcsc_warn }}</span>
+    </div>
+    {% endif %}
+
+    {# LCSC #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">🔶 {{ t.settings.section_lcsc }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.desc_lcsc }}</p>
+        </div>
+        <form method="post" style="display:inline">
+          <input type="hidden" name="action" value="enrich_all"/>
+          <button type="submit" class="cfg-btn">{{ t.settings.btn_enrich_all }}</button>
+        </form>
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-info cfg-info--info">
+          💡 Aucune clé API requise — l'enrichissement LCSC fonctionne sans configuration.
+        </div>
+      </div>
+    </div>
+
+    {# Mouser #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">🟡 {{ t.settings.section_mouser }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.desc_mouser }}</p>
+        </div>
+        {% if current.mouser_api_key %}
+        <span class="cfg-badge cfg-badge--ok">✓ Configuré</span>
+        {% endif %}
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_mouser_key }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_mouser }}
+              <a href="https://www.mouser.com/api-search/" target="_blank">mouser.com/api-search</a>
+              {{ t.settings.hint_mouser_needed }}
+            </div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="password" name="mouser_api_key" class="cfg-input cfg-input-mono"
+                   value="{{ current.mouser_api_key }}"
+                   placeholder="{{ t.settings.configured_key if current.mouser_api_key else '' }}"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# DigiKey #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">🔵 {{ t.settings.section_digikey }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.desc_digikey }}</p>
+        </div>
+        {% if current.digikey_client_id %}
+        <span class="cfg-badge cfg-badge--ok">✓ Configuré</span>
+        {% endif %}
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_dk_id }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_digikey }}
+              <a href="https://developer.digikey.com/" target="_blank">developer.digikey.com</a>
+              {{ t.settings.hint_digikey_oauth }}
+            </div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="password" name="digikey_client_id" class="cfg-input cfg-input-mono"
+                   value="{{ current.digikey_client_id }}"
+                   placeholder="{{ t.settings.configured_creds if current.digikey_client_id else '' }}"/>
+          </div>
+        </div>
+        <div class="cfg-field">
+          <div><div class="cfg-label">{{ t.settings.label_dk_secret }}</div></div>
+          <div class="cfg-input-wrap">
+            <input type="password" name="digikey_client_secret" class="cfg-input cfg-input-mono"
+                   value="{{ current.digikey_client_secret }}"
+                   placeholder="{{ t.settings.configured_creds if current.digikey_client_secret else '' }}"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cfg-btn-row" style="margin-top:.5rem">
+      <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_save }}</button>
+    </div>
+  </form>
+</section>
+
+{# ── EASYEDA ─────────────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-easyeda">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">🖼️ EasyEDA — Symboles & Footprints</h1>
+    <p class="cfg-section-desc">{{ t.settings.desc_lcsc }}</p>
+  </div>
+  <div class="cfg-cards">
+    <div class="cfg-stats-grid">
+      <div class="cfg-stat-card cfg-stat-card--accent">
+        <div class="cfg-stat-val">{{ stats.n_components or 0 }}</div>
+        <div class="cfg-stat-lbl">{{ t.settings.stats_components }}</div>
+      </div>
+      <div class="cfg-stat-card {% if stats.n_no_easyeda > 0 %}cfg-stat-card--warn{% else %}cfg-stat-card--green{% endif %}">
+        <div class="cfg-stat-val">{{ stats.n_no_easyeda or 0 }}</div>
+        <div class="cfg-stat-lbl">sans symbole/footprint</div>
+      </div>
+    </div>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ t.settings.section_easyeda }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.easyeda_missing }}</p>
+        </div>
+        <div class="cfg-btn-row">
+          <form method="post" style="display:inline">
+            <input type="hidden" name="action" value="reconcile_easyeda"/>
+            <button type="submit" class="cfg-btn">{{ t.settings.btn_easyeda_reconcile }}</button>
+          </form>
+          <form method="post" style="display:inline">
+            <input type="hidden" name="action" value="easyeda_all"/>
+            <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_easyeda_dl }}</button>
+          </form>
+        </div>
+      </div>
+      {% if stats.no_easyeda_list %}
+      <div class="cfg-card-body" style="padding-top:0">
+        <div class="cfg-mini-table-wrap">
+          <table class="cfg-mini-table">
+            <thead>
+              <tr>
+                <th>Composant</th>
+                <th>Référence LCSC</th>
+                <th>Symbole</th>
+                <th>Footprint</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in stats.no_easyeda_list[:50] %}
+              <tr>
+                <td><a href="{{ url_for('components.detail', component_id=c.id) }}" style="color:var(--accent)">
+                  {{ (c.description or '—')[:40] }}</a></td>
+                <td><span style="font-family:var(--mono);color:var(--accent)">{{ c.lcsc_part_number }}</span></td>
+                <td><span class="cfg-badge {% if c.symbol_png %}cfg-badge--ok{% else %}cfg-badge--no{% endif %}">
+                  {% if c.symbol_png %}✓{% else %}✗{% endif %}</span></td>
+                <td><span class="cfg-badge {% if c.footprint_png %}cfg-badge--ok{% else %}cfg-badge--no{% endif %}">
+                  {% if c.footprint_png %}✓{% else %}✗{% endif %}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if stats.no_easyeda_list|length > 50 %}
+        <div class="cfg-hint">… et {{ stats.no_easyeda_list|length - 50 }} autres</div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="cfg-card-body">
+        <div class="cfg-info cfg-info--success">✅ {{ t.settings.all_easyeda }}</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{# ── ESP32 ───────────────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-esp32">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">💡 ESP32 — LEDs adressables</h1>
+    <p class="cfg-section-desc">{{ t.settings.desc_esp32 }}</p>
+  </div>
+  <form method="post" class="cfg-cards">
+    <input type="hidden" name="action" value="save_general"/>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <h2 class="cfg-card-title">🔌 Connexion ESP32</h2>
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_esp32_url }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_esp32_url }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <div class="cfg-input-group">
+              <input type="text" name="esp32_url" class="cfg-input cfg-input-mono"
+                     id="esp32-url-input"
+                     value="{{ current.esp32_url }}" placeholder="http://192.168.1.42"/>
+              <button type="button" class="cfg-btn" onclick="testEsp32()">{{ t.settings.btn_test }}</button>
+            </div>
+            <div id="esp32-test-result" style="font-size:.75rem;margin-top:.25rem"></div>
+            <div style="display:flex;align-items:center;gap:.6rem;margin-top:.5rem;flex-wrap:wrap">
+              <span style="font-size:.75rem;color:var(--text-muted)">{{ t.settings.label_esp32_test_plateau }} :</span>
+              <select id="esp32-test-pid" class="cfg-input cfg-select" style="width:auto;font-size:.78rem">
+                {% for p in config_plateaux %}
+                <option value="{{ p.id }}">{{ p.id }} — {{ p.label }}</option>
+                {% endfor %}
+                {% if not config_plateaux %}<option value="A">A</option>{% endif %}
+              </select>
+              <span style="font-size:.75rem;color:var(--text-muted)">{{ t.settings.label_esp32_test_delay }} :</span>
+              <input type="number" id="esp32-test-delay" class="cfg-input cfg-input-mono"
+                     value="80" min="20" max="500" style="width:70px;font-size:.78rem"/>
+              <button type="button" class="cfg-btn" onclick="testChenillard()">{{ t.settings.btn_esp32_test_seq }}</button>
+            </div>
+          </div>
+        </div>
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_esp32_token }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_esp32_token }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="password" name="esp32_token" class="cfg-input cfg-input-mono"
+                   value="{{ current.esp32_token }}" placeholder="{{ t.settings.ph_esp_token }}"/>
+          </div>
+        </div>
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_esp32_duration }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_seconds }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="number" name="esp32_duration" class="cfg-input cfg-input-mono"
+                   value="{{ current.esp32_duration }}" min="1" max="60" style="max-width:100px"/>
+          </div>
+        </div>
+        <div class="cfg-field">
+          <div>
+            <div class="cfg-label">{{ t.settings.label_esp32_offsets }}</div>
+            <div class="cfg-hint">{{ t.settings.hint_esp32_offsets }}</div>
+          </div>
+          <div class="cfg-input-wrap">
+            <input type="text" name="esp32_offsets" class="cfg-input cfg-input-mono"
+                   value="{{ current.esp32_offsets }}" placeholder='{"A": 0, "B": 50}'/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Couleurs LED par catégorie #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">🎨 {{ t.settings.section_led_colors }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.hint_led_colors }}</p>
+        </div>
+        <button type="button" class="cfg-btn" onclick="resetLedColors()">↩ Réinitialiser</button>
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-led-grid">
+          {% for lc in led_colors %}
+          <div class="cfg-led-item">
+            <input type="color" name="{{ lc.setting_key }}" class="cfg-led-color-inp"
+                   value="{{ lc.color }}" title="{{ lc.label }}"
+                   oninput="updateSwatch(this)"
+                   data-default="{{ lc.default }}"/>
+            <div class="cfg-led-swatch" style="background:{{ lc.color }}"
+                 id="swatch-{{ lc.setting_key }}"></div>
+            <div>
+              <div class="cfg-led-label">{{ lc.label }}</div>
+              <div class="cfg-led-hint">{{ lc.hint }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="cfg-btn-row" style="margin-top:.5rem">
+      <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_save }}</button>
+    </div>
+  </form>
+</section>
+
+{# ── KICAD ───────────────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-kicad">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">📐 KiCad Library</h1>
+    <p class="cfg-section-desc">{{ t.settings.kicad_desc }}</p>
+  </div>
+  <div class="cfg-cards">
+    <form method="post">
+      <input type="hidden" name="action" value="save_general"/>
+      <div class="cfg-card">
+        <div class="cfg-card-head"><h2 class="cfg-card-title">⚙️ Configuration KiCad</h2></div>
+        <div class="cfg-card-body">
+          <div class="cfg-field">
+            <div>
+              <div class="cfg-label">{{ t.settings.kicad_prefix_label }}</div>
+            </div>
+            <div class="cfg-input-wrap">
+              <div class="cfg-input-group">
+                <input type="text" name="kicad_prefix" class="cfg-input cfg-input-mono"
+                       value="{{ current.kicad_prefix }}" placeholder="{{ t.settings.ph_kicad_prefix }}"/>
+                <button type="submit" class="cfg-btn">{{ t.settings.btn_save }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">⚙️ {{ t.settings.kicad_gen_label }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.kicad_gen_desc }}</p>
+        </div>
+        <div class="cfg-btn-row">
+          <select id="kicad-delay" class="cfg-input cfg-select" style="width:auto;font-size:.78rem">
+            <option value="1">{{ t.settings.kicad_delay_1 }}</option>
+            <option value="2" selected>{{ t.settings.kicad_delay_2 }}</option>
+            <option value="3">{{ t.settings.kicad_delay_3 }}</option>
+            <option value="5">{{ t.settings.kicad_delay_5 }}</option>
+          </select>
+          <button type="button" class="cfg-btn cfg-btn--primary" onclick="startKicad()">{{ t.settings.kicad_gen_btn }}</button>
+        </div>
+      </div>
+      <div class="cfg-card-body">
+        <div id="kicad-dep-status" class="cfg-info cfg-info--info">
+          🔍 Vérification des dépendances…
+        </div>
+        <div class="cfg-progress" id="kicad-progress">
+          <div class="cfg-progress-label">{{ t.settings.kicad_progress_label }}</div>
+          <div class="cfg-progress-track"><div class="cfg-progress-fill" id="kicad-prog-fill" style="width:0%"></div></div>
+          <div class="cfg-progress-text" id="kicad-prog-text">—</div>
+        </div>
+        <div id="kicad-log" style="max-height:180px;overflow-y:auto;font-size:.72rem;font-family:var(--mono);color:var(--text-muted);display:none"></div>
+      </div>
+    </div>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">📚 {{ t.settings.kicad_merge_label }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.kicad_merge_desc }}</p>
+        </div>
+        <div class="cfg-btn-row">
+          <label class="cfg-toggle" style="font-size:.75rem">
+            <input type="checkbox" id="kicad-skip" checked style="display:none"/>
+            <div class="cfg-toggle-track on" id="kicad-skip-track" onclick="toggleKicadSkip()">
+              <div class="cfg-toggle-thumb"></div>
+            </div>
+            <span class="cfg-toggle-label">{{ t.settings.kicad_skip_existing }}</span>
+          </label>
+          <button type="button" class="cfg-btn cfg-btn--primary" onclick="mergeKicad()">{{ t.settings.kicad_merge_btn }}</button>
+        </div>
+      </div>
+      <div class="cfg-card-body">
+        <div id="kicad-merge-result" style="display:none" class="cfg-info cfg-info--success"></div>
+      </div>
+    </div>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">📚 {{ t.settings.kicad_register_label }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.kicad_register_desc }}</p>
+        </div>
+        <button type="button" class="cfg-btn cfg-btn--primary" onclick="registerKicad()">
+          {{ t.settings.kicad_register_btn }}
+        </button>
+      </div>
+      <div class="cfg-card-body">
+        <div id="kicad-register-result" style="display:none" class="cfg-info cfg-info--success"></div>
+      </div>
+    </div>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">📥 {{ t.settings.kicad_dl_label }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.kicad_dl_hint }}</p>
+        </div>
+        <a href="{{ url_for('kicad.download') }}" class="cfg-btn cfg-btn--primary">
+          {{ t.settings.kicad_dl_btn }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── STATS ───────────────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-stats">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">📊 Statistiques</h1>
+    <p class="cfg-section-desc">{{ t.settings.desc_stats }}</p>
+  </div>
+  <div class="cfg-cards">
+    <div class="cfg-stats-grid">
+      <div class="cfg-stat-card cfg-stat-card--accent">
+        <div class="cfg-stat-val">{{ stats.n_components or 0 }}</div>
+        <div class="cfg-stat-lbl">{{ t.settings.stats_components }}</div>
+      </div>
+      <div class="cfg-stat-card">
+        <div class="cfg-stat-val">{{ stats.n_projects or 0 }}</div>
+        <div class="cfg-stat-lbl">{{ t.settings.stats_projects }}</div>
+      </div>
+      <div class="cfg-stat-card {% if stats.n_no_image > 0 %}cfg-stat-card--warn{% else %}cfg-stat-card--green{% endif %}">
+        <div class="cfg-stat-val">{{ stats.n_no_image or 0 }}</div>
+        <div class="cfg-stat-lbl">{{ t.settings.warn_no_image }}</div>
+      </div>
+      <div class="cfg-stat-card {% if stats.n_no_cat > 0 %}cfg-stat-card--warn{% else %}cfg-stat-card--green{% endif %}">
+        <div class="cfg-stat-val">{{ stats.n_no_cat or 0 }}</div>
+        <div class="cfg-stat-lbl">{{ t.settings.warn_no_cat }}</div>
+      </div>
+      <div class="cfg-stat-card {% if stats.n_to_enrich > 0 %}cfg-stat-card--warn{% else %}cfg-stat-card--green{% endif %}">
+        <div class="cfg-stat-val">{{ stats.n_to_enrich or 0 }}</div>
+        <div class="cfg-stat-lbl">{{ t.settings.stats_to_enrich }}</div>
+      </div>
+      <div class="cfg-stat-card {% if stats.n_no_easyeda > 0 %}cfg-stat-card--warn{% else %}cfg-stat-card--green{% endif %}">
+        <div class="cfg-stat-val">{{ stats.n_no_easyeda or 0 }}</div>
+        <div class="cfg-stat-lbl">sans EasyEDA</div>
+      </div>
+    </div>
+
+    <div class="cfg-card">
+      <div class="cfg-card-head"><h2 class="cfg-card-title">💾 Stockage</h2></div>
+      <div class="cfg-card-body">
+        {% set total_bytes = (stats.total_size or '0 o') %}
+        <div class="cfg-storage-bar">
+          <div class="cfg-storage-row">
+            <span class="cfg-storage-icon">🗄️</span>
+            <span class="cfg-storage-label">{{ t.settings.stats_db }}</span>
+            <span class="cfg-storage-val">{{ backup_db_size }}</span>
+          </div>
+          <div class="cfg-storage-row">
+            <span class="cfg-storage-icon">🖼️</span>
+            <span class="cfg-storage-label">{{ t.settings.stats_images }}</span>
+            <span class="cfg-storage-val">{{ backup_img_size }}</span>
+          </div>
+          <div class="cfg-storage-row">
+            <span class="cfg-storage-icon">📁</span>
+            <span class="cfg-storage-label">{{ t.settings.stats_proj_images }}</span>
+            <span class="cfg-storage-val">{{ backup_proj_size }}</span>
+          </div>
+          <div class="cfg-storage-row" style="border-top:1px solid var(--border);padding-top:.5rem;margin-top:.25rem">
+            <span class="cfg-storage-icon">📦</span>
+            <span class="cfg-storage-label" style="font-weight:600;color:var(--text)">Total</span>
+            <span class="cfg-storage-val" style="color:var(--accent);font-weight:700">{{ backup_total_size }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── MAINTENANCE ─────────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-maintenance">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">🛠️ Maintenance</h1>
+    <p class="cfg-section-desc">{{ t.settings.desc_maintenance }}</p>
+  </div>
+  <div class="cfg-cards">
+
+    {# Sauvegarde #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ t.settings.card_backup }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.desc_backup }}</p>
+        </div>
+        <div class="cfg-btn-row">
+          <a href="{{ url_for('components.export_csv') }}" class="cfg-btn">{{ t.settings.btn_export }}</a>
+          <form method="post" style="display:inline">
+            <input type="hidden" name="action" value="backup"/>
+            <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_backup }}</button>
+          </form>
+        </div>
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-info cfg-info--info">
+          💡 {{ t.settings.hint_backup }}
+        </div>
+      </div>
+    </div>
+
+    {# Historique #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ t.settings.card_history }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.hint_history }}</p>
+        </div>
+        <form method="post" style="display:inline"
+              onsubmit="return confirm('{{ t.settings.confirm_clear_hist2 }}')">
+          <input type="hidden" name="action" value="clear_history"/>
+          <button type="submit" class="cfg-btn cfg-btn--danger">{{ t.settings.btn_clear_history }}</button>
+        </form>
+      </div>
+    </div>
+
+    {# Nettoyage images #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ t.settings.card_images }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.hint_cleanup }}</p>
+        </div>
+        <form method="post" style="display:inline"
+              onsubmit="return confirm('{{ t.settings.confirm_clean }}')">
+          <input type="hidden" name="action" value="clean_images"/>
+          <button type="submit" class="cfg-btn cfg-btn--danger">{{ t.settings.btn_cleanup }}</button>
+        </form>
+      </div>
+    </div>
+
+    {# Catégories #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ t.settings.card_categories }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.hint_categories }}</p>
+        </div>
+        <a href="{{ url_for('components.categories') }}" class="cfg-btn cfg-btn--primary">
+          {{ t.settings.btn_manage_cats }}
+        </a>
+      </div>
+    </div>
+
+    {# Étiquettes #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ t.settings.card_label_cfg }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.hint_labels }}</p>
+        </div>
+        <a href="{{ url_for('components.label_settings') }}" class="cfg-btn cfg-btn--primary">
+          {{ t.settings.btn_label_cfg }}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── ZONE DE DANGER ──────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-danger">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title" style="color:var(--danger)">⚠️ Zone de danger</h1>
+    <p class="cfg-section-desc">{{ t.settings.desc_danger }}</p>
+  </div>
+  <div class="cfg-cards">
+    <div class="cfg-card cfg-danger-zone">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">💥 {{ t.settings.card_reset }}</h2>
+          <p class="cfg-card-desc">{{ t.settings.reset_scope }}</p>
+        </div>
+      </div>
+      <div class="cfg-card-body">
+        <div class="cfg-info cfg-info--danger">
+          ⚠️ {{ t.settings.irreversible }}
+          {{ t.settings.confirm_wipe }}
+        </div>
+        <form method="post" onsubmit="return checkReset(this)">
+          <input type="hidden" name="action" value="reset_db"/>
+          <div class="cfg-reset-input-wrap">
+            <input type="text" name="confirm_reset" class="cfg-reset-input"
+                   placeholder="{{ t.settings.ph_reset }}" autocomplete="off"/>
+            <button type="submit" class="cfg-btn cfg-btn--danger">{{ t.settings.btn_reset }}</button>
+          </div>
+          <div class="cfg-hint" style="margin-top:.4rem">{{ t.settings.irreversible_tape }} <code>RESET</code> {{ t.settings.confirm_reset }}</div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
 </div>
 
-<div class="stg-layout">
-
-    <!-- ── Sidebar navigation ──────────────────────────────────── -->
-    <nav class="stg-sidebar">
-        <div class="stg-nav-group">
-            <div class="stg-nav-group-label">{{ t.settings.tab_general }}</div>
-            <button class="stg-nav-item stg-nav-active" onclick="showSection('general', this)">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.53 11.53l1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                </span>
-                {{ t.settings.card_app }}
-            </button>
-            <button class="stg-nav-item" onclick="showSection('backup', this)">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v8M5 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                </span>
-                {{ t.settings.card_backup }} & Export
-            </button>
-        </div>
-
-        <div class="stg-nav-group">
-            <div class="stg-nav-group-label">{{ t.settings.tab_integrations }}</div>
-            <button class="stg-nav-item" onclick="showSection('lcsc', this)">
-                <span class="stg-nav-icon">
-                    <img src="{{ url_for('static', filename='img/lcsc.png') }}" style="width:14px;height:14px;object-fit:contain"/>
-                </span>
-                {{ t.settings.nav_lcsc }}
-                {% if stats and stats.n_to_enrich > 0 %}
-                <span class="stg-nav-badge">{{ stats.n_to_enrich }}</span>
-                {% endif %}
-            </button>
-            <button class="stg-nav-item" onclick="showSection('mouser', this)">
-                <span class="stg-nav-icon">
-                    <img src="{{ url_for('static', filename='img/mouser.png') }}" style="width:14px;height:14px;object-fit:contain"/>
-                </span>
-                {{ t.settings.nav_mouser }}
-                {% if current.mouser_api_key %}<span class="stg-nav-dot stg-dot-ok"></span>{% endif %}
-            </button>
-            <button class="stg-nav-item" onclick="showSection('digikey', this)">
-                <span class="stg-nav-icon">
-                    <img src="{{ url_for('static', filename='img/digikey.png') }}" style="width:14px;height:14px;object-fit:contain"/>
-                </span>
-                {{ t.settings.nav_digikey }}
-                {% if current.digikey_client_id %}<span class="stg-nav-dot stg-dot-ok"></span>{% endif %}
-            </button>
-            <button class="stg-nav-item" onclick="showSection('esp32', this)">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 4V3M8 4V2M11 4V3M5 12v1M8 12v2M11 12v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                </span>
-                {{ t.settings.card_esp32 }}
-                {% if current.esp32_url %}<span class="stg-nav-dot stg-dot-ok"></span>{% endif %}
-            </button>
-        </div>
-
-        <div class="stg-nav-group">
-            <div class="stg-nav-group-label">{{ t.settings.card_db }}</div>
-            <button class="stg-nav-item" onclick="showSection('stats', this)">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="10" width="3" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/><rect x="6.5" y="6" width="3" height="8" rx="0.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="3" height="12" rx="0.5" stroke="currentColor" stroke-width="1.5"/></svg>
-                </span>
-                {{ t.settings.card_stats }}
-            </button>
-            <button class="stg-nav-item" onclick="showSection('maintenance', this)">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 2.5L10 6l-1-1 3.5-3.5A3 3 0 006.2 5.8L2.5 9.5a2 2 0 002.83 2.83L9 8.6a3 3 0 004.5-6.1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-                </span>
-                {{ t.settings.nav_maintenance }}
-            </button>
-            <button class="stg-nav-item stg-nav-danger" onclick="showSection('danger', this)">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1L1 14h14L8 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                </span>
-                {{ t.settings.card_reset }}
-            </button>
-        </div>
-
-        <div class="stg-nav-group">
-            <div class="stg-nav-group-label">KiCad</div>
-            <button class="stg-nav-item" onclick="showSection('kicad', this)">
-                <span class="stg-nav-icon">⬡</span>
-                {{ t.settings.kicad_nav }}
-            </button>
-        </div>
-
-        <div class="stg-nav-group">
-            <div class="stg-nav-group-label">Développement</div>
-            <button class="stg-nav-item" onclick="showSection('debug', this)">
-                <span class="stg-nav-icon">🛠️</span>
-                Debug Toolbar
-            </button>
-        </div>
-
-        <div class="stg-nav-group">
-            <div class="stg-nav-group-label">{{ t.settings.tab_labels }}</div>
-            <button class="stg-nav-item" onclick="showSection('labels', this)">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4a2 2 0 012-2h4.59a2 2 0 011.41.59l4 4a2 2 0 010 2.83l-3.17 3.17a2 2 0 01-2.83 0l-4-4A2 2 0 012 7V4z" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="6.5" r="1" fill="currentColor"/></svg>
-                </span>
-                {{ t.settings.card_label_cfg }}
-            </button>
-
-            <div class="stg-nav-group-label" style="margin-top:.75rem">Ressources</div>
-            <a href="/docs/manuel" class="stg-nav-item" style="text-decoration:none">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M3 2h7l3 3v9H3V2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-                        <path d="M10 2v3h3M5.5 7h5M5.5 9.5h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                    </svg>
-                </span>
-                Manuel d'utilisation
-            </a>
-            <a href="/docs" class="stg-nav-item" style="text-decoration:none">
-                <span class="stg-nav-icon">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-                    </svg>
-                </span>
-                Documentation CSS
-            </a>
-        </div>
-    </nav>
-
-    <!-- ── Contenu principal ────────────────────────────────────── -->
-    <div class="stg-content">
-
-        {# ══ Application ════════════════════════════════════════ #}
-        <section id="sec-general" class="stg-section">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.card_app }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_general }}</p>
-            </div>
-            <div class="stg-panel">
-                <form method="post">
-                    <input type="hidden" name="action" value="save_general"/>
-                    <div class="stg-fields-grid">
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_appname }}</label>
-                            <input type="text" name="app_name" class="stg-input"
-                                   value="{{ current.app_name }}" placeholder="{{ t.settings.ph_appname }}"/>
-                            <span class="stg-hint">{{ t.settings.hint_appname }}</span>
-                        </div>
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_baseurl }}</label>
-                            <input type="text" name="base_url" class="stg-input"
-                                   value="{{ current.base_url }}" placeholder="http://192.168.1.50:5000"/>
-                            <span class="stg-hint">{{ t.settings.hint_baseurl }}</span>
-                        </div>
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_lang }}</label>
-                            <select name="lang" class="stg-input stg-input-auto">
-                                <option value="fr" {% if current.lang == 'fr' or not current.lang %}selected{% endif %}>🇫🇷 Français</option>
-                                <option value="en" {% if current.lang == 'en' %}selected{% endif %}>🇬🇧 English</option>
-                            </select>
-                            <span class="stg-hint">{{ t.settings.hint_lang }}</span>
-                        </div>
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_minstock }}</label>
-                            <div class="stg-stepper">
-                                <button type="button" class="stg-step-btn" onclick="stepInput(this.nextElementSibling,-1)">−</button>
-                                <input type="number" name="default_min_stock"
-                                       value="{{ current.default_min_stock }}" min="0"
-                                       class="stg-step-input"/>
-                                <button type="button" class="stg-step-btn" onclick="stepInput(this.previousElementSibling,+1)">+</button>
-                            </div>
-                            <span class="stg-hint">{{ t.settings.hint_minstock }}</span>
-                        </div>
-                    </div>
-                    <div class="stg-panel-footer">
-                        <button type="submit" class="btn btn-primary">{{ t.settings.btn_save }}</button>
-                    </div>
-                </form>
-            </div>
-        </section>
-
-        {# ══ Backup & Export ════════════════════════════════════ #}
-        <section id="sec-backup" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.card_backup }} & Export</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_backup }}</p>
-            </div>
-            <div class="stg-panel-row">
-                <div class="stg-panel stg-panel-half">
-                    <div class="stg-panel-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2v12M8 10l4 4 4-4" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
-                    </div>
-                    <div class="stg-panel-label">{{ t.settings.card_backup }}</div>
-                    <p class="stg-hint">{{ t.settings.hint_backup }}</p>
-
-                    <!-- Infos sur la sauvegarde -->
-                    <div class="stg-backup-info">
-                        <div class="stg-backup-row">
-                            <span>📦 stock.db</span>
-                            <span class="stg-backup-size">{{ backup_db_size }}</span>
-                        </div>
-                        <div class="stg-backup-row">
-                            <span>🖼️ images/</span>
-                            <span class="stg-backup-size">{{ backup_img_size }}</span>
-                        </div>
-                        <div class="stg-backup-row">
-                            <span>📁 project-images/</span>
-                            <span class="stg-backup-size">{{ backup_proj_size }}</span>
-                        </div>
-                        <div class="stg-backup-row stg-backup-total">
-                            <span>Total estimé</span>
-                            <span>{{ backup_total_size }}</span>
-                        </div>
-                    </div>
-
-                    <form method="post" style="margin-top:.75rem">
-                        <input type="hidden" name="action" value="backup"/>
-                        <button type="submit" class="btn btn-primary">
-                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="margin-right:.3rem">
-                                <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                            </svg>
-                            {{ t.settings.btn_backup }}
-                        </button>
-                    </form>
-                </div>
-                <div class="stg-panel stg-panel-half">
-                    <div class="stg-panel-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v6h6M8 13h8M8 17h5" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
-                    </div>
-                    <div class="stg-panel-label">{{ t.settings.card_export }}</div>
-                    <p class="stg-hint">{{ t.settings.hint_export }}</p>
-                    <a href="{{ url_for('components.export_csv') }}" class="btn btn-secondary">{{ t.settings.btn_export }}</a>
-                </div>
-            </div>
-        </section>
-
-        {# ══ LCSC & EasyEDA ═════════════════════════════════════ #}
-        <section id="sec-lcsc" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.section_lcsc }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_lcsc }}</p>
-            </div>
-
-            <!-- Statut enrichissement -->
-            <div class="stg-status-card {% if stats and stats.n_to_enrich > 0 %}stg-status-warn{% else %}stg-status-ok{% endif %}">
-                <div class="stg-status-icon">{% if stats and stats.n_to_enrich > 0 %}⚠️{% else %}✅{% endif %}</div>
-                <div>
-                    {% if stats and stats.n_to_enrich > 0 %}
-                    <strong>{{ stats.n_to_enrich }}</strong> {{ t.settings.enrich_lcsc_warn }}
-                    {% else %}
-                    <strong>{{ t.settings.all_enriched }}</strong>
-                    {% endif %}
-                </div>
-                <form method="post" style="margin-left:auto">
-                    <input type="hidden" name="action" value="enrich_all"/>
-                    <button type="submit" class="btn btn-primary btn-sm"
-                            {% if stats and stats.n_to_enrich == 0 %}disabled{% endif %}>
-                        {{ t.settings.btn_enrich_all }}
-                    </button>
-                </form>
-            </div>
-
-            <div class="stg-panel" style="margin-top:1rem">
-                <div class="stg-panel-label">{{ t.settings.section_easyeda }}</div>
-                {% if stats and stats.n_no_easyeda > 0 %}
-                <p class="stg-hint" style="margin:.5rem 0"><strong class="color-warn">{{ stats.n_no_easyeda }}</strong> {{ t.settings.easyeda_missing }}</p>
-                <div class="easyeda-missing-list">
-                    {% for c in stats.no_easyeda_list %}
-                    <div class="easyeda-missing-row">
-                        <a href="{{ url_for('components.detail', component_id=c.id) }}" class="easyeda-missing-name" target="_blank">{{ c.description or c.lcsc_part_number }}</a>
-                        <span class="easyeda-missing-ref">{{ c.lcsc_part_number }}</span>
-                        <span class="easyeda-missing-status">
-                            {% if not c.symbol_png %}<span class="badge stg-badge-err">{{ t.settings.sym_missing }}</span>{% endif %}
-                            {% if not c.footprint_png %}<span class="badge stg-badge-err">{{ t.settings.fp_missing }}</span>{% endif %}
-                        </span>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="stg-hint"><span class="color-ok">{{ t.settings.all_easyeda }}</span></p>
-                {% endif %}
-                <div class="stg-panel-footer">
-                    <form method="post" style="display:contents">
-                        <input type="hidden" name="action" value="easyeda_all"/>
-                        <button type="submit" class="btn btn-primary" {% if stats and stats.n_no_easyeda == 0 %}disabled{% endif %}>{{ t.settings.btn_easyeda_dl }}</button>
-                    </form>
-                    <form method="post" style="display:contents">
-                        <input type="hidden" name="action" value="reconcile_easyeda"/>
-                        <button type="submit" class="btn btn-secondary">{{ t.settings.btn_easyeda_reconcile }}</button>
-                    </form>
-                </div>
-            </div>
-        </section>
-
-        {# ══ Mouser ═════════════════════════════════════════════ #}
-        <section id="sec-mouser" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.section_mouser }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_mouser }}</p>
-            </div>
-            <div class="stg-panel">
-                <form method="post">
-                    <input type="hidden" name="action" value="save_general"/>
-                    <div class="stg-field">
-                        <label>{{ t.settings.label_mouser_key }}</label>
-                        <input type="text" name="mouser_api_key" class="stg-input stg-mono"
-                               value="{{ current.mouser_api_key }}"
-                               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"/>
-                        <span class="stg-hint">{{ t.settings.hint_mouser }} <a href="https://www.mouser.com/api-hub/" target="_blank" class="stg-link">mouser.com/api-hub</a> {{ t.settings.hint_mouser_needed }}</span>
-                    </div>
-                    <div class="stg-panel-footer">
-                        {% if current.mouser_api_key %}
-                        <span class="badge badge-green">{{ t.settings.configured_key }}</span>
-                        <button type="button" class="btn btn-secondary btn-sm" id="test-mouser-btn" onclick="testApi('mouser')">{{ t.settings.btn_test }}</button>
-                        <span id="test-mouser-result" class="stg-test-result"></span>
-                        <div style="flex:1"></div>
-                        {% endif %}
-                        <button type="submit" class="btn btn-primary">{{ t.settings.btn_save }}</button>
-                    </div>
-                </form>
-            </div>
-        </section>
-
-        {# ══ DigiKey ════════════════════════════════════════════ #}
-        <section id="sec-digikey" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.section_digikey }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_digikey }}</p>
-            </div>
-            <div class="stg-panel">
-                <form method="post">
-                    <input type="hidden" name="action" value="save_general"/>
-                    <div class="stg-fields-grid">
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_dk_id }}</label>
-                            <input type="text" name="digikey_client_id" class="stg-input stg-mono"
-                                   value="{{ current.digikey_client_id }}"
-                                   placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/>
-                        </div>
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_dk_secret }}</label>
-                            <input type="password" name="digikey_client_secret" class="stg-input stg-mono"
-                                   value="{{ current.digikey_client_secret }}"
-                                   placeholder="••••••••••••••••••••••••••••••••"/>
-                        </div>
-                    </div>
-                    <span class="stg-hint">{{ t.settings.hint_digikey }} <a href="https://developer.digikey.com/" target="_blank" class="stg-link">developer.digikey.com</a> {{ t.settings.hint_digikey_oauth }}</span>
-                    <div class="stg-panel-footer">
-                        {% if current.digikey_client_id and current.digikey_client_secret %}
-                        <span class="badge badge-green">{{ t.settings.configured_creds }}</span>
-                        <button type="button" class="btn btn-secondary btn-sm" id="test-digikey-btn" onclick="testApi('digikey')">{{ t.settings.btn_test }}</button>
-                        <span id="test-digikey-result" class="stg-test-result"></span>
-                        <div style="flex:1"></div>
-                        {% endif %}
-                        <button type="submit" class="btn btn-primary">{{ t.settings.btn_save }}</button>
-                    </div>
-                </form>
-            </div>
-        </section>
-
-        {# ══ ESP32 ══════════════════════════════════════════════ #}
-        <section id="sec-esp32" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.card_esp32 }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_esp32 }}</p>
-            </div>
-            <div class="stg-panel">
-                <form method="post">
-                    <input type="hidden" name="action" value="save_general"/>
-                    <div class="stg-fields-grid">
-                        <div class="stg-field stg-field-full">
-                            <label>{{ t.settings.label_esp32_url }}</label>
-                            <input type="text" name="esp32_url" class="stg-input"
-                                   value="{{ current.esp32_url }}" placeholder="http://192.168.1.42"/>
-                            <span class="stg-hint">{{ t.settings.hint_esp32_url }}</span>
-                        </div>
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_esp32_color }}</label>
-                            {# Convertir le nom de couleur stocké en hex pour le color picker #}
-                            {% set _color_map = {
-                                'purple': '#8000FF', 'blue': '#0066FF', 'green': '#00CC44',
-                                'red': '#FF2200', 'yellow': '#FFCC00', 'white': '#FFFFFF',
-                                'orange': '#FF6600', 'cyan': '#00CCFF', 'pink': '#FF1466'
-                            } %}
-                            {% set _hex = _color_map.get(current.esp32_color, current.esp32_color if current.esp32_color.startswith('#') else '#8000FF') %}
-                            <!-- Color picker custom -->
-                            <div class="cp-wrap" id="cp-wrap">
-                                <!-- Swatch cliquable -->
-                                <button type="button" class="cp-swatch" id="cp-swatch"
-                                        onclick="toggleColorPicker()"
-                                        style="background:{{ _hex }}">
-                                </button>
-                                <!-- Champ hex -->
-                                <input type="text" name="esp32_color" id="cp-hex"
-                                       value="{{ _hex }}"
-                                       oninput="onHexInput(this.value)"
-                                       class="stg-input stg-mono cp-hex-input"
-                                       maxlength="7"
-                                       placeholder="#8000FF"/>
-                                <!-- Dropdown palette -->
-                                <div class="cp-dropdown" id="cp-dropdown" style="display:none">
-                                    <div class="cp-section-label">Presets</div>
-                                    <div class="cp-presets" id="cp-presets"></div>
-                                    <div class="cp-section-label" style="margin-top:.6rem">Personnalisé</div>
-                                    <div class="cp-hsl-wrap">
-                                        <div class="cp-gradient" id="cp-gradient">
-                                            <div class="cp-gradient-cursor" id="cp-gcursor"></div>
-                                        </div>
-                                        <div class="cp-hue-wrap">
-                                            <input type="range" class="cp-hue" id="cp-hue"
-                                                   min="0" max="360" value="260"
-                                                   oninput="onHueChange(this.value)"/>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <span class="stg-hint">Clic sur le carré pour choisir — hex accepté</span>
-                        </div>
-                        <div class="stg-field">
-                            <label>{{ t.settings.label_esp32_duration }}</label>
-                            <div class="stg-stepper">
-                                <button type="button" class="stg-step-btn" onclick="stepInput(this.nextElementSibling,-1)">−</button>
-                                <input type="number" name="esp32_duration"
-                                       value="{{ current.esp32_duration }}" min="1" max="60"
-                                       class="stg-step-input"/>
-                                <button type="button" class="stg-step-btn" onclick="stepInput(this.previousElementSibling,+1)">+</button>
-                            </div>
-                            <span class="stg-hint">{{ t.settings.hint_seconds }}</span>
-                        </div>
-                        <div class="stg-field stg-field-full">
-                            <label>{{ t.settings.label_esp32_offsets }}</label>
-                            <input type="text" name="esp32_offsets" class="stg-input stg-mono"
-                                   value="{{ current.esp32_offsets }}"
-                                   placeholder='{"A": 0, "B": 50, "C": 130}'/>
-                            <span class="stg-hint">{{ t.settings.hint_esp32_offsets }}</span>
-                        </div>
-                        <div class="stg-field stg-field-full">
-                            <label>{{ t.settings.label_esp32_token }}</label>
-                            <input type="text" name="esp32_token" class="stg-input stg-mono"
-                                   value="{{ current.esp32_token }}"
-                                   placeholder="{{ t.settings.ph_esp_token }}"/>
-                            <span class="stg-hint">{{ t.settings.hint_esp32_token }}</span>
-                        </div>
-                    </div>
-                    <div class="stg-panel-footer">
-                        <button type="submit" class="btn btn-primary">{{ t.settings.btn_save }}</button>
-                        <button type="button" class="btn btn-secondary" id="esp32-test-btn"
-                                onclick="testEsp32()">{{ t.settings.btn_esp32_test }}</button>
-                        <span id="esp32-test-result" class="stg-test-result"></span>
-                    </div>
-                </form>
-
-                {% if current.esp32_url %}
-                <div class="stg-divider"></div>
-                <div class="stg-panel-label">{{ t.settings.btn_esp32_test_seq }}</div>
-                <div style="display:flex;align-items:flex-end;gap:.75rem;flex-wrap:wrap">
-                    <div class="stg-field">
-                        <label>{{ t.settings.label_esp32_test_plateau }}</label>
-                        <select id="esp32-test-plateau" class="stg-input stg-input-auto">
-                            {% for p in config_plateaux %}
-                            <option value="{{ p.id }}">{{ p.id }} — {{ p.label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="stg-field">
-                        <label>{{ t.settings.label_esp32_test_delay }}</label>
-                        <div class="stg-stepper">
-                            <button type="button" class="stg-step-btn"
-                                    onclick="stepInput(this.nextElementSibling,-10)">−</button>
-                            <input type="number" id="esp32-test-delay" value="80"
-                                   min="20" max="500" class="stg-step-input" style="width:64px"/>
-                            <button type="button" class="stg-step-btn"
-                                    onclick="stepInput(this.previousElementSibling,+10)">+</button>
-                        </div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:.5rem">
-                        <button type="button" class="btn btn-secondary" id="esp32-seq-btn"
-                                onclick="testSequence()">{{ t.settings.btn_esp32_test_seq }}</button>
-                        <span id="esp32-seq-result" class="stg-test-result"></span>
-                    </div>
-                </div>
-                {% endif %}
-
-            </div>
-
-            <!-- ── Couleurs LED par catégorie ────────────────────── -->
-            <div style="margin-top:1.75rem">
-                <div class="stg-section-header" style="border-bottom:1px solid var(--border);padding-bottom:.75rem;margin-bottom:1rem">
-                    <h3 style="font-size:.95rem;font-weight:700;color:var(--text);margin:0">{{ t.settings.section_led_colors }}</h3>
-                    <p style="font-size:.78rem;color:var(--text-muted);margin:.25rem 0 0">{{ t.settings.hint_led_colors }} couleur pour modifier.</p>
-                </div>
-
-                <form method="post" id="led-colors-form">
-                    <input type="hidden" name="action" value="save_general"/>
-                    <div class="stg-led-colors-grid">
-                        {% for fam in led_colors %}
-                        <div class="stg-led-color-row">
-                            <div class="stg-led-swatch-wrap">
-                                <input type="color"
-                                       name="{{ fam.setting_key }}"
-                                       value="{{ fam.color }}"
-                                       class="stg-led-color-input"
-                                       id="color-{{ fam.setting_key }}"
-                                       oninput="syncHex('{{ fam.setting_key }}', this.value)"
-                                       title="Cliquer pour changer">
-                                <div class="stg-led-swatch" id="swatch-{{ fam.setting_key }}"
-                                     style="background:{{ fam.color }}"
-                                     onclick="document.getElementById('color-{{ fam.setting_key }}').click()"></div>
-                            </div>
-                            <div class="stg-led-color-info">
-                                <span class="stg-led-family">{{ fam.label }}</span>
-                                <span class="stg-led-hint">{{ fam.hint }}</span>
-                            </div>
-                            <input type="text"
-                                   class="stg-led-hex-input"
-                                   id="hex-{{ fam.setting_key }}"
-                                   value="{{ fam.color }}"
-                                   maxlength="7"
-                                   placeholder="#rrggbb"
-                                   oninput="syncPicker('{{ fam.setting_key }}', this.value)"
-                                   pattern="^#[0-9a-fA-F]{6}$"/>
-                            {% if fam.color != fam.default %}
-                            <button type="button" class="stg-led-reset-btn"
-                                    onclick="resetColor('{{ fam.setting_key }}', '{{ fam.default }}')"
-                                    title="Remettre la couleur par défaut">↺</button>
-                            {% else %}
-                            <span style="width:22px"></span>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div style="margin-top:1rem;display:flex;align-items:center;gap:.75rem">
-                        <button type="submit" class="btn btn-primary btn-sm">
-                            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="margin-right:.3rem">
-                                <path d="M13 11v2H3v-2M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                            Sauvegarder les couleurs
-                        </button>
-                        <span class="stg-hint" style="margin:0">Les nouvelles couleurs s'appliquent au prochain allumage LED.</span>
-                    </div>
-                </form>
-            </div>
-
-        </section>
-
-        {# ══ Stats BDD ══════════════════════════════════════════ #}
-        <section id="sec-stats" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.card_stats }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_stats }}</p>
-            </div>
-            {% if stats %}
-            <div class="stg-stats-row">
-                <div class="stg-stat-box">
-                    <span class="stg-stat-val">{{ stats.n_components }}</span>
-                    <span class="stg-stat-lbl">{{ t.settings.stats_components }}</span>
-                </div>
-                <div class="stg-stat-box">
-                    <span class="stg-stat-val">{{ stats.n_projects }}</span>
-                    <span class="stg-stat-lbl">{{ t.settings.stats_projects }}</span>
-                </div>
-                <div class="stg-stat-box">
-                    <span class="stg-stat-val {% if stats.n_to_enrich > 0 %}color-warn{% else %}color-ok{% endif %}">{{ stats.n_to_enrich }}</span>
-                    <span class="stg-stat-lbl">{{ t.settings.stats_to_enrich }}</span>
-                </div>
-                <div class="stg-stat-box">
-                    <span class="stg-stat-val">{{ stats.total_size }}</span>
-                    <span class="stg-stat-lbl">{{ t.settings.stats_total_size }}</span>
-                </div>
-            </div>
-            <div class="stg-panel" style="margin-top:1rem">
-                <div class="stg-size-breakdown">
-                    <div class="stg-size-item">
-                        <span>{{ t.settings.stats_db }}</span>
-                        <strong>{{ stats.db_size }}</strong>
-                    </div>
-                    <div class="stg-size-item">
-                        <span>{{ t.settings.stats_images }}</span>
-                        <strong>{{ stats.img_size }}</strong>
-                    </div>
-                    <div class="stg-size-item">
-                        <span>{{ t.settings.stats_proj_images }}</span>
-                        <strong>{{ stats.prj_size }}</strong>
-                    </div>
-                </div>
-                {% if stats.n_no_image > 0 or stats.n_no_cat > 0 %}
-                <div class="settings-warn-box" style="margin-top:.75rem">
-                    {% if stats.n_no_image > 0 %}<div>⚠️ {{ stats.n_no_image }} {{ t.settings.warn_no_image }}</div>{% endif %}
-                    {% if stats.n_no_cat > 0 %}<div>⚠️ {{ stats.n_no_cat }} {{ t.settings.warn_no_cat }}</div>{% endif %}
-                </div>
-                {% endif %}
-            </div>
-            {% endif %}
-        </section>
-
-        {# ══ Maintenance ════════════════════════════════════════ #}
-        <section id="sec-maintenance" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.nav_maintenance }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_maintenance }}</p>
-            </div>
-            <div class="stg-panel-row">
-                <div class="stg-panel stg-panel-third">
-                    <div class="stg-panel-label">{{ t.settings.card_categories }}</div>
-                    <p class="stg-hint">{{ t.settings.hint_categories }}</p>
-                    <a href="{{ url_for('components.categories') }}" class="btn btn-primary btn-sm">{{ t.settings.btn_manage_cats }}</a>
-                </div>
-                <div class="stg-panel stg-panel-third">
-                    <div class="stg-panel-label">{{ t.settings.card_history }}</div>
-                    <p class="stg-hint">{{ t.settings.hint_history }}</p>
-                    <form method="post" onsubmit="return confirm('{{ t.settings.confirm_clear_hist2 }}')">
-                        <input type="hidden" name="action" value="clear_history"/>
-                        <button type="submit" class="btn btn-danger btn-sm">{{ t.settings.btn_clear_history }}</button>
-                    </form>
-                </div>
-                <div class="stg-panel stg-panel-third">
-                    <div class="stg-panel-label">{{ t.settings.card_images }}</div>
-                    <p class="stg-hint">{{ t.settings.hint_cleanup }}</p>
-                    <form method="post" onsubmit="return confirm('{{ t.settings.confirm_clean }}')">
-                        <input type="hidden" name="action" value="clean_images"/>
-                        <button type="submit" class="btn btn-secondary btn-sm">{{ t.settings.btn_cleanup }}</button>
-                    </form>
-                </div>
-            </div>
-        </section>
-
-        {# ══ Zone danger ════════════════════════════════════════ #}
-        <section id="sec-danger" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title stg-danger-title">{{ t.settings.card_reset }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_danger }}</p>
-            </div>
-            <div class="stg-panel stg-danger-panel">
-                <div class="stg-danger-banner">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 21h20L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5M12 16.5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    <span>{{ t.settings.confirm_wipe }} <strong>{{ t.settings.reset_scope }}</strong></span>
-                </div>
-                <p class="stg-hint" style="margin:.75rem 0">
-                    <strong class="stg-danger-text">{{ t.settings.irreversible }}</strong>
-                    {{ t.settings.irreversible_tape }} <code>RESET</code> {{ t.settings.ph_reset }}.
-                </p>
-                <form method="post" onsubmit="return document.getElementById('confirm-reset-input').value === 'RESET' || (alert('{{ t.settings.confirm_reset }}'), false)">
-                    <input type="hidden" name="action" value="reset_db"/>
-                    <div class="stg-panel-footer">
-                        <input type="text" name="confirm_reset" id="confirm-reset-input"
-                               placeholder="{{ t.settings.ph_reset }}"
-                               class="stg-input stg-mono" style="width:160px"/>
-                        <button type="submit" class="btn btn-danger">{{ t.settings.btn_reset }}</button>
-                    </div>
-                </form>
-            </div>
-        </section>
-
-        {# ══ KiCad Library ══════════════════════════════════════════════════ #}
-        <section id="sec-kicad" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.kicad_title }}</h2>
-                <p class="stg-section-desc">{{ t.settings.kicad_desc }}</p>
-            </div>
-
-            {# ── Statut + Stats côte à côte ───────────────────────── #}
-            <div class="stg-panel" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1rem">
-                <div>
-                    <div class="stg-panel-label">{{ t.settings.kicad_dep_label }}</div>
-                    <div id="kicad-check-status" style="font-size:.82rem;color:var(--text-muted);margin-top:.25rem">
-                        {{ t.settings.kicad_dep_checking }}
-                    </div>
-                </div>
-                <div>
-                    <div class="stg-panel-label">{{ t.settings.kicad_stats_label }}</div>
-                    <div id="kicad-stats" style="font-size:.82rem;color:var(--text-muted);margin-top:.25rem">
-                        {{ t.settings.kicad_stats_loading }}
-                    </div>
-                </div>
-            </div>
-
-            {# ── Étape 1 : Générer ────────────────────────────────── #}
-            <div class="stg-panel" style="margin-bottom:1rem">
-                <div class="stg-panel-label">
-                    <span style="background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;margin-right:.4rem;flex-shrink:0">1</span>
-                    {{ t.settings.kicad_gen_label }}
-                </div>
-                <p class="stg-hint" style="margin:.4rem 0 .75rem">{{ t.settings.kicad_gen_desc }}</p>
-                <div style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:.75rem">
-                    <label style="font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:.4rem">
-                        {{ t.settings.kicad_prefix_label }}
-                        <input type="text" id="kicad-prefix"
-                               value="{{ current.get('kicad_prefix', 'StockElec_') or 'StockElec_' }}"
-                               placeholder="{{ t.settings.ph_kicad_prefix }}"
-                               style="font-size:.78rem;padding:.2rem .5rem;width:120px;
-                                      border:1px solid var(--border);border-radius:var(--radius-sm);
-                                      background:var(--bg-surface);color:var(--text);font-family:var(--mono)"/>
-                    </label>
-                    <label style="font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:.4rem">
-                        {{ t.settings.kicad_delay_label }}
-                        <select id="kicad-delay" style="font-size:.78rem;padding:.2rem .4rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-surface);color:var(--text)">
-                            <option value="1">{{ t.settings.kicad_delay_1 }}</option>
-                            <option value="2" selected>{{ t.settings.kicad_delay_2 }}</option>
-                            <option value="3">{{ t.settings.kicad_delay_3 }}</option>
-                            <option value="5">{{ t.settings.kicad_delay_5 }}</option>
-                        </select>
-                    </label>
-                </div>
-                <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-                    <button id="kicad-gen-btn" class="btn btn-primary" onclick="kicadGenerate()">
-                        {{ t.settings.kicad_gen_btn }}
-                    </button>
-                    <span id="kicad-gen-status" style="font-size:.8rem;color:var(--text-muted)"></span>
-                </div>
-            </div>
-
-            {# ── Progression (masquée par défaut) ─────────────────── #}
-            <div class="stg-panel" id="kicad-progress-panel" style="display:none;margin-bottom:1rem">
-                <div class="stg-panel-label">{{ t.settings.kicad_progress_label }}</div>
-                <div id="kicad-progress-bar-wrap" style="background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);height:8px;margin:.5rem 0">
-                    <div id="kicad-progress-bar" style="background:var(--accent);height:100%;border-radius:var(--radius);width:0%;transition:width .3s"></div>
-                </div>
-                <div id="kicad-progress-text" style="font-size:.78rem;color:var(--text-muted)"></div>
-            </div>
-
-            {# ── Log (masqué par défaut) ──────────────────────────── #}
-            <div class="stg-panel" id="kicad-log-panel" style="display:none;margin-bottom:1rem">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-                    <div class="stg-panel-label" style="margin:0">{{ t.settings.kicad_log_label }}</div>
-                    <button onclick="document.getElementById('kicad-log').innerHTML=''"
-                            style="font-size:.7rem;padding:.15rem .4rem;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer">
-                        {{ t.settings.kicad_log_clear }}
-                    </button>
-                </div>
-                <div id="kicad-log"
-                     style="font-family:var(--mono);font-size:.72rem;line-height:1.7;
-                            max-height:220px;overflow-y:auto;padding:.4rem .5rem;
-                            background:var(--bg-surface);border:1px solid var(--border);
-                            border-radius:var(--radius);color:var(--text-muted)">
-                </div>
-            </div>
-
-            {# ── Étapes 2+3 : Fusionner + Enregistrer côte à côte ─── #}
-            <div class="stg-panel" style="margin-bottom:1rem">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
-                    <div>
-                        <div class="stg-panel-label">
-                            <span style="background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;margin-right:.4rem;flex-shrink:0">2</span>
-                            {{ t.settings.kicad_merge_label }}
-                        </div>
-                        <p class="stg-hint" style="margin:.4rem 0 .75rem">{{ t.settings.kicad_merge_desc }}</p>
-                        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-                            <button id="kicad-merge-btn" class="btn btn-secondary" onclick="kicadMerge()">
-                                {{ t.settings.kicad_merge_btn }}
-                            </button>
-                            <span id="kicad-merge-status" style="font-size:.8rem;color:var(--text-muted)"></span>
-                        </div>
-                        <label style="display:flex;align-items:center;gap:.4rem;margin-top:.6rem;cursor:pointer">
-                            <input type="checkbox" id="kicad-skip-existing" checked style="width:14px;height:14px;cursor:pointer"/>
-                            <span style="font-size:.78rem;color:var(--text-muted)">
-                                {{ t.settings.kicad_skip_existing }} <span style="color:var(--text-muted);font-size:.7rem">{{ t.settings.kicad_skip_existing_hint }}</span>
-                            </span>
-                        </label>
-                        <div id="kicad-merge-result" style="margin-top:.6rem;font-size:.78rem;display:none"></div>
-                    </div>
-                    <div>
-                        <div class="stg-panel-label">
-                            <span style="background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;margin-right:.4rem;flex-shrink:0">3</span>
-                            {{ t.settings.kicad_register_label }}
-                        </div>
-                        <p class="stg-hint" style="margin:.4rem 0 .75rem">{{ t.settings.kicad_register_desc }}</p>
-                        <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
-                            <button id="kicad-register-btn" class="btn btn-secondary" onclick="kicadRegister()">
-                                {{ t.settings.kicad_register_btn }}
-                            </button>
-                            <span id="kicad-register-status" style="font-size:.8rem;color:var(--text-muted)"></span>
-                        </div>
-                        <div id="kicad-register-result" style="margin-top:.6rem;font-size:.78rem;display:none"></div>
-                    </div>
-                </div>
-            </div>
-
-            {# ── Téléchargement ZIP ───────────────────────────────── #}
-            <div class="stg-panel">
-                <div class="stg-panel-label">{{ t.settings.kicad_dl_label }}</div>
-                <p class="stg-hint" style="margin:.4rem 0 .75rem">{{ t.settings.kicad_dl_hint }}</p>
-                <a id="kicad-dl-btn" href="/kicad/download" class="btn btn-secondary" style="display:inline-block">
-                    {{ t.settings.kicad_dl_btn }}
-                </a>
-            </div>
-
-        </section>
-
-                {# ══ Étiquettes ═════════════════════════════════════════ #}
-        <section id="sec-labels" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">{{ t.settings.card_label_cfg }}</h2>
-                <p class="stg-section-desc">{{ t.settings.desc_labels }}</p>
-            </div>
-            <div class="stg-panel">
-                <p class="stg-hint">{{ t.settings.hint_labels }}</p>
-                <a href="{{ url_for('components.label_settings') }}" class="btn btn-primary">{{ t.settings.btn_label_cfg }}</a>
-            </div>
-        </section>
-
-        {# ══ Debug Toolbar ══════════════════════════════════════════════════ #}
-        <section id="sec-debug" class="stg-section" style="display:none">
-            <div class="stg-section-header">
-                <h2 class="stg-section-title">🛠️ Mode Debug</h2>
-                <p class="stg-section-desc">Toolbar de débogage — affiche les requêtes SQL, logs et variables de la requête en bas de chaque page HTML. Désactiver en production.</p>
-            </div>
-            <form method="post" action="{{ url_for('components.settings') }}">
-                <input type="hidden" name="action" value="save_debug"/>
-                <!-- Valeur par défaut 0 — remplacée par 1 si la checkbox est cochée -->
-                <input type="hidden" name="debug_toolbar" value="0"/>
-                <div class="stg-panel">
-                    <div class="stg-field">
-                        <label class="stg-label">Debug Toolbar</label>
-                        <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer;margin-top:.25rem">
-                            <input type="checkbox" name="debug_toolbar" value="1"
-                                   {% if current.debug_toolbar == '1' %}checked{% endif %}
-                                   style="width:18px;height:18px;accent-color:var(--accent)"/>
-                            <span style="font-size:.85rem">Activer la debug toolbar</span>
-                        </label>
-                        <span class="stg-hint" style="margin-top:.5rem;display:block">
-                            ⚠️ La toolbar expose les requêtes SQL et les variables de session — ne jamais activer sur un serveur accessible publiquement.
-                        </span>
-                    </div>
-                    <div class="stg-panel-footer">
-                        <button type="submit" class="btn btn-primary">{{ t.settings.btn_save }}</button>
-                    </div>
-                </div>
-            </form>
-        </section>
-
-    </div>{# /stg-content #}
-</div>{# /stg-layout #}
-
+{# ── TOASTS (messages flash) ─────────────────────────────────── #}
+<div class="cfg-toast-wrap" id="cfg-toasts">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+  <div class="cfg-toast cfg-toast--{{ cat }}" onclick="this.remove()">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+</div>
 
 <script>
-// ── Traductions KiCad ─────────────────────────────────────────────
-const t_kicad = {
-    dep_ok:        "{{ t.settings.kicad_dep_ok }}",
-    stats_empty:   "{{ t.settings.kicad_stats_empty }}",
-    gen_running:   "{{ t.settings.kicad_gen_running }}",
-    gen_done:      "{{ t.settings.kicad_gen_done }}",
-    prog_done:     "{{ t.settings.kicad_progress_done }}",
-    merge_running: "{{ t.settings.kicad_merge_running }}",
-    merge_result:  "{{ t.settings.kicad_merge_result }}",
-};
+// ── Navigation sidebar ───────────────────────────────────────────
+function showSec(id) {
+  document.querySelectorAll('.cfg-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.cfg-nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('sec-' + id)?.classList.add('active');
+  document.querySelector(`.cfg-nav-item[data-sec="${id}"]`)?.classList.add('active');
+  history.replaceState(null,'','#' + id);
+}
+// Restaurer l'onglet depuis le hash URL
+(function() {
+  const h = location.hash.replace('#','');
+  if (h) showSec(h);
+})();
 
-function showSection(name, btn) {
-    document.querySelectorAll('.stg-section').forEach(s => s.style.display = 'none');
-    document.querySelectorAll('.stg-nav-item').forEach(b => b.classList.remove('stg-nav-active'));
-    document.getElementById('sec-' + name).style.display = 'block';
-    btn.classList.add('stg-nav-active');
-    if (name === 'kicad') { kicadCheck(); kicadLoadStatus(); }
+// ── Toggle debug toolbar ─────────────────────────────────────────
+// Toggle debug toolbar
+(function() {
+  const cb    = document.getElementById('toggle-debug');
+  const track = document.getElementById('toggle-debug-track');
+  const lbl   = document.querySelector('.cfg-toggle-label');
+  if (!cb || !track) return;
+  // Clic sur le track → toggle manuel
+  track.addEventListener('click', function() {
+    cb.checked = !cb.checked;
+    track.classList.toggle('on', cb.checked);
+    if (lbl) lbl.textContent = cb.checked ? 'Activée' : 'Désactivée';
+    // Mettre à jour le champ caché dans dbg-form
+    const hidden = document.querySelector('#dbg-form input[name="debug_toolbar"][value="0"]');
+    // Ajouter un champ "1" si coché
+    const old1 = document.querySelector('#dbg-form input[value="1"]');
+    if (old1) old1.remove();
+    if (cb.checked) {
+      const inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'debug_toolbar'; inp.value = '1';
+      document.getElementById('dbg-form').appendChild(inp);
+    }
+    document.getElementById('dbg-form').submit();
+  });
+})();
+
+// ── LED colors ───────────────────────────────────────────────────
+function updateSwatch(inp) {
+  const key = inp.name;
+  const sw  = document.getElementById('swatch-' + key);
+  if (sw) sw.style.background = inp.value;
+}
+function resetLedColors() {
+  document.querySelectorAll('.cfg-led-color-inp').forEach(inp => {
+    inp.value = inp.dataset.default;
+    updateSwatch(inp);
+  });
 }
 
-// ── KiCad ──────────────────────────────────────────────────────
-let _kicadPolling = null;
-
-function kicadCheck() {
-    fetch('/kicad/check')
-        .then(r => r.json())
-        .then(d => {
-            const el  = document.getElementById('kicad-check-status');
-            const btn = document.getElementById('kicad-gen-btn');
-            if (!el) return;
-            if (d.ok) {
-                el.innerHTML = `<span style="color:var(--success)">✅ ${t_kicad.dep_ok}</span> <span style="color:var(--text-muted);font-size:.72rem">(${d.msg})</span>`;
-                if (btn) btn.disabled = false;
-            } else {
-                el.innerHTML = `<span style="color:var(--danger)">❌ ${d.msg}</span>`;
-                if (btn) btn.disabled = true;
-            }
-        })
-        .catch(() => {});
-}
-
-function kicadLoadStatus() {
-    // Stats KiCad — status + missing count en parallèle
-    Promise.all([
-        fetch('/kicad/status').then(r => r.json()),
-        fetch('/kicad/missing-count').then(r => r.json()),
-    ]).then(([d, mc]) => {
-            // Stats
-            const statsEl = document.getElementById('kicad-stats');
-            if (statsEl) {
-                const s = d.stats;
-                if (s.has_files || mc.total > 0) {
-                    const pctColor = mc.pct >= 80 ? 'var(--success)'
-                                   : mc.pct >= 40 ? 'var(--warning)'
-                                   : 'var(--danger)';
-                    const missingLabel = mc.missing > 0
-                        ? `<span style="color:var(--text-muted)"> — ${mc.missing} manquant${mc.missing>1?'s':''}</span>`
-                        : `<span style="color:var(--success)"> ✅</span>`;
-                    statsEl.innerHTML =
-                        `<span style="color:var(--success)">✅</span> ` +
-                        `${s.n_sym} sym &nbsp;·&nbsp; ${s.n_fp} fp &nbsp;·&nbsp; ${s.n_m3d} 3D` +
-                        `<br><span style="color:${pctColor};font-weight:600">${mc.done}/${mc.total} dans la lib</span>${missingLabel}`;
-                } else {
-                    statsEl.textContent = t_kicad.stats_empty;
-                }
-            }
-            // Progression
-            const panel    = document.getElementById('kicad-progress-panel');
-            const bar      = document.getElementById('kicad-progress-bar');
-            const txt      = document.getElementById('kicad-progress-text');
-            const btn      = document.getElementById('kicad-gen-btn');
-            const statusEl = document.getElementById('kicad-gen-status');
-
-            if (d.running) {
-                if (panel) panel.style.display = 'block';
-                const pct = d.total > 0 ? Math.round(d.current / d.total * 100) : 0;
-                if (bar) bar.style.width = pct + '%';
-                if (txt) txt.textContent = `${d.current} / ${d.total} — ${d.ref}`;
-                if (btn) btn.disabled = true;
-                if (statusEl) statusEl.textContent = t_kicad.gen_running;
-                if (!_kicadPolling) _kicadPolling = setInterval(kicadLoadStatus, 2000);
-            } else {
-                if (panel && d.done) panel.style.display = 'block';
-                if (bar)  bar.style.width  = '100%';
-                if (txt && d.done)  txt.textContent = t_kicad.prog_done.replace('{total}', d.total);
-                if (btn)  btn.disabled = false;
-                if (statusEl && d.done) statusEl.textContent = t_kicad.gen_done;
-                if (_kicadPolling) { clearInterval(_kicadPolling); _kicadPolling = null; }
-            }
-            // Log
-            kicadUpdateLog(d.log);
-        })
-        .catch(() => {});
-}
-
-function kicadUpdateLog(entries) {
-    if (!entries || entries.length === 0) return;
-    const logPanel = document.getElementById('kicad-log-panel');
-    const logEl    = document.getElementById('kicad-log');
-    if (!logEl) return;
-    if (logPanel) logPanel.style.display = 'block';
-
-    const icons  = { ok: '✅', skip: '⏭', warn: '⚠️', error: '❌' };
-    const colors = { ok: 'var(--success)', skip: 'var(--text-muted)',
-                     warn: 'var(--warning, #f59e0b)', error: 'var(--danger)' };
-
-    logEl.innerHTML = entries.slice().reverse().map(e =>
-        `<div style="color:${colors[e.status] || 'inherit'}">` +
-        `${icons[e.status] || '•'} ` +
-        `<strong>${e.ref}</strong> — ${e.msg}</div>`
-    ).join('');
-    logEl.scrollTop = 0;
-}
-
-function kicadMerge() {
-    const btn          = document.getElementById('kicad-merge-btn');
-    const statusEl     = document.getElementById('kicad-merge-status');
-    const resultEl     = document.getElementById('kicad-merge-result');
-    const skipExisting = document.getElementById('kicad-skip-existing')?.checked || false;
-    btn.disabled = true;
-    statusEl.textContent = t_kicad.merge_running;
-    resultEl.style.display = 'none';
-
-    fetch('/kicad/merge', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({skip_existing: skipExisting})
-    })
-        .then(r => r.json())
-        .then(d => {
-            if (!d.ok) {
-                statusEl.textContent = '❌ ' + (d.error || 'Erreur');
-                btn.disabled = false;
-                return;
-            }
-            const skipMsg = d.skip_existing && d.skipped > 0
-                ? ` · ` + {{ t.settings.kicad_merge_protected | tojson }}.replace('{n}', d.skipped)
-                : '';
-            const addedMsg = d.skip_existing && d.added > 0
-                ? ` · ` + {{ t.settings.kicad_merge_added | tojson }}.replace('{n}', d.added)
-                : '';
-            statusEl.textContent = t_kicad.merge_result.replace('{n}', d.total_symbols) + addedMsg + skipMsg;
-            resultEl.style.display = 'block';
-
-            // Symboles par catégorie
-            let html = d.categories.map(c =>
-                `<div style="padding:.1rem 0;color:var(--text-muted)">` +
-                `<strong style="color:var(--text)">${c.category}</strong> — ${c.n > 0 ? c.n + ' symbole(s)' : {{ t.settings.kicad_merge_uptodate | tojson }}}</div>`
-            ).join('');
-            if (d.skip_existing && d.skipped > 0)
-                html += `<div style="color:var(--text-muted);font-style:italic;margin-top:.3rem">` + {{ t.settings.kicad_merge_preserved | tojson }}.replace('{n}', d.skipped) + `</div>`;
-
-            // Footprints + modèles 3D
-            if (d.fp_stats && Object.keys(d.fp_stats).length > 0) {
-                html += `<div style="margin-top:.4rem;color:var(--text-muted);font-size:.75rem">Footprints &amp; 3D :</div>`;
-                html += Object.entries(d.fp_stats).map(([cat, s]) => {
-                    const fp = typeof s === 'object' ? s.fp : s;
-                    const m3d = typeof s === 'object' ? s['3d'] : 0;
-                    return `<div style="padding:.1rem 0;color:var(--text-muted)">` +
-                        `<strong style="color:var(--text)">${cat}</strong> — ${fp} fp` +
-                        (m3d > 0 ? ` · ${m3d} 3D` : '') + `</div>`;
-                }).join('');
-            }
-
-            // Enregistrement KiCad auto (sym)
-            const reg = d.kicad_registered;
-            if (reg) {
-                if (reg.ok && reg.added && reg.added.length > 0)
-                    html += `<div style="margin-top:.4rem;color:var(--success)">` + {{ t.settings.kicad_reg_sym_added | tojson }}.replace("{n}", reg.added.length) + `</div>`;
-                else if (reg.error)
-                    html += `<div style="margin-top:.4rem;color:var(--warning)">⚠ KiCad sym : ${reg.error}</div>`;
-            }
-            // Enregistrement KiCad auto (fp)
-            const reg_fp = d.kicad_registered_fp;
-            if (reg_fp) {
-                if (reg_fp.ok && reg_fp.added && reg_fp.added.length > 0)
-                    html += `<div style="color:var(--success)">` + {{ t.settings.kicad_reg_fp_added | tojson }}.replace("{n}", reg_fp.added.length) + `</div>`;
-                else if (reg_fp.error)
-                    html += `<div style="color:var(--warning)">⚠ KiCad fp : ${reg_fp.error}</div>`;
-            }
-            resultEl.innerHTML = html;
-            btn.disabled = false;
-            kicadLoadStatus();
-        })
-        .catch(() => {
-            statusEl.textContent = {{ t.settings.err_network | tojson }};
-            btn.disabled = false;
-        });
-}
-
-function kicadRegister() {
-    const btn      = document.getElementById('kicad-register-btn');
-    const statusEl = document.getElementById('kicad-register-status');
-    const resultEl = document.getElementById('kicad-register-result');
-    btn.disabled = true;
-    statusEl.textContent = '⏳ Enregistrement...';
-    resultEl.style.display = 'none';
-
-    fetch('/kicad/register', { method: 'POST' })
-        .then(r => r.json())
-        .then(d => {
-            resultEl.style.display = 'block';
-            if (!d.ok) {
-                statusEl.textContent = '❌ Échec';
-                const err = (d.symbols && d.symbols.error) || (d.footprints && d.footprints.error) || 'Erreur';
-                resultEl.innerHTML = `<div style="color:var(--danger)">${err}</div>`;
-                btn.disabled = false;
-                return;
-            }
-
-            const sym = d.symbols    || {};
-            const fp  = d.footprints || {};
-            const totalAdded = (sym.added||[]).length + (fp.added||[]).length;
-            statusEl.textContent = totalAdded > 0
-                ? {{ t.settings.kicad_reg_added | tojson }}.replace('{n}', totalAdded)
-                : {{ t.settings.kicad_reg_uptodate | tojson }};
-
-            let html = '';
-            // Version KiCad
-            const ver = sym.kicad_version || fp.kicad_version;
-            if (ver) html += `<div style="color:var(--text-muted);margin-bottom:.4rem">🧩 KiCad ${ver} détecté</div>`;
-
-            // Symboles
-            html += `<div style="font-weight:500;margin:.4rem 0 .2rem">Symboles (sym-lib-table)</div>`;
-            (sym.added||[]).forEach(l => html += `<div style="color:var(--success)">+ ${l}</div>`);
-            (sym.skipped||[]).forEach(l => html += `<div style="color:var(--text-muted)">↩ ${l}</div>`);
-            if (sym.error) html += `<div style="color:var(--danger)">${sym.error}</div>`;
-
-            // Footprints
-            html += `<div style="font-weight:500;margin:.6rem 0 .2rem">Footprints (fp-lib-table)</div>`;
-            (fp.added||[]).forEach(l => html += `<div style="color:var(--success)">+ ${l}</div>`);
-            (fp.skipped||[]).forEach(l => html += `<div style="color:var(--text-muted)">↩ ${l}</div>`);
-            if (fp.error) html += `<div style="color:var(--danger)">${fp.error}</div>`;
-
-            resultEl.innerHTML = html;
-            btn.disabled = false;
-        })
-        .catch(() => {
-            statusEl.textContent = {{ t.settings.err_network | tojson }};
-            btn.disabled = false;
-        });
-}
-
-
-function kicadGenerate() {
-    const btn    = document.getElementById('kicad-gen-btn');
-    const delay  = parseFloat(document.getElementById('kicad-delay').value) || 2.0;
-    const prefix = (document.getElementById('kicad-prefix')?.value || '').trim();
-    if (btn) btn.disabled = true;
-
-    // Reset visuel
-    const bar  = document.getElementById('kicad-progress-bar');
-    const txt  = document.getElementById('kicad-progress-text');
-    if (bar) bar.style.width = '0%';
-    if (txt) txt.textContent = '';
-    document.getElementById('kicad-log').innerHTML = '';
-
-    // Sauvegarde le préfixe en settings
-    fetch('/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `action=save_general&kicad_prefix=${encodeURIComponent(prefix)}`,
-    }).catch(() => {});
-
-    fetch('/kicad/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ delay, prefix }),
-    })
-    .then(r => r.json())
-    .then(d => {
-        if (!d.ok) {
-            alert(d.error || 'Erreur');
-            if (btn) btn.disabled = false;
-            return;
-        }
-        document.getElementById('kicad-progress-panel').style.display = 'block';
-        document.getElementById('kicad-gen-status').textContent = t_kicad.gen_running;
-        if (_kicadPolling) clearInterval(_kicadPolling);
-        _kicadPolling = setInterval(kicadLoadStatus, 2000);
-    })
-    .catch(() => { if (btn) btn.disabled = false; });
-}
-
-function stepInput(input, delta) {
-    const val = parseFloat(input.value) || 0;
-    input.value = Math.max(0, val + delta);
-}
-
+// ── Test ESP32 ────────────────────────────────────────────────────
 function testEsp32() {
-    const btn = document.getElementById('esp32-test-btn');
-    const res = document.getElementById('esp32-test-result');
-    btn.disabled = true; res.textContent = '⏳'; res.style.color = '';
-    fetch('/api/led/ping')
-        .then(r => r.json())
-        .then(d => {
-            res.textContent = d.ok ? `✅ {{ t.settings.connected_leds }}`.replace('{n}',d.leds).replace('{ip}',d.ip) : `❌ ${d.error}`;
-            res.style.color = d.ok ? 'var(--success, #4caf50)' : 'var(--danger)';
-        })
-        .catch(e => { res.textContent = `❌ ${e}`; res.style.color = 'var(--danger)'; })
-        .finally(() => btn.disabled = false);
-}
-
-// ── Color Picker ───────────────────────────────────────────────
-const CP_PRESETS = [
-    {h:'#8000FF',n:'Violet'},  {h:'#0066FF',n:'Bleu'},
-    {h:'#00CC44',n:'Vert'},    {h:'#FF2200',n:'Rouge'},
-    {h:'#FFCC00',n:'Jaune'},   {h:'#FFFFFF',n:'Blanc'},
-    {h:'#FF6600',n:'Orange'},  {h:'#00CCFF',n:'Cyan'},
-    {h:'#FF1466',n:'Rose'},    {h:'#FF00FF',n:'Magenta'},
-    {h:'#00FF99',n:'Menthe'},  {h:'#FFAA00',n:'Ambre'},
-];
-const NAMED_HEX = {
-    purple:'#8000FF',blue:'#0066FF',green:'#00CC44',red:'#FF2200',
-    yellow:'#FFCC00',white:'#FFFFFF',orange:'#FF6600',cyan:'#00CCFF',
-    pink:'#FF1466',magenta:'#FF00FF'
-};
-
-let cpHue = 260, cpSat = 80, cpLit = 50;
-
-function initColorPicker() {
-    const wrap = document.getElementById('cp-presets');
-    if (!wrap) return;
-    CP_PRESETS.forEach(p => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'cp-preset';
-        b.style.background = p.h;
-        b.title = p.n;
-        b.onclick = () => setColor(p.h);
-        wrap.appendChild(b);
-    });
-
-    // Gradient drag
-    const grad = document.getElementById('cp-gradient');
-    if (grad) {
-        grad.addEventListener('mousedown', e => {
-            e.preventDefault();
-            moveCursor(e, grad);
-            const mm = ev => moveCursor(ev, grad);
-            const mu = () => { document.removeEventListener('mousemove',mm); document.removeEventListener('mouseup',mu); };
-            document.addEventListener('mousemove', mm);
-            document.addEventListener('mouseup', mu);
-        });
-    }
-    updateGradient();
-    // Lire la valeur initiale
-    const hex = document.getElementById('cp-hex')?.value;
-    if (hex) updateSwatchOnly(hex);
-}
-
-function moveCursor(e, grad) {
-    const r = grad.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-    cpSat = Math.round(x * 100);
-    cpLit = Math.round((1 - y) * 100);
-    const hex = hslToHex(cpHue, cpSat, cpLit);
-    const cur = document.getElementById('cp-gcursor');
-    if (cur) { cur.style.left = (x*100)+'%'; cur.style.top = (y*100)+'%'; }
-    applyColor(hex);
-}
-
-function onHueChange(v) {
-    cpHue = parseInt(v);
-    updateGradient();
-    const hex = hslToHex(cpHue, cpSat, cpLit);
-    applyColor(hex);
-}
-
-function updateGradient() {
-    const g = document.getElementById('cp-gradient');
-    if (g) g.style.background = `linear-gradient(to right,#fff,hsl(${cpHue},100%,50%))`;
-}
-
-function setColor(hex) {
-    applyColor(hex);
-    document.querySelectorAll('.cp-preset').forEach(b => {
-        b.classList.toggle('active', b.style.background === hex ||
-            hexToRgbStr(b.style.background) === hexToRgbStr(hex));
-    });
-}
-
-function applyColor(hex) {
-    const swatch = document.getElementById('cp-swatch');
-    const input  = document.getElementById('cp-hex');
-    if (swatch) swatch.style.background = hex;
-    if (input)  input.value = hex;
-}
-
-function updateSwatchOnly(hex) {
-    const s = document.getElementById('cp-swatch');
-    if (s) s.style.background = hex;
-}
-
-function onHexInput(val) {
-    const named = NAMED_HEX[val.toLowerCase()];
-    const hex = named || val;
-    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
-        updateSwatchOnly(hex);
-    }
-}
-
-function toggleColorPicker() {
-    const dd = document.getElementById('cp-dropdown');
-    if (!dd) return;
-    const open = dd.style.display === 'none';
-    dd.style.display = open ? 'block' : 'none';
-    if (open && !document.getElementById('cp-presets').children.length) initColorPicker();
-}
-
-// Fermer au clic extérieur
-document.addEventListener('mousedown', e => {
-    const wrap = document.getElementById('cp-wrap');
-    if (wrap && !wrap.contains(e.target)) {
-        const dd = document.getElementById('cp-dropdown');
-        if (dd) dd.style.display = 'none';
-    }
-});
-
-// Helpers couleur
-function hslToHex(h, s, l) {
-    s /= 100; l /= 100;
-    const a = s * Math.min(l, 1-l);
-    const f = n => { const k=(n+h/30)%12; const c=l-a*Math.max(-1,Math.min(k-3,9-k,1)); return Math.round(255*c).toString(16).padStart(2,'0'); };
-    return '#'+f(0)+f(8)+f(4);
-}
-function hexToRgbStr(hex) {
-    if (!hex) return '';
-    if (hex.startsWith('rgb')) return hex;
-    hex = hex.replace('#','');
-    if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
-    return `rgb(${parseInt(hex.slice(0,2),16)},${parseInt(hex.slice(2,4),16)},${parseInt(hex.slice(4,6),16)})`;
-}
-
-function testSequence() {
-    const btn    = document.getElementById('esp32-seq-btn');
-    const result = document.getElementById('esp32-seq-result');
-    const pid    = document.getElementById('esp32-test-plateau')?.value;
-    const delay  = document.getElementById('esp32-test-delay')?.value || 80;
-    if (!pid) return;
-
-    btn.disabled = true;
-    btn.textContent = '⏳';
-    result.textContent = '';
-
-    fetch('/api/led/test', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ plateau: pid, delay_ms: parseInt(delay) })
-    })
+  const res = document.getElementById('esp32-test-result');
+  if (res) res.innerHTML = '<span style="color:var(--text-muted)">⏳ Test en cours…</span>';
+  // /api/led/ping utilise l'URL configurée en settings — sauvegarder d'abord si modifiée
+  fetch('/api/led/ping')
     .then(r => r.json())
     .then(d => {
-        btn.textContent = '{{ t.settings.btn_esp32_test_seq }}';
-        btn.disabled = false;
-        if (d.ok) {
-            result.textContent = `✅ ${d.count} LEDs (offset ${d.offset})`;
-            result.style.color = 'var(--success, #4caf50)';
-        } else {
-            result.textContent = `❌ ${d.error}`;
-            result.style.color = 'var(--danger)';
-        }
+      if (res) res.innerHTML = d.ok
+        ? `<span style="color:var(--success)">✅ Connecté — ${d.leds || '?'} LEDs (${d.ip || ''})</span>`
+        : `<span style="color:var(--danger)">❌ ${d.error || 'Erreur'}</span>`;
     })
-    .catch(() => {
-        btn.textContent = '{{ t.settings.btn_esp32_test_seq }}';
-        btn.disabled = false;
-        result.textContent = {{ t.settings.err_network | tojson }};
-        result.style.color = 'var(--danger)';
+    .catch(() => { if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Erreur réseau</span>'; });
+}
+
+// ── KiCad ─────────────────────────────────────────────────────────
+(function checkKicadDep() {
+  const el = document.getElementById('kicad-dep-status');
+  if (!el) return;
+  fetch('/kicad/check')
+    .then(r => r.json())
+    .then(d => {
+      el.className = 'cfg-info cfg-info--' + (d.ok ? 'success' : 'danger');
+      el.textContent = d.ok ? '✅ JLC2KiCadLib installé et prêt' : '❌ JLC2KiCadLib manquant — installe-le avec : pip install JLC2KiCadLib';
+    })
+    .catch(() => { el.textContent = '❓ Impossible de vérifier'; });
+})();
+
+function startKicad() {
+  const delay   = document.getElementById('kicad-delay')?.value || '2';
+  const prog    = document.getElementById('kicad-progress');
+  const fill    = document.getElementById('kicad-prog-fill');
+  const txt     = document.getElementById('kicad-prog-text');
+  const log     = document.getElementById('kicad-log');
+  if (prog) prog.classList.add('visible');
+  if (log)  log.style.display = 'block';
+
+  fetch('/kicad/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ delay: parseFloat(delay) })
+  })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) { if (txt) txt.textContent = d.error || 'Erreur'; return; }
+      pollKicad(fill, txt, log);
+    })
+    .catch(() => { if (txt) txt.textContent = 'Erreur réseau'; });
+}
+
+function pollKicad(fill, txt, log) {
+  fetch('/kicad/status')
+    .then(r => r.json())
+    .then(d => {
+      const pct = d.total > 0 ? Math.round(d.current / d.total * 100) : 0;
+      if (fill) fill.style.width = pct + '%';
+      if (txt)  txt.textContent  = d.done
+        ? `✅ Terminé — ${d.total} composants traités.`
+        : `${d.current}/${d.total} — ${d.ref || '…'}`;
+      if (log && d.log) log.innerHTML = d.log.slice(-20).map(l => `<div>${l}</div>`).join('');
+      if (!d.done) setTimeout(() => pollKicad(fill, txt, log), 1000);
     });
 }
 
-function testApi(source) {
-    const btn    = document.getElementById(`test-${source}-btn`);
-    const result = document.getElementById(`test-${source}-result`);
-    btn.disabled = true; btn.textContent = '⏳'; result.textContent = '';
-    const payload = { source };
-    if (source === 'mouser') payload.api_key = document.querySelector('[name="mouser_api_key"]').value.trim();
-    else {
-        payload.client_id     = document.querySelector('[name="digikey_client_id"]').value.trim();
-        payload.client_secret = document.querySelector('[name="digikey_client_secret"]').value.trim();
-    }
-    fetch('/api/test-key', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-        .then(r => r.json())
-        .then(d => {
-            btn.textContent = '{{ t.settings.btn_test }}'; btn.disabled = false;
-            result.textContent = d.ok ? d.message : `❌ ${d.error}`;
-            result.style.color = d.ok ? 'var(--success,#4caf50)' : 'var(--danger)';
-        })
-        .catch(() => {
-            btn.textContent = '{{ t.settings.btn_test }}'; btn.disabled = false;
-            result.textContent = '❌ {{ t.stock.error_network }}'; result.style.color = 'var(--danger)';
-        });
+function toggleKicadSkip() {
+  const cb    = document.getElementById('kicad-skip');
+  const track = document.getElementById('kicad-skip-track');
+  cb.checked  = !cb.checked;
+  track.classList.toggle('on', cb.checked);
 }
-</script>
 
-<style>
-/* ── Backup info panel ───────────────────────────────────────── */
-.stg-backup-info {
-    background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: .5rem .75rem;
-    margin-top: .65rem; display: flex; flex-direction: column; gap: .2rem;
+function mergeKicad() {
+  const skip   = document.getElementById('kicad-skip')?.checked ? '1' : '0';
+  const result = document.getElementById('kicad-merge-result');
+  if (result) { result.style.display = 'block'; result.textContent = '⏳ Fusion en cours…'; }
+  fetch('/kicad/merge', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({skip_existing: skip === '1'}) })
+    .then(r => r.json())
+    .then(d => {
+      if (result) result.textContent = d.message || (d.ok ? '✅ Fusion terminée' : '❌ Erreur');
+    })
+    .catch(() => { if (result) result.textContent = '❌ Erreur réseau'; });
 }
-.stg-backup-row {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: .78rem; color: var(--text-muted); padding: .1rem 0;
+
+// ── Reset confirm ─────────────────────────────────────────────────
+function checkReset(form) {
+  const val = form.confirm_reset?.value?.trim();
+  if (val !== 'RESET') {
+    alert('{{ t.settings.msg_reset_wrong if t.settings.msg_reset_wrong is defined else "Tape RESET en majuscules pour confirmer." }}');
+    return false;
+  }
+  return confirm('Dernière confirmation — toutes les données seront effacées. Continuer ?');
 }
-.stg-backup-row:not(:last-child) { border-bottom: 1px solid var(--border-light); }
-.stg-backup-size { font-family: var(--mono); font-size: .72rem; color: var(--text); }
-.stg-backup-total { font-weight: 700; color: var(--text); padding-top: .25rem; }
-.stg-backup-total .stg-backup-size { color: var(--accent); }
-/* ── Couleurs LED par catégorie ──────────────────────────────── */
-.stg-led-colors-grid {
-    display: flex; flex-direction: column; gap: .35rem;
+
+// ── Chenillard ESP32 ──────────────────────────────────────────────
+function testChenillard() {
+  const pid      = document.getElementById('esp32-test-pid')?.value || 'A';
+  const delay_ms = parseInt(document.getElementById('esp32-test-delay')?.value) || 80;
+  const res      = document.getElementById('esp32-test-result');
+  if (res) res.innerHTML = '<span style="color:var(--text-muted)">⏳ Envoi chenillard…</span>';
+  fetch('/api/led/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ plateau: pid, delay_ms })
+  }).then(r => r.json()).then(d => {
+    if (res) res.innerHTML = d.ok
+      ? `<span style="color:var(--success)">✅ Chenillard lancé sur le plateau ${pid}</span>`
+      : `<span style="color:var(--danger)">❌ ${d.error || 'Erreur'}</span>`;
+  }).catch(() => {
+    if (res) res.innerHTML = '<span style="color:var(--danger)">❌ Erreur réseau</span>';
+  });
 }
-.stg-led-color-row {
-    display: grid;
-    grid-template-columns: 36px 1fr 90px 24px;
-    align-items: center; gap: .75rem;
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: .45rem .75rem;
-    transition: border-color .15s;
+
+// ── Register KiCad ──────────────────────────────────────────────────
+function registerKicad() {
+  const result = document.getElementById('kicad-register-result');
+  if (result) { result.style.display = 'block'; result.textContent = '⏳ Enregistrement en cours…'; }
+  fetch('/kicad/register', { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      if (result) {
+        const sym = d.symbols?.added || 0;
+        const fp  = d.footprints?.added || 0;
+        result.className = 'cfg-info cfg-info--' + (d.ok ? 'success' : 'danger');
+        result.textContent = d.ok
+          ? `✅ ${sym} symbole(s) + ${fp} footprint(s) enregistrés dans KiCad`
+          : `❌ ${d.symbols?.error || d.footprints?.error || 'Erreur'}`;
+      }
+    })
+    .catch(() => { if (result) result.textContent = '❌ Erreur réseau'; });
 }
-.stg-led-color-row:hover { border-color: var(--border-light); }
-.stg-led-swatch-wrap { position: relative; width: 32px; height: 32px; }
-.stg-led-color-input {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    opacity: 0; cursor: pointer; border: none; padding: 0;
-}
-.stg-led-swatch {
-    width: 32px; height: 32px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,.1);
-    cursor: pointer; flex-shrink: 0;
-    transition: transform .15s;
-}
-.stg-led-swatch:hover { transform: scale(1.1); }
-.stg-led-color-info { display: flex; flex-direction: column; min-width: 0; }
-.stg-led-family { font-size: .82rem; font-weight: 600; color: var(--text); }
-.stg-led-hint { font-size: .67rem; color: var(--text-faint); font-family: var(--mono);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stg-led-hex-input {
-    width: 90px; font-family: var(--mono); font-size: .78rem;
-    background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: .25rem .5rem;
-    color: var(--text); outline: none; text-align: center;
-}
-.stg-led-hex-input:focus { border-color: var(--accent); }
-.stg-led-reset-btn {
-    width: 22px; height: 22px; border: 1px solid var(--border);
-    background: var(--bg-surface); border-radius: 50%;
-    color: var(--text-muted); font-size: .75rem; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .15s; flex-shrink: 0;
-}
-.stg-led-reset-btn:hover { border-color: var(--accent); color: var(--accent); }
-</style>
-<script>
-function syncHex(key, hexVal) {
-    const hexInput  = document.getElementById('hex-' + key);
-    const swatch    = document.getElementById('swatch-' + key);
-    if (hexInput)  hexInput.value = hexVal;
-    if (swatch)    swatch.style.background = hexVal;
-}
-function syncPicker(key, hexVal) {
-    if (!/^#[0-9a-fA-F]{6}$/.test(hexVal)) return;
-    const picker = document.getElementById('color-' + key);
-    const swatch = document.getElementById('swatch-' + key);
-    if (picker) picker.value = hexVal;
-    if (swatch) swatch.style.background = hexVal;
-}
-function resetColor(key, defaultColor) {
-    syncHex(key, defaultColor);
-    syncPicker(key, defaultColor);
-    const picker = document.getElementById('color-' + key);
-    if (picker) picker.value = defaultColor;
-}
+
+// ── Auto-dismiss toasts ───────────────────────────────────────────
+document.querySelectorAll('.cfg-toast').forEach(t => {
+  setTimeout(() => t.style.transition = 'opacity .4s', 3500);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 4000);
+});
 </script>
 {% endblock %}

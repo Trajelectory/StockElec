@@ -362,8 +362,16 @@ class ComponentModel:
         if footprint_png is not None:
             fields.append("footprint_png = ?")
             values.append(footprint_png)
+        # Whitelist des colonnes autorisées pour le UPDATE dynamique
+        _ALLOWED_ENRICH_COLS = {
+            "image_path", "symbol_png", "footprint_png", "description_long",
+            "manufacturer", "manufacture_part_number", "package", "rohs",
+            "datasheet_url", "lcsc_part_number", "mouser_part_number",
+            "digikey_part_number", "source_url", "unit_price",
+        }
+        fields = [f for f in fields if f.split(" = ?")[0].strip() in _ALLOWED_ENRICH_COLS]
         if fields:
-            values.append(component_id)
+            values = values[:len(fields)] + [component_id]
             try:
                 db.execute(f"UPDATE components SET {', '.join(fields)} WHERE id = ?", values)
                 db.commit()
