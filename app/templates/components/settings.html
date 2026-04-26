@@ -50,6 +50,7 @@
   </div>
   <form method="post" class="cfg-cards">
     <input type="hidden" name="action" value="save_general"/>
+    <input type="hidden" name="_section" value="general"/>
 
     <div class="cfg-card">
       <div class="cfg-card-head">
@@ -104,35 +105,26 @@
       </div>
     </div>
 
-    {# Debug toolbar #}
+    {# Debug toolbar — bouton JS → action-form (hors form parent) #}
     <div class="cfg-card">
       <div class="cfg-card-head">
         <div>
           <h2 class="cfg-card-title">🛠 Debug Toolbar</h2>
           <p class="cfg-card-desc">Panneau de débogage SQL / logs en bas de page</p>
         </div>
-        <label class="cfg-toggle">
-          <input type="hidden"   name="debug_toolbar" value="0"/>
-          <input type="checkbox" name="debug_toolbar" value="1"
-                 id="toggle-debug" class="cfg-toggle-input"
-                 {% if current.debug_toolbar == '1' %}checked{% endif %}
-                 onchange="document.getElementById('dbg-form').submit()"/>
+        <div style="display:flex;align-items:center;gap:.6rem">
           <div class="cfg-toggle-track {% if current.debug_toolbar == '1' %}on{% endif %}"
                id="toggle-debug-track"
-               onclick="document.getElementById('toggle-debug').click()">
+               onclick="toggleDebug()"
+               style="cursor:pointer">
             <div class="cfg-toggle-thumb"></div>
           </div>
           <span class="cfg-toggle-label">
             {% if current.debug_toolbar == '1' %}Activée{% else %}Désactivée{% endif %}
           </span>
-        </label>
+        </div>
       </div>
     </div>
-    <form id="dbg-form" method="post" style="display:none">
-      <input type="hidden" name="action" value="save_debug"/>
-      <input type="hidden" name="debug_toolbar" value="0"/>
-    </form>
-
     <div class="cfg-btn-row" style="margin-top:.5rem">
       <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_save }}</button>
     </div>
@@ -147,6 +139,7 @@
   </div>
   <form method="post" class="cfg-cards">
     <input type="hidden" name="action" value="save_general"/>
+    <input type="hidden" name="_section" value="integrations"/>
 
     {% if stats.n_to_enrich > 0 %}
     <div class="cfg-info cfg-info--warn">
@@ -161,10 +154,7 @@
           <h2 class="cfg-card-title">🔶 {{ t.settings.section_lcsc }}</h2>
           <p class="cfg-card-desc">{{ t.settings.desc_lcsc }}</p>
         </div>
-        <form method="post" style="display:inline">
-          <input type="hidden" name="action" value="enrich_all"/>
-          <button type="submit" class="cfg-btn">{{ t.settings.btn_enrich_all }}</button>
-        </form>
+        <button type="button" class="cfg-btn" onclick="postAction('enrich_all')">{{ t.settings.btn_enrich_all }}</button>
       </div>
       <div class="cfg-card-body">
         <div class="cfg-info cfg-info--info">
@@ -270,14 +260,8 @@
           <p class="cfg-card-desc">{{ t.settings.easyeda_missing }}</p>
         </div>
         <div class="cfg-btn-row">
-          <form method="post" style="display:inline">
-            <input type="hidden" name="action" value="reconcile_easyeda"/>
-            <button type="submit" class="cfg-btn">{{ t.settings.btn_easyeda_reconcile }}</button>
-          </form>
-          <form method="post" style="display:inline">
-            <input type="hidden" name="action" value="easyeda_all"/>
-            <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_easyeda_dl }}</button>
-          </form>
+          <button type="button" class="cfg-btn" onclick="postAction('reconcile_easyeda')">{{ t.settings.btn_easyeda_reconcile }}</button>
+          <button type="button" class="cfg-btn cfg-btn--primary" onclick="postAction('easyeda_all')">{{ t.settings.btn_easyeda_dl }}</button>
         </div>
       </div>
       {% if stats.no_easyeda_list %}
@@ -328,6 +312,7 @@
   </div>
   <form method="post" class="cfg-cards">
     <input type="hidden" name="action" value="save_general"/>
+    <input type="hidden" name="_section" value="esp32"/>
 
     <div class="cfg-card">
       <div class="cfg-card-head">
@@ -448,6 +433,7 @@
             </div>
             <div class="cfg-input-wrap">
               <div class="cfg-input-group">
+                <input type="hidden" name="_section" value="kicad"/>
                 <input type="text" name="kicad_prefix" class="cfg-input cfg-input-mono"
                        value="{{ current.kicad_prefix }}" placeholder="{{ t.settings.ph_kicad_prefix }}"/>
                 <button type="submit" class="cfg-btn">{{ t.settings.btn_save }}</button>
@@ -578,22 +564,22 @@
         {% set total_bytes = (stats.total_size or '0 o') %}
         <div class="cfg-storage-bar">
           <div class="cfg-storage-row">
-            <span class="cfg-storage-icon"></span>
+            <span class="cfg-storage-icon">🗄️</span>
             <span class="cfg-storage-label">{{ t.settings.stats_db }}</span>
             <span class="cfg-storage-val">{{ backup_db_size }}</span>
           </div>
           <div class="cfg-storage-row">
-            <span class="cfg-storage-icon"></span>
+            <span class="cfg-storage-icon">🖼️</span>
             <span class="cfg-storage-label">{{ t.settings.stats_images }}</span>
             <span class="cfg-storage-val">{{ backup_img_size }}</span>
           </div>
           <div class="cfg-storage-row">
-            <span class="cfg-storage-icon"></span>
+            <span class="cfg-storage-icon">📁</span>
             <span class="cfg-storage-label">{{ t.settings.stats_proj_images }}</span>
             <span class="cfg-storage-val">{{ backup_proj_size }}</span>
           </div>
           <div class="cfg-storage-row" style="border-top:1px solid var(--border);padding-top:.5rem;margin-top:.25rem">
-            <span class="cfg-storage-icon"></span>
+            <span class="cfg-storage-icon">📦</span>
             <span class="cfg-storage-label" style="font-weight:600;color:var(--text)">Total</span>
             <span class="cfg-storage-val" style="color:var(--accent);font-weight:700">{{ backup_total_size }}</span>
           </div>
@@ -620,10 +606,7 @@
         </div>
         <div class="cfg-btn-row">
           <a href="{{ url_for('components.export_csv') }}" class="cfg-btn">{{ t.settings.btn_export }}</a>
-          <form method="post" style="display:inline">
-            <input type="hidden" name="action" value="backup"/>
-            <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_backup }}</button>
-          </form>
+          <button type="button" class="cfg-btn cfg-btn--primary" onclick="postAction('backup')">{{ t.settings.btn_backup }}</button>
         </div>
       </div>
       <div class="cfg-card-body">
@@ -640,11 +623,7 @@
           <h2 class="cfg-card-title">{{ t.settings.card_history }}</h2>
           <p class="cfg-card-desc">{{ t.settings.hint_history }}</p>
         </div>
-        <form method="post" style="display:inline"
-              onsubmit="return confirm('{{ t.settings.confirm_clear_hist2 }}')">
-          <input type="hidden" name="action" value="clear_history"/>
-          <button type="submit" class="cfg-btn cfg-btn--danger">{{ t.settings.btn_clear_history }}</button>
-        </form>
+        <button type="button" class="cfg-btn cfg-btn--danger" onclick="postAction('clear_history', '{{ t.settings.confirm_clear_hist2 }}')">{{ t.settings.btn_clear_history }}</button>
       </div>
     </div>
 
@@ -655,11 +634,7 @@
           <h2 class="cfg-card-title">{{ t.settings.card_images }}</h2>
           <p class="cfg-card-desc">{{ t.settings.hint_cleanup }}</p>
         </div>
-        <form method="post" style="display:inline"
-              onsubmit="return confirm('{{ t.settings.confirm_clean }}')">
-          <input type="hidden" name="action" value="clean_images"/>
-          <button type="submit" class="cfg-btn cfg-btn--danger">{{ t.settings.btn_cleanup }}</button>
-        </form>
+        <button type="button" class="cfg-btn cfg-btn--danger" onclick="postAction('clean_images', '{{ t.settings.confirm_clean }}')">{{ t.settings.btn_cleanup }}</button>
       </div>
     </div>
 
@@ -727,6 +702,12 @@
 </main>
 </div>
 
+{# ── Form action (hors sections) ─────────────────────────────── #}
+<form id="action-form" method="post" style="display:none">
+  <input type="hidden" name="action"   id="action-form-action"/>
+  <input type="hidden" name="_section" id="action-form-section"/>
+</form>
+
 {# ── TOASTS (messages flash) ─────────────────────────────────── #}
 <div class="cfg-toast-wrap" id="cfg-toasts">
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -749,6 +730,8 @@ function showSec(id) {
 (function() {
   const h = location.hash.replace('#','');
   if (h) showSec(h);
+
+
 })();
 
 // ── Toggle debug toolbar ─────────────────────────────────────────
@@ -919,6 +902,35 @@ function registerKicad() {
       }
     })
     .catch(() => { if (result) result.textContent = '❌ Erreur réseau'; });
+}
+
+// ── Toggle debug toolbar ─────────────────────────────────────────
+function toggleDebug() {
+  const track  = document.getElementById('toggle-debug-track');
+  const isOn   = track.classList.contains('on');
+  const newVal = isOn ? '0' : '1';
+  track.classList.toggle('on', !isOn);
+  // Soumettre via action-form
+  document.getElementById('action-form-action').value  = 'save_debug';
+  document.getElementById('action-form-section').value = 'general';
+  // Ajouter le champ debug_toolbar dynamiquement
+  let f = document.getElementById('action-form');
+  ['debug_toolbar'].forEach(n => { let e = f.querySelector(`[name="${n}"]`); if(e) e.remove(); });
+  const h0 = document.createElement('input'); h0.type='hidden'; h0.name='debug_toolbar'; h0.value='0'; f.appendChild(h0);
+  if (newVal === '1') {
+    const h1 = document.createElement('input'); h1.type='hidden'; h1.name='debug_toolbar'; h1.value='1'; f.appendChild(h1);
+  }
+  f.submit();
+}
+
+// ── postAction — soumet une action sans form imbriqué ────────────
+function postAction(action, confirm_msg, section) {
+  if (confirm_msg && !confirm(confirm_msg)) return;
+  document.getElementById('action-form-action').value = action;
+  // Récupérer la section depuis le hash ou le paramètre
+  const sec = section || location.hash.replace('#','') || '';
+  document.getElementById('action-form-section').value = sec;
+  document.getElementById('action-form').submit();
 }
 
 // ── Auto-dismiss toasts ───────────────────────────────────────────

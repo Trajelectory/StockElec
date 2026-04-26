@@ -143,6 +143,7 @@ def settings():
 
     if request.method == "POST":
         action = request.form.get("action")
+        logger.info("[Settings] POST action=%r fields=%r", action, list(request.form.keys()))
 
         # ── Paramètres généraux ──────────────────────────────────────
         if action == "save_general":
@@ -366,7 +367,10 @@ def settings():
                         os.makedirs(folder_path, exist_ok=True)
                 flash(_t("msg.reset_done"), "success")
 
-        return redirect(url_for("components.settings"))
+        # Préserver l'onglet actif via un champ hidden "_section"
+        section = request.form.get("_section", "")
+        anchor  = f"#{section}" if section else ""
+        return redirect(url_for("components.settings") + anchor)
 
     current, stats, config_plateaux = _settings_get_context(db)
     return ComponentView.render_settings(current, stats, config_plateaux=config_plateaux)
