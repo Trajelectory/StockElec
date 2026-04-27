@@ -118,6 +118,29 @@ def init_db(app):
                 value TEXT NOT NULL DEFAULT ''
             );
         """)
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS ateliers (
+                id              TEXT PRIMARY KEY,
+                name            TEXT NOT NULL DEFAULT 'Atelier',
+                emoji           TEXT NOT NULL DEFAULT '📦',
+                color           TEXT NOT NULL DEFAULT '#7c3aed',
+                position        INTEGER NOT NULL DEFAULT 0,
+                esp32_url       TEXT NOT NULL DEFAULT '',
+                esp32_token     TEXT NOT NULL DEFAULT '',
+                esp32_duration  INTEGER NOT NULL DEFAULT 5,
+                esp32_offsets   TEXT NOT NULL DEFAULT '{}'
+            );
+        """)
+        if db.execute("SELECT COUNT(*) FROM ateliers").fetchone()[0] == 0:
+            _esp32_url   = db.execute("SELECT value FROM settings WHERE key='esp32_url'").fetchone()
+            _esp32_token = db.execute("SELECT value FROM settings WHERE key='esp32_token'").fetchone()
+            db.execute(
+                "INSERT OR IGNORE INTO ateliers(id,name,emoji,color,position,esp32_url,esp32_token)"
+                " VALUES(?,?,?,?,?,?,?)",
+                ("principal","Atelier principal","🔧","#7c3aed",0,
+                 _esp32_url[0]   if _esp32_url   else "",
+                 _esp32_token[0] if _esp32_token else "")
+            )
 
         # ── Migrations colonnes components ────────────────────────────────
         # C4 FIX : on relit les colonnes existantes AVANT chaque ALTER TABLE

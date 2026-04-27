@@ -138,6 +138,14 @@ class ComponentView:
                 "hint":        hint,
             })
 
+        # Plateaux de chaque atelier pour les sélecteurs dans settings
+        from ..models.atelier import AtelierModel
+        all_ateliers = AtelierModel.get_all()
+        ateliers_plateaux = {}
+        for _a in all_ateliers:
+            _cfg = AtelierModel.get_rangement_config(_a["id"])
+            ateliers_plateaux[_a["id"]] = _cfg.get("plateaux", [])
+
         return render_template("components/settings.html",
                                current=current,
                                stats=stats or {},
@@ -146,4 +154,5 @@ class ComponentView:
                                backup_db_size=db_size,
                                backup_img_size=img_size,
                                backup_proj_size=proj_size,
-                               backup_total_size=total_size)
+                               backup_total_size=total_size,
+                           ateliers_plateaux=ateliers_plateaux)

@@ -7,7 +7,12 @@
 {# ══ HEADER ══════════════════════════════════════════════════════ #}
 <div class="rg-header">
   <div class="rg-header-left">
-    <h1 class="rg-title">{{ t.storage.title }}</h1>
+    <h1 class="rg-title">
+    {{ t.storage.title }}
+    {% if ateliers|length > 1 %}
+    <span style="font-size:.85rem;font-weight:500;color:var(--text-muted);margin-left:.5rem">· {{ atelier.emoji }} {{ atelier.name }}</span>
+    {% endif %}
+  </h1>
     <div class="rg-hstats">
       <span class="rg-hstat-val rg-hstat-val--hi">{{ n_placed }}</span>
       <span style="font-size:.72rem;color:var(--text-muted)">placés</span>
@@ -272,6 +277,8 @@
 <script>
 const COMPS_GRID  = {{ components | tojson }};
 const ESP32_URL   = {{ (current_esp32_url or '') | tojson }};
+const SAVE_URL    = "{{ url_for('components.rangement_save', atelier_id=atelier.id) }}";
+const ATELIER_ID  = {{ atelier.id | tojson }};
 const LED_COLORS  = {{ led_colors | tojson }};
 let   assignments = {{ assignments | tojson }};
 let   sizes       = {{ sizes | tojson }};

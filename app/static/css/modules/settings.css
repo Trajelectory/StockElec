@@ -176,6 +176,16 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .cfg-input-mono { font-family: var(--mono); font-size: .8rem; }
+
+/* Neutraliser le fond jaune autofill du navigateur */
+.cfg-input:-webkit-autofill,
+.cfg-input:-webkit-autofill:hover,
+.cfg-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-surface) inset !important;
+  -webkit-text-fill-color: var(--text) !important;
+  caret-color: var(--text);
+  border-color: var(--accent) !important;
+}
 .cfg-select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -424,6 +434,19 @@ input[type="checkbox"].cfg-toggle-input { display: none; }
 .cfg-toast--success { background: color-mix(in srgb,var(--success) 15%,var(--bg-card)); border: 1px solid var(--success); color: var(--success); }
 .cfg-toast--info    { background: color-mix(in srgb,var(--accent)  15%,var(--bg-card)); border: 1px solid var(--accent);  color: var(--accent); }
 .cfg-toast--danger  { background: color-mix(in srgb,var(--danger)  15%,var(--bg-card)); border: 1px solid var(--danger);  color: var(--danger); }
+.cfg-atelier-row {
+  display:flex; align-items:center; gap:.75rem;
+  padding:.55rem .75rem; background:var(--bg-surface);
+  border:1px solid var(--border); border-radius:8px; margin-bottom:.4rem;
+  transition:border-color .15s;
+}
+.cfg-atelier-row:hover { border-color:var(--accent); }
+.cfg-atelier-emoji { font-size:1.3rem; flex-shrink:0; }
+.cfg-atelier-info  { flex:1; min-width:0; }
+.cfg-atelier-name  { display:block; font-weight:600; font-size:.85rem; }
+.cfg-atelier-id    { font-size:.7rem; color:var(--text-muted); font-family:var(--mono); }
+.cfg-atelier-actions { display:flex; gap:.3rem; flex-shrink:0; }
+
 .cfg-toast--warning { background: color-mix(in srgb,var(--warning) 15%,var(--bg-card)); border: 1px solid var(--warning); color: var(--warning); }
 
 /* ── Responsive ────────────────────────────────────────────────── */

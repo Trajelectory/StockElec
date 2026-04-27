@@ -729,3 +729,13 @@ input:checked + .tgl-track::after { transform: translateX(16px); }
   .nadd-row-2 { grid-template-columns:1fr; }
   .nadd-refs-grid { grid-template-columns:1fr 1fr; }
 }
+
+/* Neutraliser autofill jaune sur tous les inputs ─────────────────── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-surface) inset !important;
+  -webkit-text-fill-color: var(--text) !important;
+  caret-color: var(--text);
+}

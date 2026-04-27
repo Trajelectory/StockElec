@@ -256,17 +256,17 @@ function emptyCell() {
 function saveAndReload() {
   const btn = document.getElementById('btn-save');
   if (btn) btn.textContent = '⏳';
-  fetch('/rangement/save', {
+  fetch(SAVE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ assignments, sizes })
-  }).then(() => window.location.href = '/rangement?pid=' + activePid);
+  }).then(() => window.location.href = '/rangement/' + ATELIER_ID + '?pid=' + activePid);
 }
 
 function doSave() {
   const btn = document.getElementById('btn-save');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
-  fetch('/rangement/save', {
+  fetch(SAVE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ assignments, sizes })
@@ -452,7 +452,7 @@ function ctxLed() {
   if (lbl) lbl.textContent = _T.ctx_led_sending;
   fetch(`/api/led/${cell}/on`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ component_id: compId })
+    body: JSON.stringify({ component_id: compId, atelier_id: ATELIER_ID })
   }).then(r => r.json()).then(d => {
     toast(d.ok ? (d.queued ? `⏳ ${_T.ctx_led_ok}` : `💡 ${_T.ctx_led_ok}`) : `❌ ${d.error || _T.ctx_led_err}`, d.ok ? (d.queued ? 'queued' : 'ok') : 'err');
     if (lbl) setTimeout(() => { if (lbl) lbl.textContent = _T.ctx_led_on; }, 2500);
@@ -512,7 +512,7 @@ function saveCfg() {
   Object.keys(assignments).forEach(k => { const pid = k.match(/^([A-Z]+)/)?.[1]; if (pid && !pids.has(pid)) delete assignments[k]; });
   const btn = document.querySelector('[onclick="saveCfg()"]');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
-  fetch('/rangement/save', {
+  fetch(SAVE_URL, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ config: { plateaux }, assignments, sizes })
   }).then(r => r.json()).then(d => {

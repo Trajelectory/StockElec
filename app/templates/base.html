@@ -34,10 +34,23 @@
            class="nav-link {% if request.endpoint == 'components.reorder' %}active{% endif %}">
             <span class="nav-emoji">🛒</span> {{ t.nav.orders }}
         </a>
-        <a href="{{ url_for('components.rangement') }}"
-           class="nav-link {% if request.endpoint == 'components.rangement' %}active{% endif %}">
+        <div class="nav-dropdown-wrap">
+          <a href="{{ url_for('components.rangement') }}"
+             class="nav-link {% if request.endpoint in ('components.rangement','components.rangement_atelier') %}active{% endif %}">
             <span class="nav-emoji">🗃️</span> {{ t.nav.storage }}
-        </a>
+            {% if ateliers|length > 1 %}<span style="font-size:.6rem;opacity:.6;margin-left:.15rem">▾</span>{% endif %}
+          </a>
+          {% if ateliers|length > 1 %}
+          <div class="nav-dropdown">
+            {% for a in ateliers %}
+            <a href="{{ url_for('components.rangement_atelier', atelier_id=a.id) }}"
+               class="nav-dropdown-item {% if atelier and atelier.id == a.id %}active{% endif %}">
+              <span>{{ a.emoji }}</span><span>{{ a.name }}</span>
+            </a>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
     </div>
     <div class="nav-right">
         <a href="{{ url_for('components.alerts') }}"

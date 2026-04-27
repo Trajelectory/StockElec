@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t.settings.title }} — StockEleK{% endblock %}
 
+
 {% block content %}
 <div class="cfg-root">
 
@@ -21,13 +22,13 @@
     <span class="cfg-nav-badge {% if stats.n_no_easyeda > 0 %}visible{% endif %}"
           id="nav-badge-easyeda">{{ stats.n_no_easyeda or '' }}</span>
   </button>
-  <button class="cfg-nav-item" data-sec="esp32" onclick="showSec('esp32')">
-    <span class="cfg-nav-icon">💡</span>ESP32 & LEDs
-  </button>
   <button class="cfg-nav-item" data-sec="kicad" onclick="showSec('kicad')">
     <span class="cfg-nav-icon">📐</span>KiCad
   </button>
   <div class="cfg-nav-sep"></div>
+  <button class="cfg-nav-item" data-sec="ateliers" onclick="showSec('ateliers')">
+    <span class="cfg-nav-icon">🏭</span>Ateliers & LEDs
+  </button>
   <button class="cfg-nav-item" data-sec="stats" onclick="showSec('stats')">
     <span class="cfg-nav-icon">📊</span>Statistiques
   </button>
@@ -305,117 +306,6 @@
 </section>
 
 {# ── ESP32 ───────────────────────────────────────────────────── #}
-<section class="cfg-section" id="sec-esp32">
-  <div class="cfg-section-head">
-    <h1 class="cfg-section-title">💡 ESP32 — LEDs adressables</h1>
-    <p class="cfg-section-desc">{{ t.settings.desc_esp32 }}</p>
-  </div>
-  <form method="post" class="cfg-cards">
-    <input type="hidden" name="action" value="save_general"/>
-    <input type="hidden" name="_section" value="esp32"/>
-
-    <div class="cfg-card">
-      <div class="cfg-card-head">
-        <h2 class="cfg-card-title">🔌 Connexion ESP32</h2>
-      </div>
-      <div class="cfg-card-body">
-        <div class="cfg-field">
-          <div>
-            <div class="cfg-label">{{ t.settings.label_esp32_url }}</div>
-            <div class="cfg-hint">{{ t.settings.hint_esp32_url }}</div>
-          </div>
-          <div class="cfg-input-wrap">
-            <div class="cfg-input-group">
-              <input type="text" name="esp32_url" class="cfg-input cfg-input-mono"
-                     id="esp32-url-input"
-                     value="{{ current.esp32_url }}" placeholder="http://192.168.1.42"/>
-              <button type="button" class="cfg-btn" onclick="testEsp32()">{{ t.settings.btn_test }}</button>
-            </div>
-            <div id="esp32-test-result" style="font-size:.75rem;margin-top:.25rem"></div>
-            <div style="display:flex;align-items:center;gap:.6rem;margin-top:.5rem;flex-wrap:wrap">
-              <span style="font-size:.75rem;color:var(--text-muted)">{{ t.settings.label_esp32_test_plateau }} :</span>
-              <select id="esp32-test-pid" class="cfg-input cfg-select" style="width:auto;font-size:.78rem">
-                {% for p in config_plateaux %}
-                <option value="{{ p.id }}">{{ p.id }} — {{ p.label }}</option>
-                {% endfor %}
-                {% if not config_plateaux %}<option value="A">A</option>{% endif %}
-              </select>
-              <span style="font-size:.75rem;color:var(--text-muted)">{{ t.settings.label_esp32_test_delay }} :</span>
-              <input type="number" id="esp32-test-delay" class="cfg-input cfg-input-mono"
-                     value="80" min="20" max="500" style="width:70px;font-size:.78rem"/>
-              <button type="button" class="cfg-btn" onclick="testChenillard()">{{ t.settings.btn_esp32_test_seq }}</button>
-            </div>
-          </div>
-        </div>
-        <div class="cfg-field">
-          <div>
-            <div class="cfg-label">{{ t.settings.label_esp32_token }}</div>
-            <div class="cfg-hint">{{ t.settings.hint_esp32_token }}</div>
-          </div>
-          <div class="cfg-input-wrap">
-            <input type="password" name="esp32_token" class="cfg-input cfg-input-mono"
-                   value="{{ current.esp32_token }}" placeholder="{{ t.settings.ph_esp_token }}"/>
-          </div>
-        </div>
-        <div class="cfg-field">
-          <div>
-            <div class="cfg-label">{{ t.settings.label_esp32_duration }}</div>
-            <div class="cfg-hint">{{ t.settings.hint_seconds }}</div>
-          </div>
-          <div class="cfg-input-wrap">
-            <input type="number" name="esp32_duration" class="cfg-input cfg-input-mono"
-                   value="{{ current.esp32_duration }}" min="1" max="60" style="max-width:100px"/>
-          </div>
-        </div>
-        <div class="cfg-field">
-          <div>
-            <div class="cfg-label">{{ t.settings.label_esp32_offsets }}</div>
-            <div class="cfg-hint">{{ t.settings.hint_esp32_offsets }}</div>
-          </div>
-          <div class="cfg-input-wrap">
-            <input type="text" name="esp32_offsets" class="cfg-input cfg-input-mono"
-                   value="{{ current.esp32_offsets }}" placeholder='{"A": 0, "B": 50}'/>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {# Couleurs LED par catégorie #}
-    <div class="cfg-card">
-      <div class="cfg-card-head">
-        <div>
-          <h2 class="cfg-card-title">🎨 {{ t.settings.section_led_colors }}</h2>
-          <p class="cfg-card-desc">{{ t.settings.hint_led_colors }}</p>
-        </div>
-        <button type="button" class="cfg-btn" onclick="resetLedColors()">↩ Réinitialiser</button>
-      </div>
-      <div class="cfg-card-body">
-        <div class="cfg-led-grid">
-          {% for lc in led_colors %}
-          <div class="cfg-led-item">
-            <input type="color" name="{{ lc.setting_key }}" class="cfg-led-color-inp"
-                   value="{{ lc.color }}" title="{{ lc.label }}"
-                   oninput="updateSwatch(this)"
-                   data-default="{{ lc.default }}"/>
-            <div class="cfg-led-swatch" style="background:{{ lc.color }}"
-                 id="swatch-{{ lc.setting_key }}"></div>
-            <div>
-              <div class="cfg-led-label">{{ lc.label }}</div>
-              <div class="cfg-led-hint">{{ lc.hint }}</div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-
-    <div class="cfg-btn-row" style="margin-top:.5rem">
-      <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_save }}</button>
-    </div>
-  </form>
-</section>
-
-{# ── KICAD ───────────────────────────────────────────────────── #}
 <section class="cfg-section" id="sec-kicad">
   <div class="cfg-section-head">
     <h1 class="cfg-section-title">📐 KiCad Library</h1>
@@ -523,6 +413,285 @@
     </div>
   </div>
 </section>
+
+{# ── ATELIERS ────────────────────────────────────────────────── #}
+<section class="cfg-section" id="sec-ateliers">
+  <div class="cfg-section-head">
+    <h1 class="cfg-section-title">🏭 Ateliers & LEDs</h1>
+    <p class="cfg-section-desc">Gérez vos espaces de rangement. Chaque atelier a ses propres plateaux, son ESP32 et ses couleurs LED.</p>
+  </div>
+  <div class="cfg-cards">
+
+    {# ── Liste des ateliers ────────────────────────────────────── #}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">Vos ateliers</h2>
+          <p class="cfg-card-desc">Cliquez sur un atelier pour le configurer.</p>
+        </div>
+        <button type="button" class="cfg-btn cfg-btn--primary"
+                onclick="openAtelierModal()">+ Nouvel atelier</button>
+      </div>
+      <div class="cfg-card-body">
+        {% for a in ateliers %}
+        <div class="cfg-atelier-row">
+          <span class="cfg-atelier-emoji">{{ a.emoji }}</span>
+          <div class="cfg-atelier-info">
+            <span class="cfg-atelier-name">{{ a.name }}</span>
+            <span class="cfg-atelier-id">
+              /rangement/{{ a.id }}
+              {% if a.esp32_url %}
+              <span style="color:var(--success)"> · 💡 {{ a.esp32_url }}</span>
+              {% else %}
+              <span style="color:var(--text-muted)"> · pas d'ESP32 configuré</span>
+              {% endif %}
+            </span>
+          </div>
+          <div class="cfg-atelier-actions" onclick="event.stopPropagation()">
+            <a href="{{ url_for('components.rangement_atelier', atelier_id=a.id) }}"
+               class="cfg-btn" title="Ouvrir le rangement">📐</a>
+            <button type="button" class="cfg-btn"
+                    title="Modifier"
+                    onclick="openAtelierModal('{{ a.id }}','{{ a.name }}','{{ a.emoji }}','{{ a.color }}','{{ a.esp32_url or '' }}','{{ a.esp32_token or '' }}','{{ a.esp32_duration or 5 }}','{{ a.esp32_offsets or '' }}')">
+              ✏️ Modifier
+            </button>
+            <button type="button" class="cfg-btn cfg-btn--danger"
+                    onclick="deleteAtelier('{{ a.id }}','{{ a.name }}')"
+                    {% if ateliers|length <= 1 %}disabled{% endif %}>🗑</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# ── Test ESP32 ────────────────────────────────────────────── #}
+    {% for a in ateliers %}
+    {% if a.esp32_url %}
+    <div class="cfg-card">
+      <div class="cfg-card-head">
+        <div>
+          <h2 class="cfg-card-title">{{ a.emoji }} {{ a.name }} — Test ESP32</h2>
+          <p class="cfg-card-desc" style="color:var(--success)">💡 {{ a.esp32_url }}</p>
+        </div>
+        <button type="button" class="cfg-btn"
+                onclick="testPingAtelier('{{ a.id }}','{{ a.esp32_url }}')">
+          Ping
+        </button>
+      </div>
+      <div class="cfg-card-body" style="gap:.6rem">
+        <div id="ping-result-{{ a.id }}" style="font-size:.75rem;min-height:1.2rem"></div>
+        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+          <span style="font-size:.75rem;color:var(--text-muted)">Chenillard sur le plateau :</span>
+          <select id="pid-{{ a.id }}" class="cfg-input cfg-select" style="width:auto;font-size:.78rem">
+            {% set a_plateaux = ateliers_plateaux.get(a.id, []) %}
+            {% for p in a_plateaux %}
+            <option value="{{ p.id }}">{{ p.id }} — {{ p.label }}</option>
+            {% endfor %}
+            {% if not a_plateaux %}
+            <option value="A">A</option>
+            {% endif %}
+          </select>
+          <span style="font-size:.75rem;color:var(--text-muted)">délai ms :</span>
+          <input type="number" id="delay-{{ a.id }}" class="cfg-input cfg-input-mono"
+                 value="80" min="20" max="500" style="width:72px;font-size:.78rem"/>
+          <button type="button" class="cfg-btn"
+                  onclick="testChenillardAtelier('{{ a.id }}','{{ a.esp32_url }}')">
+            {{ t.settings.btn_esp32_test_seq }}
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {# ── Couleurs LED ──────────────────────────────────────────── #}
+    <form method="post">
+      <input type="hidden" name="action"   value="save_general"/>
+      <input type="hidden" name="_section" value="ateliers"/>
+      <div class="cfg-card">
+        <div class="cfg-card-head">
+          <div>
+            <h2 class="cfg-card-title">🎨 {{ t.settings.section_led_colors }}</h2>
+            <p class="cfg-card-desc">{{ t.settings.hint_led_colors }}</p>
+          </div>
+          <button type="button" class="cfg-btn" onclick="resetLedColors()">↩ Réinitialiser</button>
+        </div>
+        <div class="cfg-card-body">
+          <div class="cfg-led-grid">
+            {% for lc in led_colors %}
+            <div class="cfg-led-item">
+              <input type="color" name="{{ lc.setting_key }}" class="cfg-led-color-inp"
+                     value="{{ lc.color }}" title="{{ lc.label }}"
+                     oninput="updateSwatch(this)" data-default="{{ lc.default }}"/>
+              <div class="cfg-led-swatch" style="background:{{ lc.color }}"
+                   id="swatch-{{ lc.setting_key }}"></div>
+              <div>
+                <div class="cfg-led-label">{{ lc.label }}</div>
+                <div class="cfg-led-hint">{{ lc.hint }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="cfg-card-foot">
+          <button type="submit" class="cfg-btn cfg-btn--primary">{{ t.settings.btn_save }}</button>
+        </div>
+      </div>
+    </form>
+
+  </div>
+</section>
+
+{# ── Modal atelier ─────────────────────────────────────────────── #}
+<div id="atelier-modal-bg"
+     style="display:none;position:fixed;inset:0;z-index:600;
+            background:rgba(0,0,0,.78);backdrop-filter:blur(8px);
+            align-items:center;justify-content:center;padding:1rem"
+     onclick="if(event.target===this)closeAtelierModal()">
+  <div style="background:var(--bg-card);border:1px solid var(--border);
+              border-radius:14px;width:500px;max-width:100%;
+              box-shadow:0 24px 60px rgba(0,0,0,.45);
+              display:flex;flex-direction:column;max-height:92vh">
+
+    {# En-tête #}
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;
+                padding:1rem 1.25rem .85rem;
+                border-bottom:1px solid var(--border);flex-shrink:0">
+      <div>
+        <div id="atelier-modal-title"
+             style="font-size:1rem;font-weight:800;letter-spacing:-.02em">
+          Nouvel atelier
+        </div>
+        <div id="atelier-modal-sub"
+             style="font-size:.75rem;color:var(--text-muted);margin-top:.2rem">
+          Configurez votre espace de rangement
+        </div>
+      </div>
+      <button onclick="closeAtelierModal()"
+              style="background:none;border:none;cursor:pointer;color:var(--text-muted);
+                     font-size:.9rem;padding:.25rem .5rem;border-radius:6px;
+                     transition:background .12s;margin-left:.5rem;flex-shrink:0"
+              onmouseover="this.style.background='var(--bg-hover)'"
+              onmouseout="this.style.background='none'">✕</button>
+    </div>
+
+    {# Corps #}
+    <div style="overflow-y:auto;padding:1.1rem 1.25rem;
+                display:flex;flex-direction:column;gap:.9rem;flex:1;
+                min-height:0">
+
+      {# ID #}
+      <div id="atelier-id-wrap">
+        <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:.3rem">
+          ID <span style="color:var(--danger)">*</span>
+          <span style="font-weight:400;color:var(--text-muted);font-size:.72rem">
+            — lettres, chiffres, _ · non modifiable après création
+          </span>
+        </label>
+        <input type="text" id="modal-id" autocomplete="off" class="cfg-input cfg-input-mono"
+               placeholder="ex: garage, bureau, cave" maxlength="20"
+               oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'')"/>
+      </div>
+
+      {# Nom + Emoji + Couleur sur une ligne #}
+      <div style="display:grid;grid-template-columns:1fr 58px 46px;gap:.65rem;align-items:end">
+        <div>
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:.3rem">
+            Nom <span style="color:var(--danger)">*</span>
+          </label>
+          <input type="text" id="modal-name" autocomplete="off" class="cfg-input"
+                 placeholder="ex: Garage atelier"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:.8rem;font-weight:600;
+                        margin-bottom:.3rem;text-align:center">Emoji</label>
+          <input type="text" id="modal-emoji" class="cfg-input"
+                 maxlength="4"
+                 style="text-align:center;font-size:1.2rem;padding:.3rem .25rem"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:.8rem;font-weight:600;
+                        margin-bottom:.3rem;text-align:center">🎨</label>
+          <input type="color" id="modal-color"
+                 style="width:46px;height:38px;padding:.2rem;cursor:pointer;
+                        border:1.5px solid var(--border);border-radius:8px;
+                        background:transparent;display:block"/>
+        </div>
+      </div>
+
+      {# Séparateur ESP32 #}
+      <div style="display:flex;align-items:center;gap:.6rem;margin:.1rem 0">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:.68rem;font-weight:700;color:var(--text-muted);
+                     text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">
+          💡 ESP32
+        </span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      {# URL + Ping #}
+      <div>
+        <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:.3rem">
+          URL ESP32
+          <span style="font-weight:400;color:var(--text-muted);font-size:.72rem">optionnel</span>
+        </label>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="modal-esp32-url" autocomplete="off" class="cfg-input cfg-input-mono"
+                 placeholder="http://192.168.1.46" style="flex:1;min-width:0"/>
+          <button type="button" class="cfg-btn" onclick="testModalEsp32()"
+                  style="flex-shrink:0;white-space:nowrap">Ping</button>
+        </div>
+        <div id="modal-esp32-result" style="font-size:.73rem;margin-top:.3rem;min-height:1rem"></div>
+      </div>
+
+      {# Token + Durée #}
+      <div style="display:grid;grid-template-columns:1fr 110px;gap:.65rem">
+        <div>
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:.3rem">
+            Token ESP32
+            <span style="font-weight:400;color:var(--text-muted);font-size:.72rem">optionnel</span>
+          </label>
+          <input type="password" id="modal-esp32-token" autocomplete="off" class="cfg-input cfg-input-mono"
+                 placeholder="Laisse vide si aucun"/>
+        </div>
+        <div>
+          <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:.3rem">
+            Durée LEDs (s)
+          </label>
+          <input type="number" id="modal-esp32-duration" autocomplete="off" class="cfg-input cfg-input-mono"
+                 value="5" min="1" max="60"/>
+        </div>
+      </div>
+
+      {# Offsets #}
+      <div>
+        <label style="display:block;font-size:.8rem;font-weight:600;margin-bottom:.3rem">
+          Offsets par plateau
+          <span style="font-weight:400;color:var(--text-muted);font-size:.72rem">
+            ex: {"A": 0, "B": 50, "C": 100}
+          </span>
+        </label>
+        <input type="text" id="modal-esp32-offsets" autocomplete="off" class="cfg-input cfg-input-mono"
+               placeholder='{"A": 0, "B": 50}'/>
+        <div style="font-size:.7rem;color:var(--text-muted);margin-top:.25rem;line-height:1.4">
+          Décalage en nb de LEDs pour chaque plateau sur le ruban.
+        </div>
+      </div>
+
+    </div>
+
+    {# Pied #}
+    <div style="display:flex;gap:.5rem;padding:.85rem 1.25rem;
+                border-top:1px solid var(--border);flex-shrink:0">
+      <button type="button" class="cfg-btn" onclick="closeAtelierModal()">Annuler</button>
+      <button type="button" class="cfg-btn cfg-btn--primary"
+              id="modal-save-btn" onclick="saveAtelier()" style="margin-left:auto">
+        Créer l'atelier
+      </button>
+    </div>
+
+  </div>
+</div>
 
 {# ── STATS ───────────────────────────────────────────────────── #}
 <section class="cfg-section" id="sec-stats">
@@ -932,6 +1101,145 @@ function postAction(action, confirm_msg, section) {
   document.getElementById('action-form-section').value = sec;
   document.getElementById('action-form').submit();
 }
+
+// ── Gestion ateliers ─────────────────────────────────────────────
+let _editingId = null;
+
+function openAtelierModal(id, name, emoji, color, esp32_url, esp32_token, esp32_duration, esp32_offsets) {
+  _editingId = id || null;
+  const isEdit = !!id;
+  document.getElementById("atelier-modal-title").textContent = isEdit ? "Modifier l'atelier" : "Nouvel atelier";
+  document.getElementById("atelier-modal-sub").textContent   = isEdit ? name : "Configurez votre nouvel espace de rangement";
+  document.getElementById("modal-save-btn").textContent      = isEdit ? "Enregistrer" : "Créer l'atelier";
+  document.getElementById("atelier-id-wrap").style.display   = isEdit ? "none" : "";
+  // Reset
+  document.getElementById("modal-id").value              = "";
+  document.getElementById("modal-name").value            = name             || "";
+  document.getElementById("modal-emoji").value           = emoji            || "📦";
+  document.getElementById("modal-color").value           = color            || "#7c3aed";
+  document.getElementById("modal-esp32-url").value       = esp32_url        || "";
+  document.getElementById("modal-esp32-token").value     = esp32_token      || "";
+  document.getElementById("modal-esp32-duration").value  = esp32_duration   || 5;
+  document.getElementById("modal-esp32-offsets").value   = esp32_offsets    || "";
+  document.getElementById("modal-esp32-result").textContent = "";
+  document.getElementById("atelier-modal-bg").style.display = "flex";
+  setTimeout(() => {
+    (isEdit
+      ? document.getElementById("modal-name")
+      : document.getElementById("modal-id")
+    )?.focus();
+  }, 80);
+}
+
+function closeAtelierModal() {
+  document.getElementById("atelier-modal-bg").style.display = "none";
+  _editingId = null;
+}
+
+function saveAtelier() {
+  const isEdit = !!_editingId;
+  const name     = document.getElementById("modal-name").value.trim();
+  const emoji    = document.getElementById("modal-emoji").value.trim()    || "📦";
+  const color    = document.getElementById("modal-color").value;
+  const esp32url = document.getElementById("modal-esp32-url").value.trim();
+  const esp32tok = document.getElementById("modal-esp32-token").value.trim();
+  const esp32dur = parseInt(document.getElementById("modal-esp32-duration").value) || 5;
+  const esp32off = document.getElementById("modal-esp32-offsets").value.trim();
+
+  if (!name) { alert("Le nom est requis."); return; }
+
+  const btn = document.getElementById("modal-save-btn");
+  btn.textContent = "⏳"; btn.disabled = true;
+
+  const payload = { name, emoji, color,
+    esp32_url: esp32url, esp32_token: esp32tok,
+    esp32_duration: esp32dur, esp32_offsets: esp32off };
+
+  if (isEdit) {
+    fetch("/ateliers/" + _editingId + "/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(r => r.json()).then(d => {
+      if (d.ok) { window.location.reload(); }
+      else { alert(d.error || "Erreur"); btn.textContent = "Enregistrer"; btn.disabled = false; }
+    }).catch(() => { alert("Erreur réseau"); btn.textContent = "Enregistrer"; btn.disabled = false; });
+  } else {
+    const id = document.getElementById("modal-id").value.trim();
+    if (!id) { alert("L'ID est requis."); btn.textContent = "Créer l'atelier"; btn.disabled = false; return; }
+    fetch("/ateliers/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, ...payload })
+    }).then(r => r.json()).then(d => {
+      if (d.ok) { window.location.reload(); }
+      else { alert(d.error || "Erreur"); btn.textContent = "Créer l'atelier"; btn.disabled = false; }
+    }).catch(() => { alert("Erreur réseau"); btn.textContent = "Créer l'atelier"; btn.disabled = false; });
+  }
+}
+
+function testModalEsp32() {
+  const url = document.getElementById("modal-esp32-url").value.trim();
+  const res = document.getElementById("modal-esp32-result");
+  if (!url) { res.innerHTML = "<span style='color:var(--warning)'>⚠️ Renseigne l\'URL d\'abord</span>"; return; }
+  res.innerHTML = "<span style='color:var(--text-muted)'>⏳ Test…</span>";
+  fetch("/api/led/ping-direct?url=" + encodeURIComponent(url))
+    .then(r => r.json())
+    .then(d => {
+      res.innerHTML = d.ok
+        ? "<span style='color:var(--success)'>✅ " + (d.leds || "?") + " LEDs connectées</span>"
+        : "<span style='color:var(--danger)'>❌ " + (d.error || "Erreur") + "</span>";
+    }).catch(() => { res.innerHTML = "<span style='color:var(--danger)'>❌ Erreur réseau</span>"; });
+}
+
+
+
+function testEsp32Atelier(atelierID, url) { testPingAtelier(atelierID, url); }
+function testPingAtelier(atelierID, url) {
+  const res = document.getElementById("ping-result-" + atelierID);
+  if(res) res.innerHTML = "<span style='color:var(--text-muted)'>⏳ Ping…</span>";
+  fetch("/api/led/ping-direct?url=" + encodeURIComponent(url))
+    .then(r => r.json())
+    .then(d => {
+      if(res) res.innerHTML = d.ok
+        ? "<span style='color:var(--success)'>✅ " + (d.leds||"?") + " LEDs connectées</span>"
+        : "<span style='color:var(--danger)'>❌ " + (d.error||"Erreur") + "</span>";
+    }).catch(() => {
+      if(res) res.innerHTML = "<span style='color:var(--danger)'>❌ Erreur réseau</span>";
+    });
+}
+
+function testChenillardAtelier(atelierID, url) {
+  const pid   = document.getElementById("pid-" + atelierID)?.value || "A";
+  const delay = parseInt(document.getElementById("delay-" + atelierID)?.value) || 80;
+  const res   = document.getElementById("ping-result-" + atelierID);
+  if(res) res.innerHTML = "<span style='color:var(--text-muted)'>⏳ Chenillard en cours…</span>";
+  fetch("/api/led/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plateau: pid, delay_ms: delay, atelier_id: atelierID })
+  }).then(r => r.json()).then(d => {
+    if(res) res.innerHTML = d.ok
+      ? "<span style='color:var(--success)'>✅ Chenillard lancé sur " + pid + " (" + url + ")</span>"
+      : "<span style='color:var(--danger)'>❌ " + (d.error||"Erreur") + "</span>";
+  }).catch(() => { if(res) res.innerHTML = "<span style='color:var(--danger)'>❌ Erreur réseau</span>"; });
+}
+
+function deleteAtelier(id, name) {
+  if (!confirm("Supprimer \"" + name + "\" et toutes ses données ?")) return;
+  fetch("/ateliers/" + id + "/delete", { method: "POST" })
+    .then(r => r.json()).then(d => {
+      if (d.ok) window.location.reload();
+      else alert(d.error || "Erreur");
+    }).catch(() => alert("Erreur réseau"));
+}
+
+document.addEventListener("keydown", e => {
+  const bg = document.getElementById("atelier-modal-bg");
+  if (!bg?.classList.contains("open")) return;
+  if (e.key === "Escape") { closeAtelierModal(); }
+  if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { saveAtelier(); }
+});
 
 // ── Auto-dismiss toasts ───────────────────────────────────────────
 document.querySelectorAll('.cfg-toast').forEach(t => {

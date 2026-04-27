@@ -104,7 +104,20 @@ def create_app():
         app_name = _settings_cache.get("app_name", "") or "StockEleK"
         lang     = _settings_cache.get("lang", "")     or "fr"
         t = load_locale(lang)
-        return {"app_name": app_name, "t": t, "lang": lang, "cache_buster": _CACHE_BUSTER}
+        try:
+            from .models.atelier import AtelierModel as _AM
+            all_ateliers = _AM.get_all()
+        except Exception:
+            all_ateliers = []
+        try:
+            from flask import request as _req
+            _aid = _req.view_args.get("atelier_id") if _req.view_args else None
+            cur_atelier = _AM.get(_aid) if _aid else None
+        except Exception:
+            cur_atelier = None
+        return {"app_name": app_name, "t": t, "lang": lang,
+                "cache_buster": _CACHE_BUSTER,
+                "ateliers": all_ateliers, "atelier": cur_atelier}
 
     # ── Gestionnaires d'erreur HTTP ──────────────────────────────────
     @app.errorhandler(404)
