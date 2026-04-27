@@ -7,12 +7,14 @@ class ComponentView:
     @staticmethod
     def render_index(components, category_groups, stats, search, selected_category,
                      sort_by, order, page, per_page, total, total_pages,
-                     low_only=False, low_count=0, location_filter="", drawer_letters=None):
+                     low_only=False, low_count=0, location_filter="", drawer_letters=None,
+                     drawer_ateliers=None, all_ateliers_map=None):
         return render_template(
             "components/index.html",
             components=components, category_groups=category_groups, stats=stats,
             search=search, selected_category=selected_category,
             location_filter=location_filter, drawer_letters=drawer_letters or [],
+            drawer_ateliers=drawer_ateliers or {}, all_ateliers_map=all_ateliers_map or {},
             sort_by=sort_by, order=order,
             page=page, per_page=per_page, total=total, total_pages=total_pages,
             low_only=low_only, low_count=low_count,

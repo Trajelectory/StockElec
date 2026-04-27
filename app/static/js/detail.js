@@ -78,20 +78,31 @@ function enrichComponent(id) {
     });
 }
 
-function flashLed(cellId, componentId) {
+function flashLed(location, componentId) {
     const btn    = document.getElementById('detail-led-btn');
     const status = document.getElementById('detail-led-status');
     if (!btn) return;
+
+    // Format: "atelier_id:CELLID" (ex: "principal:A7") ou ancien "A7"
+    let atelierId = null;
+    let cellId    = location;
+    if (location && location.includes(':')) {
+        const parts = location.split(':');
+        atelierId   = parts[0];
+        cellId      = parts[1];
+    }
 
     btn.disabled = true;
     status.textContent = t_detail_led_sending;
     status.style.color = 'var(--text-muted)';
 
-    const body = componentId ? JSON.stringify({component_id: componentId}) : null;
+    const payload = {};
+    if (componentId) payload.component_id = componentId;
+    if (atelierId)   payload.atelier_id   = atelierId;
     fetch(`/api/led/${cellId}/on`, {
         method: 'POST',
-        headers: body ? {'Content-Type': 'application/json'} : {},
-        body: body,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
     })
         .then(r => r.json())
         .then(data => {

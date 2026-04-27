@@ -483,13 +483,38 @@
     <div class="dc-location-card">
       <div class="dc-location-head">{{ t.detail.label_location }}</div>
       <div class="dc-location-body">
-        <div class="dc-location-val">📍 {{ component.location }}</div>
+
+        {% if component.location and ':' in component.location %}
+          {% set loc_parts = component.location.split(':', 1) %}
+          {% set loc_atelier = loc_parts[0] %}
+          {% set loc_cell    = loc_parts[1] %}
+        {% else %}
+          {% set loc_atelier = '' %}
+          {% set loc_cell    = component.location %}
+        {% endif %}
+
+        <div style="display:flex;align-items:center;gap:.75rem;flex:1;min-width:0">
+          <span style="font-size:1.4rem;flex-shrink:0">📍</span>
+          <div style="min-width:0">
+            {% if loc_atelier %}
+            <div style="font-size:.72rem;color:var(--text-muted);font-weight:600;
+                        text-transform:uppercase;letter-spacing:.06em;
+                        font-family:var(--mono)">{{ loc_atelier }}</div>
+            {% endif %}
+            <div style="font-size:1.35rem;font-weight:900;font-family:var(--mono);
+                        letter-spacing:.05em;color:var(--accent);line-height:1.1">
+              {{ loc_cell }}
+            </div>
+          </div>
+        </div>
+
         {% if esp32_url %}
         <button class="dc-led-btn" id="detail-led-btn"
                 onclick="flashLed('{{ component.location }}', {{ component.id }})">
           {{ t.detail.btn_light_led }}
         </button>
         {% endif %}
+
       </div>
       <div class="dc-led-status" id="detail-led-status"></div>
     </div>

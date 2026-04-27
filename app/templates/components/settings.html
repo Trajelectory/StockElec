@@ -185,7 +185,7 @@
             </div>
           </div>
           <div class="cfg-input-wrap">
-            <input type="password" name="mouser_api_key" class="cfg-input cfg-input-mono"
+            <input type="text" name="mouser_api_key" class="cfg-input cfg-input-mono"
                    value="{{ current.mouser_api_key }}"
                    placeholder="{{ t.settings.configured_key if current.mouser_api_key else '' }}"/>
           </div>
@@ -214,7 +214,7 @@
             </div>
           </div>
           <div class="cfg-input-wrap">
-            <input type="password" name="digikey_client_id" class="cfg-input cfg-input-mono"
+            <input type="text" name="digikey_client_id" class="cfg-input cfg-input-mono"
                    value="{{ current.digikey_client_id }}"
                    placeholder="{{ t.settings.configured_creds if current.digikey_client_id else '' }}"/>
           </div>
@@ -222,7 +222,7 @@
         <div class="cfg-field">
           <div><div class="cfg-label">{{ t.settings.label_dk_secret }}</div></div>
           <div class="cfg-input-wrap">
-            <input type="password" name="digikey_client_secret" class="cfg-input cfg-input-mono"
+            <input type="text" name="digikey_client_secret" class="cfg-input cfg-input-mono"
                    value="{{ current.digikey_client_secret }}"
                    placeholder="{{ t.settings.configured_creds if current.digikey_client_secret else '' }}"/>
           </div>

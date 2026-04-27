@@ -61,13 +61,34 @@ def stock():
     category_groups = CategoryModel.get_grouped_for_stock()
 
     # Emplacements distincts pour le filtre sidebar
+    # Format nouveau : "atelier_id:PLATEAU_ID" (ex: "principal:A3")
+    # Format ancien  : "A3" (rétrocompat)
     locations_raw = get_db().execute(
         "SELECT DISTINCT location FROM components WHERE location IS NOT NULL AND location != '' ORDER BY location"
     ).fetchall()
-    drawer_letters = sorted(set(
-        m.group(1) for r in locations_raw
-        if (m := _re.match(r"^([A-Za-z]+)", r["location"]))
-    ))
+
+    # Construire la liste des ateliers avec leurs plateaux
+    from ..models.atelier import AtelierModel
+    all_ateliers_map = {a["id"]: a for a in AtelierModel.get_all()}
+
+    drawer_ateliers = {}   # {atelier_id: {plateau_id, ...}}
+    legacy_letters  = set()
+
+    for r in locations_raw:
+        loc = r["location"] or ""
+        if ":" in loc:
+            parts = loc.split(":", 1)
+            aid   = parts[0]
+            pid_m = _re.match(r"^([A-Za-z]+)", parts[1])
+            pid   = pid_m.group(1) if pid_m else parts[1]
+            drawer_ateliers.setdefault(aid, set()).add(pid)
+        else:
+            m = _re.match(r"^([A-Za-z]+)", loc)
+            if m:
+                legacy_letters.add(m.group(1))
+
+    # drawer_letters reste pour rétrocompat (format ancien)
+    drawer_letters = sorted(legacy_letters)
 
     return ComponentView.render_index(
         components=components,
@@ -77,6 +98,8 @@ def stock():
         selected_category=category,
         location_filter=location_filter,
         drawer_letters=drawer_letters,
+        drawer_ateliers=drawer_ateliers,
+        all_ateliers_map=all_ateliers_map,
         sort_by=sort_by,
         order=order,
         page=page,
