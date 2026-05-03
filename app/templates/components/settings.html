@@ -416,92 +416,98 @@
 
 {# ── ATELIERS ────────────────────────────────────────────────── #}
 <section class="cfg-section" id="sec-ateliers">
-  <div class="cfg-section-head">
-    <h1 class="cfg-section-title">🏭 Ateliers & LEDs</h1>
-    <p class="cfg-section-desc">Gérez vos espaces de rangement. Chaque atelier a ses propres plateaux, son ESP32 et ses couleurs LED.</p>
+  <div class="cfg-section-head" style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem">
+    <div>
+      <h1 class="cfg-section-title">🏭 Ateliers & LEDs</h1>
+      <p class="cfg-section-desc">Chaque atelier a ses propres plateaux, son ESP32 et ses couleurs LED.</p>
+    </div>
+    <button type="button" class="cfg-btn cfg-btn--primary"
+            onclick="openAtelierModal()">+ Nouvel atelier</button>
   </div>
   <div class="cfg-cards">
 
-    {# ── Liste des ateliers ────────────────────────────────────── #}
-    <div class="cfg-card">
-      <div class="cfg-card-head">
-        <div>
-          <h2 class="cfg-card-title">Vos ateliers</h2>
-          <p class="cfg-card-desc">Cliquez sur un atelier pour le configurer.</p>
-        </div>
-        <button type="button" class="cfg-btn cfg-btn--primary"
-                onclick="openAtelierModal()">+ Nouvel atelier</button>
-      </div>
-      <div class="cfg-card-body">
-        {% for a in ateliers %}
-        <div class="cfg-atelier-row">
-          <span class="cfg-atelier-emoji">{{ a.emoji }}</span>
-          <div class="cfg-atelier-info">
-            <span class="cfg-atelier-name">{{ a.name }}</span>
-            <span class="cfg-atelier-id">
-              /rangement/{{ a.id }}
-              {% if a.esp32_url %}
-              <span style="color:var(--success)"> · 💡 {{ a.esp32_url }}</span>
-              {% else %}
-              <span style="color:var(--text-muted)"> · pas d'ESP32 configuré</span>
-              {% endif %}
-            </span>
-          </div>
-          <div class="cfg-atelier-actions" onclick="event.stopPropagation()">
-            <a href="{{ url_for('components.rangement_atelier', atelier_id=a.id) }}"
-               class="cfg-btn" title="Ouvrir le rangement">📐</a>
-            <button type="button" class="cfg-btn"
-                    title="Modifier"
-                    onclick="openAtelierModal('{{ a.id }}','{{ a.name }}','{{ a.emoji }}','{{ a.color }}','{{ a.esp32_url or '' }}','{{ a.esp32_token or '' }}','{{ a.esp32_duration or 5 }}','{{ a.esp32_offsets or '' }}')">
-              ✏️ Modifier
-            </button>
-            <button type="button" class="cfg-btn cfg-btn--danger"
-                    onclick="deleteAtelier('{{ a.id }}','{{ a.name }}')"
-                    {% if ateliers|length <= 1 %}disabled{% endif %}>🗑</button>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    {# ── Test ESP32 ────────────────────────────────────────────── #}
+    {# ── Une carte par atelier — consolidée ────────────────────── #}
     {% for a in ateliers %}
-    {% if a.esp32_url %}
-    <div class="cfg-card">
+    <div class="cfg-card" style="margin-bottom:.6rem">
+
+      {# En-tête atelier #}
       <div class="cfg-card-head">
-        <div>
-          <h2 class="cfg-card-title">{{ a.emoji }} {{ a.name }} — Test ESP32</h2>
-          <p class="cfg-card-desc" style="color:var(--success)">💡 {{ a.esp32_url }}</p>
+        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+          <span style="font-size:1.4rem;width:36px;height:36px;display:flex;align-items:center;
+                       justify-content:center;background:var(--bg-hover);border-radius:8px;
+                       flex-shrink:0">{{ a.emoji }}</span>
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+              <span style="font-size:.9rem;font-weight:600">{{ a.name }}</span>
+              {% if a.esp32_url %}
+              <span style="font-size:.7rem;padding:1px 7px;border-radius:20px;font-weight:500;
+                           background:var(--success-bg,#0a2e1a);color:var(--success,#2aaa50)">
+                ● ESP32 connecté
+              </span>
+              {% else %}
+              <span style="font-size:.7rem;padding:1px 7px;border-radius:20px;
+                           background:var(--bg-hover);color:var(--text-muted)">
+                Pas d'ESP32
+              </span>
+              {% endif %}
+            </div>
+            <div style="font-size:.72rem;color:var(--text-muted);font-family:monospace;margin-top:1px">
+              /rangement/{{ a.id }}
+            </div>
+          </div>
         </div>
-        <button type="button" class="cfg-btn"
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <a href="{{ url_for('components.rangement_atelier', atelier_id=a.id) }}"
+             class="cfg-btn" title="Ouvrir le rangement" style="font-size:.8rem">📐 Rangement</a>
+          <button type="button" class="cfg-btn" style="font-size:.8rem"
+                  onclick="openAtelierModal('{{ a.id }}','{{ a.name }}','{{ a.emoji }}','{{ a.color }}','{{ a.esp32_url or '' }}','{{ a.esp32_token or '' }}','{{ a.esp32_duration or 5 }}','{{ a.esp32_offsets or '' }}')">
+            ✏️ Modifier
+          </button>
+          <button type="button" class="cfg-btn cfg-btn--danger" style="font-size:.8rem"
+                  onclick="deleteAtelier('{{ a.id }}','{{ a.name }}')"
+                  {% if ateliers|length <= 1 %}disabled title="Impossible — seul atelier"{% endif %}>🗑</button>
+        </div>
+      </div>
+
+      {# Barre ESP32 — uniquement si URL configurée #}
+      {% if a.esp32_url %}
+      <div style="padding:.55rem 1rem;border-top:1px solid var(--border);
+                  background:var(--bg-hover);display:flex;align-items:center;
+                  gap:.6rem;flex-wrap:wrap">
+        <span style="font-size:.75rem;color:var(--success);font-family:monospace">
+          {{ a.esp32_url }}
+        </span>
+        <span style="width:1px;height:14px;background:var(--border);flex-shrink:0"></span>
+        <button type="button" class="cfg-btn" style="font-size:.75rem;padding:2px 9px"
                 onclick="testPingAtelier('{{ a.id }}','{{ a.esp32_url }}')">
           Ping
         </button>
+        <span id="ping-result-{{ a.id }}"
+              style="font-size:.75rem;color:var(--text-muted);min-width:4rem"></span>
+        <span style="width:1px;height:14px;background:var(--border);flex-shrink:0"></span>
+        <span style="font-size:.75rem;color:var(--text-muted);white-space:nowrap">Chenillard :</span>
+        <select id="pid-{{ a.id }}" class="cfg-input cfg-select"
+                style="width:auto;font-size:.75rem;padding:2px 6px">
+          {% set a_plateaux = ateliers_plateaux.get(a.id, []) %}
+          {% for p in a_plateaux %}
+          <option value="{{ p.id }}">{{ p.id }} — {{ p.label }}</option>
+          {% endfor %}
+          {% if not a_plateaux %}
+          <option value="A">A</option>
+          {% endif %}
+        </select>
+        <input type="number" id="delay-{{ a.id }}" class="cfg-input cfg-input-mono"
+               value="80" min="20" max="500"
+               style="width:62px;font-size:.75rem;padding:2px 6px"/>
+        <span style="font-size:.75rem;color:var(--text-muted)">ms</span>
+        <button type="button" class="cfg-btn" style="font-size:.75rem;padding:2px 9px"
+                onclick="testChenillardAtelier('{{ a.id }}','{{ a.esp32_url }}')">
+          ▶ {{ t.settings.btn_esp32_test_seq }}
+        </button>
       </div>
-      <div class="cfg-card-body" style="gap:.6rem">
-        <div id="ping-result-{{ a.id }}" style="font-size:.75rem;min-height:1.2rem"></div>
-        <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-          <span style="font-size:.75rem;color:var(--text-muted)">Chenillard sur le plateau :</span>
-          <select id="pid-{{ a.id }}" class="cfg-input cfg-select" style="width:auto;font-size:.78rem">
-            {% set a_plateaux = ateliers_plateaux.get(a.id, []) %}
-            {% for p in a_plateaux %}
-            <option value="{{ p.id }}">{{ p.id }} — {{ p.label }}</option>
-            {% endfor %}
-            {% if not a_plateaux %}
-            <option value="A">A</option>
-            {% endif %}
-          </select>
-          <span style="font-size:.75rem;color:var(--text-muted)">délai ms :</span>
-          <input type="number" id="delay-{{ a.id }}" class="cfg-input cfg-input-mono"
-                 value="80" min="20" max="500" style="width:72px;font-size:.78rem"/>
-          <button type="button" class="cfg-btn"
-                  onclick="testChenillardAtelier('{{ a.id }}','{{ a.esp32_url }}')">
-            {{ t.settings.btn_esp32_test_seq }}
-          </button>
-        </div>
-      </div>
+      {% endif %}
+
     </div>
-    {% endif %}
     {% endfor %}
 
     {# ── Couleurs LED ──────────────────────────────────────────── #}
@@ -792,7 +798,10 @@
           <h2 class="cfg-card-title">{{ t.settings.card_history }}</h2>
           <p class="cfg-card-desc">{{ t.settings.hint_history }}</p>
         </div>
-        <button type="button" class="cfg-btn cfg-btn--danger" onclick="postAction('clear_history', '{{ t.settings.confirm_clear_hist2 }}')">{{ t.settings.btn_clear_history }}</button>
+        <button type="button" class="cfg-btn cfg-btn--danger" 
+          data-action="clear_history"
+          data-confirm="{{ t.settings.confirm_clear_hist2 | replace("'", "&#39;") }}"
+          onclick="postAction(this.dataset.action, this.dataset.confirm)">{{ t.settings.btn_clear_history }}</button>
       </div>
     </div>
 
@@ -872,7 +881,7 @@
 </div>
 
 {# ── Form action (hors sections) ─────────────────────────────── #}
-<form id="action-form" method="post" style="display:none">
+<form id="action-form" method="post" action="{{ url_for('components.settings') }}" style="display:none">
   <input type="hidden" name="action"   id="action-form-action"/>
   <input type="hidden" name="_section" id="action-form-section"/>
 </form>

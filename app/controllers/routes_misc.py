@@ -1,3 +1,4 @@
+import struct
 import os
 import json
 import threading
@@ -237,6 +238,28 @@ def _css_classes(prefix):
 #  API JSON — fiche composant pour le P4 GUITION
 # ------------------------------------------------------------------ #
 
+def _p4_safe(s):
+    """Remplace les caractères hors ASCII-étendu par des équivalents lisibles."""
+    if not s: return ""
+    return (s
+        .replace("℃", "°C")
+        .replace("℉", "°F")
+        .replace("μ", "u")
+        .replace("Ω", "ohm")
+        .replace("±", "+/-")
+        .replace("×", "x")
+        .replace("≤", "<=")
+        .replace("≥", ">=")
+        .replace("→", "->")
+        .replace("←", "<-")
+        .replace("²", "2")
+        .replace("³", "3")
+        .replace("°", "deg")
+        .replace("℃", "°C")
+        .replace("μ", "u")
+        .replace("Ω", "ohm")
+    )
+
 @component_bp.route("/component/<int:component_id>/json")
 @require_esp32_token
 def component_json(component_id):
@@ -260,29 +283,80 @@ def component_json(component_id):
     return jsonify({
         "ok":                   True,
         "id":                   comp.id,
-        "description":          comp.description          or "",
-        "manufacturer":         comp.manufacturer         or "",
+        "description":          _p4_safe(comp.description),
+        "name":                 _p4_safe(comp.manufacture_part_number or comp.description or ""),
+        "manufacturer":         _p4_safe(comp.manufacturer),
         "lcsc_part_number":     comp.lcsc_part_number     or "",
         "manufacture_part_number": comp.manufacture_part_number or "",
         "mouser_part_number":   comp.mouser_part_number   or "",
         "digikey_part_number":  comp.digikey_part_number  or "",
         "package":              comp.package              or "",
         "location":             comp.location             or "",
-        "category":             comp.category             or "",
+        "category":             _p4_safe(comp.category),
         "quantity":             comp.quantity             or 0,
         "min_stock":            comp.min_stock            or 0,
         "unit_price":           float(comp.unit_price)    if comp.unit_price else 0.0,
         "rohs":                 comp.rohs                 or "",
         "datasheet_url":        comp.datasheet_url        or "",
-        "image_url":            f"/component/{comp.id}/image" if comp.image_path else "",
+        "image_url":            f"/component/{comp.id}/image/raw?w=220&h=220" if comp.image_path else "",
         "kicad_sym":            bool(kicad_status.get("symbol")),
         "kicad_fp":             bool(kicad_status.get("footprint")),
         "kicad_3d":             bool(kicad_status.get("model3d")),
     })
 
 
+@component_bp.route("/component/<int:component_id>/image/raw")
+def component_image_raw(component_id):
+    """
+    GET /component/<id>/image/raw?w=220&h=220
+    Retourne l'image redimensionnée en RGB565 little-endian (format natif LVGL).
+    Utilisé par le firmware ESP32-P4 pour afficher l'image sans décodeur JPEG.
+    """
+    import os as _os
+    from PIL import Image
+    
+
+    comp = ComponentModel.get_by_id(component_id)
+    if comp is None or not comp.image_path:
+        current_app.logger.warning(f"[IMG/raw] comp {component_id} — pas d'image_path")
+        return "", 404
+
+    # image_path peut contenir "images/C5378.jpg" ou juste "C5378.jpg"
+    if comp.image_path.startswith("images/") or comp.image_path.startswith("images\\"):
+        img_path = _os.path.join(current_app.instance_path, comp.image_path)
+    else:
+        img_path = _os.path.join(current_app.instance_path, "images", comp.image_path)
+    current_app.logger.info(f"[IMG/raw] {img_path!r} existe={_os.path.exists(img_path)}")
+    if not _os.path.exists(img_path):
+        return "", 404
+
+    try:
+        w = min(int(request.args.get("w", 220)), 320)
+        h = min(int(request.args.get("h", 220)), 320)
+
+        img = Image.open(img_path).convert("RGB")
+        img = img.resize((w, h), Image.LANCZOS)
+
+        # Convertir en RGB565 little-endian
+        buf = bytearray()
+        for r, g, b in img.getdata():
+            pixel = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+            buf += struct.pack("<H", pixel)   # little-endian
+
+        # Header 4 octets : largeur (2) + hauteur (2)
+        header = struct.pack("<HH", w, h)
+        response = current_app.response_class(
+            header + bytes(buf),
+            mimetype="application/octet-stream"
+        )
+        response.headers["X-Width"]  = str(w)
+        response.headers["X-Height"] = str(h)
+        return response
+    except Exception as e:
+        return str(e), 500
+
+
 @component_bp.route("/component/<int:component_id>/image")
-@require_esp32_token
 def component_image_by_id(component_id):
     """
     GET /component/<id>/image

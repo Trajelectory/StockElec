@@ -6,7 +6,6 @@
 
 /* -- Forms -- */
 
-.drop-zone
 
 .info-card h2 { font-size: 1rem; margin-bottom: .75rem; }
 .info-card p { margin-bottom: .5rem; color: var(--text-muted); }
@@ -125,8 +124,6 @@
 
 /* Dispo badges */
 
-.action-use:hover      { border-color: var(--danger); color: var(--danger); background: rgba(244,63,94,.08); }
-.action-return:hover   { border-color: var(--success); color: var(--success); background: rgba(52,209,126,.08); }
 .action-btn:disabled   { opacity: .4; cursor: not-allowed; }
 
 /* ── Séparateur de catégorie dans tableau unique ──────────── */
@@ -159,7 +156,6 @@
 
 /* ── Panneau aperçu ─────────────────────────────────────────── */
 
-.settings-field 
 
 /* Stats DB */
 
@@ -173,7 +169,12 @@
 
 .action-btn         { padding:.3rem .65rem;border-radius:var(--radius-sm);border:1px solid var(--border);font-size:.8rem;background:var(--bg-surface);color:var(--text-muted);cursor:pointer;transition:all .12s; }
 .action-btn:hover   { border-color:var(--accent);color:var(--accent); }
-.action-del:hover   { border-color:var(--danger);color:var(--danger); }
+.action-use            { color: var(--text-muted); }
+.action-return         { color: var(--text-muted); }
+.action-del            { color: var(--text-muted); }
+.action-use:hover      { border-color: var(--danger); color: var(--danger); background: rgba(244,63,94,.08); }
+.action-return:hover   { border-color: var(--success); color: var(--success); background: rgba(52,209,126,.08); }
+.action-del:hover      { border-color: var(--danger); color: var(--danger); background: rgba(244,63,94,.08); }
 .thumb-clickable    { cursor:pointer;transition:opacity .12s; }
 .thumb-clickable:hover { opacity:.8; }
 .td-actions         { white-space:nowrap;text-align:right; }

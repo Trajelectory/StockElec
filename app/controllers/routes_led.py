@@ -49,6 +49,28 @@ def _get_led_config():
     }
 
 
+def _resolve_cfg(atelier_id: str | None = None) -> dict:
+    """
+    Retourne la config ESP32 résolue dans cet ordre de priorité :
+      1. Config de l'atelier demandé (si atelier_id fourni et esp32_url renseignée)
+      2. Config globale (table settings, clé esp32_url)  ← fallback
+
+    Utilisé par led_ping, led_off, led_status pour supporter
+    le paramètre ?atelier_id= / body atelier_id.
+    """
+    cfg = _get_led_config()  # fallback global
+    if not atelier_id:
+        return cfg
+    from ..models.atelier import AtelierModel
+    atelier = AtelierModel.get(atelier_id)
+    if atelier and atelier.get("esp32_url"):
+        cfg = dict(cfg)
+        cfg["url"]      = atelier["esp32_url"].strip().rstrip("/")
+        cfg["token"]    = atelier.get("esp32_token") or cfg["token"]
+        cfg["duration"] = atelier.get("esp32_duration") or cfg["duration"]
+    return cfg
+
+
 def _led_headers(cfg: dict) -> dict:
     """Headers HTTP pour les requêtes ESP32 — inclut X-Token si configuré."""
     h = {}
@@ -123,6 +145,10 @@ def _compute_led_indices(cell_id: str, cfg: dict, all_settings: dict | None = No
     parts = size.split("x")
     sw    = int(parts[0]) if len(parts) == 2 else 1
     sh    = int(parts[1]) if len(parts) == 2 else 1
+    logger.info("[LED] cell=%s size=%s sw=%d sh=%d atelier=%s sizes_keys=%s",
+                cell_id, size, sw, sh,
+                cfg.get("_atelier_id", "global"),
+                list(sizes.keys())[:5])
 
     # Générer tous les indices de la zone
     indices = []
@@ -408,11 +434,17 @@ def led_on(cell_id):
 
 @component_bp.route("/api/led/off", methods=["POST"])
 def led_off():
-    """Éteint toutes les LEDs."""
-    cfg = _get_led_config()
+    """Éteint toutes les LEDs.
+
+    Accepte un body JSON optionnel avec atelier_id pour cibler
+    l'ESP32 d'un atelier spécifique plutôt que la config globale.
+    """
+    data       = request.get_json(silent=True) or {}
+    atelier_id = data.get("atelier_id") or request.args.get("atelier_id", "").strip()
+    cfg        = _resolve_cfg(atelier_id)
     if not cfg["url"]:
         return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
-    logger.info("[LED] ⬛ OFF → %s", cfg["url"])
+    logger.info("[LED] ⬛ OFF → %s (atelier=%s)", cfg["url"], atelier_id or "global")
     try:
         resp = _requests.post(f"{cfg['url']}/off", headers=_led_headers(cfg), timeout=5)
         status_icon = "✅" if resp.status_code == 200 else "❌"
@@ -423,23 +455,78 @@ def led_off():
         return jsonify({"ok": False, "error": str(e)}), 503
 
 
+def _count_leds_from_config(atelier_id: str) -> int | None:
+    """
+    Calcule le nombre total de LEDs depuis les offsets + la config des plateaux.
+    Formule : max sur tous les plateaux de (offset[plateau] + cols * rows)
+    Retourne None si les données sont insuffisantes.
+    """
+    import json as _json
+    from ..models.atelier import AtelierModel as _AM
+    try:
+        atelier = _AM.get(atelier_id) if atelier_id else None
+        if atelier:
+            raw_offsets = atelier.get("esp32_offsets") or "{}"
+            raw_config  = SettingsModel.get(f"atelier_{atelier_id}_rangement_config", "")
+        else:
+            raw_offsets = SettingsModel.get("esp32_offsets", "{}")
+            raw_config  = SettingsModel.get("rangement_config", "")
+
+        offsets  = _json.loads(raw_offsets) if raw_offsets else {}
+        cfg_data = _json.loads(raw_config)  if raw_config  else {}
+        plateaux = cfg_data.get("plateaux", [])
+
+        if not offsets or not plateaux:
+            return None
+
+        total = 0
+        for p in plateaux:
+            pid   = p.get("id", "")
+            cols  = int(p.get("cols", 1))
+            rows  = int(p.get("rows", 1))
+            off   = int(offsets.get(pid, 0))
+            total = max(total, off + cols * rows)
+
+        return total if total > 0 else None
+    except Exception as e:
+        logger.debug("[LED] _count_leds_from_config error: %s", e)
+        return None
+
+
 @component_bp.route("/api/led/ping", methods=["GET"])
 def led_ping():
-    """Vérifie que l'ESP32 est joignable."""
-    cfg = _get_led_config()
+    """Vérifie que l'ESP32 est joignable.
+
+    Paramètre optionnel : ?atelier_id=<id> pour cibler l'ESP32
+    d'un atelier spécifique plutôt que la config globale.
+
+    Le nombre de LEDs est lu depuis la réponse /ping de l'ESP32.
+    Si l'ESP32 ne le fournit pas (firmware P4 minimal), il est calculé
+    automatiquement depuis les offsets + la config des plateaux de l'atelier.
+    """
+    atelier_id = request.args.get("atelier_id", "").strip()
+    cfg        = _resolve_cfg(atelier_id)
     if not cfg["url"]:
         return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
-    logger.info("[LED] 🔔 PING → %s", cfg["url"])
+    logger.info("[LED] 🔔 PING → %s (atelier=%s)", cfg["url"], atelier_id or "global")
     try:
-        resp = _requests.get(f"{cfg['url']}/ping", timeout=4)
+        resp = _requests.get(f"{cfg['url']}/ping", headers=_led_headers(cfg), timeout=4)
         if resp.status_code == 200:
-            data = resp.json()
+            data   = resp.json()
             device = "P4" if data.get("display") else "S3"
+
+            # Nombre de LEDs : depuis l'ESP32 en priorité, sinon calculé localement
+            leds = data.get("leds")
+            if leds is None:
+                leds = _count_leds_from_config(atelier_id)
+                if leds is not None:
+                    logger.info("[LED] ℹ️  leds non fourni par l'ESP32 — calculé depuis offsets : %d", leds)
+
             logger.info(
-                "[LED] ✅ PING OK  device=%s  uptime=%ss  ip=%s",
-                device, data.get("uptime", "?"), cfg["url"]
+                "[LED] ✅ PING OK  device=%s  uptime=%ss  leds=%s  ip=%s",
+                device, data.get("uptime", "?"), leds, cfg["url"]
             )
-            return jsonify({"ok": True, "leds": data.get("leds", "?"),
+            return jsonify({"ok": True, "leds": leds,
                             "display": data.get("display", False), "ip": cfg["url"]})
         logger.warning("[LED] ❌ PING HTTP %s", resp.status_code)
         return jsonify({"ok": False, "error": f"HTTP {resp.status_code}"}), 502
@@ -471,8 +558,13 @@ def led_ping_direct():
 
 @component_bp.route("/api/led/status", methods=["GET"])
 def led_status():
-    """Récupère l'état courant des LEDs depuis l'ESP32."""
-    cfg = _get_led_config()
+    """Récupère l'état courant des LEDs depuis l'ESP32.
+
+    Paramètre optionnel : ?atelier_id=<id> pour cibler l'ESP32
+    d'un atelier spécifique plutôt que la config globale.
+    """
+    atelier_id = request.args.get("atelier_id", "").strip()
+    cfg        = _resolve_cfg(atelier_id)
     if not cfg["url"]:
         return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
     try:

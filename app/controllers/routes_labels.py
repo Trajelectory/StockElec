@@ -1,7 +1,5 @@
 import os
-import json
 import logging
-import re as _re
 import uuid
 import urllib.request
 

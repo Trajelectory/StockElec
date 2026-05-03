@@ -16,7 +16,6 @@ from flask import (
 
 from ..models.component import ComponentModel, ITEMS_PER_PAGE_DEFAULT
 from ..models.category import CategoryModel
-from ..models.settings import SettingsModel
 from ..models.movement import MovementModel
 from ..models.database import get_db
 from ..views.component_view import ComponentView

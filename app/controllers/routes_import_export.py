@@ -1,7 +1,6 @@
 import io
 import csv
 import logging
-import re as _re
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +105,7 @@ def history():
         type_filter=type_filter, per_page=per_page, page=page,
         total=total, total_pages=total_pages,
         sort_by=sort_by, order=order,
-        movement_types=__import__('app.models.movement', fromlist=['MovementModel']).MovementModel.TYPES
+        movement_types=MovementModel.TYPES
     )
 
 

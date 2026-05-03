@@ -9,7 +9,6 @@ images) est dans services/project_service.py.
 import csv
 import io
 import logging
-import threading
 
 from flask import (
     Blueprint, request, redirect, url_for, flash, jsonify,
@@ -20,8 +19,6 @@ from ..models.project import ProjectModel, STATUS_OPTIONS, TAG_OPTIONS, CHECKLIS
 from ..models.component import ComponentModel
 from ..models.movement import MovementModel
 from ..models.database import get_db
-from ..models.settings import SettingsModel
-from ..services import lcsc_scraper
 from ..services.project_service import (
     analyse_bom,
     save_project_image,
@@ -80,8 +77,7 @@ def new():
         name = request.form.get("name", "").strip()
         if not name:
             flash(_t("msg.project_name_required"), "danger")
-            return render_template("projects/form.html", project=None,
-                                   status_options=STATUS_OPTIONS)
+            return render_template("projects/form.html", project=None)
         image_path = save_project_image(request.files.get("image"))
         if not image_path:
             bc = request.form.get("banner_color", "").strip()
@@ -99,8 +95,7 @@ def new():
         flash(_t("msg.project_created", name=name), "success")
         return redirect(url_for("projects.detail", project_id=project_id))
     existing = [{"id": p.id, "name": p.name} for p in ProjectModel.get_all()]
-    return render_template("projects/form.html", project=None,
-                           status_options=STATUS_OPTIONS, existing=existing,
+    return render_template("projects/form.html", project=None, existing=existing,
                            tag_options=TAG_OPTIONS,
                            checklist_templates=CHECKLIST_TEMPLATES)
 
@@ -141,8 +136,7 @@ def edit(project_id):
         name = request.form.get("name", "").strip()
         if not name:
             flash(_t("msg.project_name_missing"), "danger")
-            return render_template("projects/form.html", project=project,
-                                   status_options=STATUS_OPTIONS)
+            return render_template("projects/form.html", project=project)
         new_image  = save_project_image(request.files.get("image"))
         image_path = new_image if new_image else project.image_path
         if request.form.get("delete_image") == "1":
@@ -162,8 +156,7 @@ def edit(project_id):
         return redirect(url_for("projects.detail", project_id=project_id))
     existing = [{"id": p.id, "name": p.name} for p in ProjectModel.get_all()
                 if p.id != project_id]
-    return render_template("projects/form.html", project=project,
-                           status_options=STATUS_OPTIONS, existing=existing,
+    return render_template("projects/form.html", project=project, existing=existing,
                            tag_options=TAG_OPTIONS,
                            checklist_templates=CHECKLIST_TEMPLATES)
 

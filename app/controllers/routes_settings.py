@@ -7,7 +7,6 @@ import datetime
 import tempfile
 import zipfile
 import time
-import re as _re
 
 logger = logging.getLogger(__name__)
 

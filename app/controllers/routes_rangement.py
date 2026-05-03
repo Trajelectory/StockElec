@@ -1,4 +1,3 @@
-import json
 import logging
 import re as _re
 
@@ -9,7 +8,6 @@ from flask import request, jsonify, render_template, redirect, url_for, flash
 from ..models.atelier  import AtelierModel
 from ..models.settings import SettingsModel
 from ..models.database import get_db
-from .utils import _t
 from . import component_bp
 
 

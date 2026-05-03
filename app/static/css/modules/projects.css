@@ -390,8 +390,6 @@
     font-size: .82rem;
 }
 
-.cfg-input-auto { width: auto; }
-
 /* ══════════════════════════════════════════════════════════════════
 
    PROJECT DETAIL — refonte
@@ -565,3 +563,6 @@ kbd {
 
 /* ══ BOM 2 colonnes ══════════════════════════════════════════════ */
 
+
+.cfg-btn--success { background: var(--success); border-color: var(--success); color: #fff; }
+.cfg-btn--success:hover { filter: brightness(1.1); }

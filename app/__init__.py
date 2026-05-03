@@ -73,6 +73,8 @@ def create_app():
     from .controllers.routes_projects import project_bp
     from .controllers.routes_kicad import kicad_bp
     app.register_blueprint(component_bp)
+    from .controllers.routes_api import api_bp
+    app.register_blueprint(api_bp)
     app.register_blueprint(project_bp)
     app.register_blueprint(kicad_bp)
     from .controllers.routes_misc import register_docs
