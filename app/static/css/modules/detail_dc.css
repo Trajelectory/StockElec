@@ -661,3 +661,294 @@
   text-decoration: none; border-radius: 99px;
 }
 .badge-purple:hover { background: rgba(139,92,246,.28); }
+
+/* ── Upload KiCad manuel ─────────────────────────────────────────────── */
+.dc-kicad-upload {
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.dc-kicad-upload-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: .75rem;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color .15s;
+}
+.dc-kicad-upload-toggle:hover { color: var(--accent); }
+.dc-kicad-upload-toggle--open { color: var(--accent); }
+.dc-kicad-upload-toggle svg   { flex-shrink: 0; }
+
+.dc-kicad-upload-panel {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dc-kicad-upload-hint {
+  font-size: .73rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.6;
+}
+.dc-kicad-upload-hint code {
+  background: var(--bg-mid);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: .72rem;
+  color: var(--accent);
+}
+
+/* Zone de drop */
+.dc-kicad-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 18px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: .78rem;
+  color: var(--text-muted);
+}
+.dc-kicad-dropzone:hover,
+.dc-kicad-dropzone--over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--text);
+}
+.dc-kicad-drop-icon { opacity: .4; }
+.dc-kicad-dropzone--over .dc-kicad-drop-icon { opacity: .8; }
+.dc-kicad-drop-or {
+  font-size: .68rem;
+  opacity: .5;
+}
+
+.dc-kicad-file-label {
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: .75rem;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color .15s;
+}
+.dc-kicad-file-label:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Liste fichiers en attente */
+.dc-kicad-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dc-kicad-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .75rem;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--bg-mid);
+}
+.dc-kicad-file-ok  { border-left: 3px solid var(--success); }
+.dc-kicad-file-err { border-left: 3px solid var(--danger); color: var(--danger); }
+.dc-kicad-file-row span { flex: 1; }
+.dc-kicad-file-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: .8rem; padding: 0 2px;
+  transition: color .15s;
+}
+.dc-kicad-file-remove:hover { color: var(--danger); }
+
+/* Status upload */
+.dc-kicad-upload-status {
+  font-size: .75rem;
+  min-height: 1.2rem;
+  border-radius: 6px;
+  padding: 4px 8px;
+  display: none;
+}
+.dc-kicad-upload-progress { display: block; color: var(--text-muted); }
+.dc-kicad-upload-ok  { display: block; color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.dc-kicad-upload-err { display: block; color: var(--danger);  background: color-mix(in srgb, var(--danger)  10%, transparent); }
+
+/* Fichiers présents + suppression */
+.dc-kicad-current-files {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.dc-kicad-current-title {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  padding: 5px 10px;
+  background: var(--bg-mid);
+  border-bottom: 1px solid var(--border);
+}
+.dc-kicad-current-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: .78rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.dc-kicad-current-row:last-child { border-bottom: none; }
+.dc-kicad-current-row span { flex: 1; }
+.dc-kicad-delete-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: .75rem;
+  padding: 2px 6px;
+  transition: all .15s;
+}
+.dc-kicad-delete-btn:hover {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+/* ══ Feature 2 — Copie des références ════════════════════════════════ */
+.dc-ref-row {
+  display: flex;
+  align-items: center;
+}
+.dc-ref-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  padding: .5rem .75rem;
+  transition: background .15s;
+}
+.dc-ref-link:hover { background: var(--bg-mid); }
+
+.dc-ref-copy {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: .8rem;
+  padding: .5rem .6rem;
+  color: var(--text-muted);
+  border-radius: 6px;
+  transition: background .15s, color .15s;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity .15s, background .15s, color .15s;
+}
+.dc-ref-row:hover .dc-ref-copy { opacity: 1; }
+.dc-ref-copy:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.dc-ref-copy--ok {
+  color: var(--success) !important;
+  opacity: 1 !important;
+}
+
+/* ══ Feature 9 — Notes inline ════════════════════════════════════════ */
+.dc-notes-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dc-notes {
+  min-height: 60px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px dashed transparent;
+  cursor: pointer;
+  line-height: 1.7;
+  font-size: .88rem;
+  color: var(--text);
+  transition: border-color .2s, background .2s;
+  white-space: pre-wrap;
+}
+.dc-notes:hover {
+  border-color: var(--border);
+  background: var(--bg-mid);
+}
+.dc-notes-empty { color: var(--text-muted); font-style: italic; }
+.dc-notes-placeholder { pointer-events: none; }
+
+.dc-notes-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px 12px;
+  background: var(--bg-mid);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .88rem;
+  font-family: inherit;
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+.dc-notes-textarea:focus { border-color: var(--accent); }
+
+.dc-notes-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dc-notes-hint {
+  font-size: .7rem;
+  color: var(--text-muted);
+}
+.dc-notes-btns {
+  display: flex;
+  gap: 6px;
+}
+.dc-notes-cancel {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px;
+  color: var(--text-muted);
+  font-size: .8rem;
+  cursor: pointer;
+  transition: all .15s;
+}
+.dc-notes-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+.dc-notes-save {
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 14px;
+  color: #fff;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.dc-notes-save:hover   { opacity: .85; }
+.dc-notes-save:disabled { opacity: .5; cursor: default; }
+
+.dc-notes-status {
+  font-size: .75rem;
+  min-height: 1rem;
+  padding: 0 2px;
+}
+.dc-notes-status--ok  { color: var(--success); }
+.dc-notes-status--err { color: var(--danger); }

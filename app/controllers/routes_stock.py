@@ -176,3 +176,24 @@ def adjust(component_id):
 # ------------------------------------------------------------------ #
 #  Export CSV du stock (v2)
 # ------------------------------------------------------------------ #
+
+
+@component_bp.route("/component/<int:component_id>/notes", methods=["POST"])
+def update_notes(component_id):
+    """Mise à jour rapide des notes d'un composant (inline edit).
+    Utilise une requête SQL ciblée pour ne toucher QUE la colonne notes,
+    sans écraser les autres champs (ComponentModel.update fait un PUT complet).
+    """
+    from ..models.database import get_db
+    data  = request.get_json(silent=True) or {}
+    notes = data.get("notes", "").strip() or None  # None = valeur vide en DB
+
+    comp = ComponentModel.get_by_id(component_id)
+    if not comp:
+        return jsonify({"ok": False, "error": "Composant introuvable"}), 404
+
+    db = get_db()
+    db.execute("UPDATE components SET notes = ?, updated_at = datetime('now') WHERE id = ?",
+               (notes, component_id))
+    db.commit()
+    return jsonify({"ok": True})

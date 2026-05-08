@@ -145,6 +145,85 @@
         </a>
         {% endif %}
       </div>
+
+      {# ── Upload manuel de fichiers KiCad ───────────────────────── #}
+      <div class="dc-kicad-upload" id="dc-kicad-upload-zone">
+        <button type="button" class="dc-kicad-upload-toggle"
+                onclick="dcToggleUpload()" id="dc-kicad-upload-toggle">
+          <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+            <path d="M8 2v9M4 7l4-5 4 5" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Ajouter des fichiers KiCad manuellement
+        </button>
+
+        <div class="dc-kicad-upload-panel" id="dc-kicad-upload-panel" style="display:none">
+          <p class="dc-kicad-upload-hint">
+            Formats acceptés : <code>.kicad_sym</code>, <code>.kicad_mod</code>,
+            <code>.step</code>, <code>.wrl</code><br>
+            Les fichiers sont placés automatiquement dans le bon dossier KiCad.
+          </p>
+
+          {# Zone de drop #}
+          <div class="dc-kicad-dropzone" id="dc-kicad-dropzone"
+               ondragover="event.preventDefault(); this.classList.add('dc-kicad-dropzone--over')"
+               ondragleave="this.classList.remove('dc-kicad-dropzone--over')"
+               ondrop="dcHandleDrop(event)">
+            <svg viewBox="0 0 24 24" fill="none" width="28" height="28" class="dc-kicad-drop-icon">
+              <path d="M12 4v12M7 9l5-6 5 6" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M4 19h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span>Déposez vos fichiers ici</span>
+            <span class="dc-kicad-drop-or">ou</span>
+            <label class="dc-kicad-file-label">
+              Parcourir
+              <input type="file" id="dc-kicad-file-input" multiple
+                     accept=".kicad_sym,.kicad_mod,.step,.wrl"
+                     onchange="dcHandleFiles(this.files)" style="display:none"/>
+            </label>
+          </div>
+
+          {# Liste des fichiers en attente d'upload #}
+          <div id="dc-kicad-file-list" class="dc-kicad-file-list" style="display:none"></div>
+
+          {# Statut upload #}
+          <div id="dc-kicad-upload-status" class="dc-kicad-upload-status"></div>
+
+          {# Fichiers actuels — avec bouton supprimer #}
+          {% if kicad_status.symbol or kicad_status.footprint or kicad_status.model_3d %}
+          <div class="dc-kicad-current-files">
+            <div class="dc-kicad-current-title">Fichiers présents</div>
+            {% if kicad_status.symbol %}
+            <div class="dc-kicad-current-row">
+              <img src="{{ url_for('static', filename='img/symbol.png') }}" width="14" height="14" alt=""/>
+              <span>.kicad_sym</span>
+              <button type="button" class="dc-kicad-delete-btn"
+                      onclick="dcDeleteKicad({{ component.id }}, 'symbol', this)">✕</button>
+            </div>
+            {% endif %}
+            {% if kicad_status.footprint %}
+            <div class="dc-kicad-current-row">
+              <img src="{{ url_for('static', filename='img/footprint.png') }}" width="14" height="14" alt=""/>
+              <span>.kicad_mod</span>
+              <button type="button" class="dc-kicad-delete-btn"
+                      onclick="dcDeleteKicad({{ component.id }}, 'footprint', this)">✕</button>
+            </div>
+            {% endif %}
+            {% if kicad_status.model_3d %}
+            <div class="dc-kicad-current-row">
+              <img src="{{ url_for('static', filename='img/model3D.png') }}" width="14" height="14" alt=""/>
+              <span>.step / .wrl</span>
+              <button type="button" class="dc-kicad-delete-btn"
+                      onclick="dcDeleteKicad({{ component.id }}, 'model_3d', this)">✕</button>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
     </div>
     {% endif %}
 
@@ -184,34 +263,46 @@
       <div class="dc-refs-head">{{ t.detail.col_reference }}</div>
       <div class="dc-refs-body">
         {% if component.lcsc_part_number %}
-        <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
-           target="_blank" rel="noopener" class="dc-ref-row dc-ref-lcsc">
-          <div class="dc-ref-source">
-            <img src="{{ url_for('static', filename='img/lcsc.png') }}" alt="LCSC"/>LCSC
-          </div>
-          <div class="dc-ref-val">{{ component.lcsc_part_number }}</div>
-          <div class="dc-ref-ext">lcsc.com ↗</div>
-        </a>
+        <div class="dc-ref-row dc-ref-lcsc">
+          <a href="https://www.lcsc.com/product-detail/{{ component.lcsc_part_number }}.html"
+             target="_blank" rel="noopener" class="dc-ref-link">
+            <div class="dc-ref-source">
+              <img src="{{ url_for('static', filename='img/lcsc.png') }}" alt="LCSC"/>LCSC
+            </div>
+            <div class="dc-ref-val">{{ component.lcsc_part_number }}</div>
+            <div class="dc-ref-ext">lcsc.com ↗</div>
+          </a>
+          <button type="button" class="dc-ref-copy" title="Copier la référence"
+                  onclick="skCopyRef('{{ component.lcsc_part_number }}', this)">📋</button>
+        </div>
         {% endif %}
         {% if component.mouser_part_number %}
-        <a href="https://www.mouser.fr/ProductDetail/{{ component.mouser_part_number }}"
-           target="_blank" rel="noopener" class="dc-ref-row dc-ref-mouser">
-          <div class="dc-ref-source">
-            <img src="{{ url_for('static', filename='img/mouser.png') }}" alt="Mouser"/>Mouser
-          </div>
-          <div class="dc-ref-val">{{ component.mouser_part_number }}</div>
-          <div class="dc-ref-ext">mouser.fr ↗</div>
-        </a>
+        <div class="dc-ref-row dc-ref-mouser">
+          <a href="https://www.mouser.fr/ProductDetail/{{ component.mouser_part_number }}"
+             target="_blank" rel="noopener" class="dc-ref-link">
+            <div class="dc-ref-source">
+              <img src="{{ url_for('static', filename='img/mouser.png') }}" alt="Mouser"/>Mouser
+            </div>
+            <div class="dc-ref-val">{{ component.mouser_part_number }}</div>
+            <div class="dc-ref-ext">mouser.fr ↗</div>
+          </a>
+          <button type="button" class="dc-ref-copy" title="Copier la référence"
+                  onclick="skCopyRef('{{ component.mouser_part_number }}', this)">📋</button>
+        </div>
         {% endif %}
         {% if component.digikey_part_number %}
-        <a href="https://www.digikey.fr/fr/products/result?keywords={{ component.digikey_part_number }}"
-           target="_blank" rel="noopener" class="dc-ref-row dc-ref-digikey">
-          <div class="dc-ref-source">
-            <img src="{{ url_for('static', filename='img/digikey.png') }}" alt="DigiKey"/>DigiKey
-          </div>
-          <div class="dc-ref-val">{{ component.digikey_part_number }}</div>
-          <div class="dc-ref-ext">digikey.fr ↗</div>
-        </a>
+        <div class="dc-ref-row dc-ref-digikey">
+          <a href="https://www.digikey.fr/fr/products/result?keywords={{ component.digikey_part_number }}"
+             target="_blank" rel="noopener" class="dc-ref-link">
+            <div class="dc-ref-source">
+              <img src="{{ url_for('static', filename='img/digikey.png') }}" alt="DigiKey"/>DigiKey
+            </div>
+            <div class="dc-ref-val">{{ component.digikey_part_number }}</div>
+            <div class="dc-ref-ext">digikey.fr ↗</div>
+          </a>
+          <button type="button" class="dc-ref-copy" title="Copier la référence"
+                  onclick="skCopyRef('{{ component.digikey_part_number }}', this)">📋</button>
+        </div>
         {% endif %}
         {% if component.source_url %}
         <a href="{{ component.source_url }}" target="_blank" rel="noopener" class="dc-ref-row">
@@ -252,9 +343,7 @@
           {{ t.detail.tab_projects }} ({{ projects_using|length }})
         </button>
         {% endif %}
-        {% if component.notes %}
         <button class="dc-tab-btn" onclick="dcTab('notes', this)">{{ t.detail.tab_notes }}</button>
-        {% endif %}
       </div>
 
       {# Tab Identification #}
@@ -366,11 +455,27 @@
       {% endif %}
 
       {# Tab Notes #}
-      {% if component.notes %}
       <div class="dc-tab-pane" id="dct-notes">
-        <div class="dc-notes">{{ component.notes }}</div>
+        {# Double-clic pour éditer les notes inline #}
+        <div class="dc-notes-wrap" id="dc-notes-wrap">
+          <div class="dc-notes {% if not component.notes %}dc-notes-empty{% endif %}"
+               id="dc-notes-display"
+               ondblclick="skNotesEdit()"
+               title="Double-clic pour modifier">{% if component.notes %}{{ component.notes }}{% else %}<span class="dc-notes-placeholder">Aucune note — double-cliquez pour en ajouter</span>{% endif %}</div>
+          <textarea class="dc-notes-textarea" id="dc-notes-textarea"
+                    style="display:none"
+                    placeholder="Ajoutez vos notes ici…"
+                    onkeydown="skNotesKey(event)">{{ component.notes or '' }}</textarea>
+          <div class="dc-notes-actions" id="dc-notes-actions" style="display:none">
+            <span class="dc-notes-hint">Ctrl+Entrée pour sauvegarder · Échap pour annuler</span>
+            <div class="dc-notes-btns">
+              <button type="button" class="dc-notes-cancel" onclick="skNotesCancel()">Annuler</button>
+              <button type="button" class="dc-notes-save"   onclick="skNotesSave()">Sauvegarder</button>
+            </div>
+          </div>
+          <div class="dc-notes-status" id="dc-notes-status"></div>
+        </div>
       </div>
-      {% endif %}
 
     </div>{# /dc-tabs #}
 
@@ -675,6 +780,263 @@ function generateKicadOne(lcscRef) {
     if (btn) { btn.disabled = false; btn.textContent = {{ t.detail.kicad_gen_btn | tojson }}; }
   });
 }
+
+// ── Upload KiCad manuel ────────────────────────────────────────────
+function dcToggleUpload() {
+    var panel  = document.getElementById('dc-kicad-upload-panel');
+    var toggle = document.getElementById('dc-kicad-upload-toggle');
+    var open   = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    toggle.classList.toggle('dc-kicad-upload-toggle--open', open);
+}
+
+function dcHandleDrop(e) {
+    e.preventDefault();
+    document.getElementById('dc-kicad-dropzone').classList.remove('dc-kicad-dropzone--over');
+    dcHandleFiles(e.dataTransfer.files);
+}
+
+var DC_PENDING = [];
+
+function dcHandleFiles(files) {
+    var allowed = ['.kicad_sym', '.kicad_mod', '.step', '.wrl'];
+    var list    = document.getElementById('dc-kicad-file-list');
+    list.innerHTML = '';
+    DC_PENDING = [];
+
+    Array.from(files).forEach(function(f) {
+        var ok = allowed.some(function(ext) { return f.name.toLowerCase().endsWith(ext); });
+        var row = document.createElement('div');
+        row.className = 'dc-kicad-file-row ' + (ok ? 'dc-kicad-file-ok' : 'dc-kicad-file-err');
+
+        var icon = ok ? '📄' : '⚠';
+        var label = ok ? f.name : f.name + ' (extension non supportée)';
+        row.innerHTML = icon + ' <span>' + label + '</span>';
+
+        if (ok) {
+            DC_PENDING.push(f);
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'dc-kicad-file-remove';
+            btn.textContent = '✕';
+            btn.onclick = function() {
+                DC_PENDING = DC_PENDING.filter(function(x) { return x !== f; });
+                row.remove();
+                if (DC_PENDING.length === 0) list.style.display = 'none';
+            };
+            row.appendChild(btn);
+        }
+        list.appendChild(row);
+    });
+
+    list.style.display = DC_PENDING.length > 0 ? 'block' : 'none';
+
+    if (DC_PENDING.length > 0) dcUploadAll();
+}
+
+function dcUploadAll() {
+    var compId  = {{ component.id }};
+    var status  = document.getElementById('dc-kicad-upload-status');
+    var total   = DC_PENDING.length;
+    var done    = 0;
+    var errors  = [];
+
+    status.className = 'dc-kicad-upload-status dc-kicad-upload-progress';
+    status.textContent = 'Upload en cours... 0 / ' + total;
+
+    function uploadNext(idx) {
+        if (idx >= DC_PENDING.length) {
+            // Terminé
+            if (errors.length === 0) {
+                status.className = 'dc-kicad-upload-status dc-kicad-upload-ok';
+                status.textContent = '✓ ' + total + ' fichier' + (total > 1 ? 's' : '') + ' uploadé' + (total > 1 ? 's' : '') + ' — rechargement…';
+                setTimeout(function() { window.location.reload(); }, 1000);
+            } else {
+                status.className = 'dc-kicad-upload-status dc-kicad-upload-err';
+                status.textContent = '⚠ ' + errors.join(' | ');
+            }
+            return;
+        }
+
+        var file = DC_PENDING[idx];
+        var fd   = new FormData();
+        fd.append('kicad_file', file);
+
+        fetch('/kicad/upload/' + compId, { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            done++;
+            status.textContent = 'Upload en cours... ' + done + ' / ' + total;
+            if (!data.ok) errors.push(file.name + ': ' + (data.error || 'erreur'));
+            uploadNext(idx + 1);
+        })
+        .catch(function(err) {
+            done++;
+            errors.push(file.name + ': réseau');
+            uploadNext(idx + 1);
+        });
+    }
+
+    uploadNext(0);
+}
+
+function dcDeleteKicad(compId, fileType, btn) {
+    if (!confirm('Supprimer ce fichier KiCad ?')) return;
+    btn.disabled = true;
+    fetch('/kicad/upload/' + compId + '/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({file_type: fileType})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            var row = btn.closest('.dc-kicad-current-row');
+            if (row) row.remove();
+            // Mettre à jour l'icône dans les badges
+            dcUpdateBadge(fileType, false);
+        } else {
+            alert('Erreur : ' + (data.error || 'inconnue'));
+            btn.disabled = false;
+        }
+    });
+}
+
+function dcUpdateBadge(fileType, hasFile) {
+    // Met à jour les badges KiCad sans recharger la page
+    var map = {symbol: 0, footprint: 1, model_3d: 2};
+    var badges = document.querySelectorAll('.dc-kicad-badge');
+    var idx = map[fileType];
+    if (badges[idx] === undefined) return;
+    badges[idx].className = 'dc-kicad-badge ' + (hasFile ? 'dc-kicad-badge--on' : 'dc-kicad-badge--off');
+}
+
+
+// ══ Feature 2 — Copie des références ════════════════════════════════
+function skCopyRef(text, btn) {
+    // Méthode universelle : fonctionne en HTTP local ET en HTTPS
+    // navigator.clipboard nécessite HTTPS ou localhost — pas dispo en HTTP LAN
+    function _doExecCopy(txt) {
+        var ta = document.createElement('textarea');
+        ta.value = txt;
+        ta.style.position = 'fixed';
+        ta.style.top  = '-9999px';
+        ta.style.left = '-9999px';
+        ta.setAttribute('readonly', '');
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, 99999);
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch(e) {}
+        document.body.removeChild(ta);
+        return ok;
+    }
+
+    function _showOk() {
+        var orig = btn.textContent;
+        btn.textContent = '✓';
+        btn.classList.add('dc-ref-copy--ok');
+        setTimeout(function() {
+            btn.textContent = orig;
+            btn.classList.remove('dc-ref-copy--ok');
+        }, 1500);
+    }
+
+    // Essayer l'API moderne d'abord (HTTPS / localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(_showOk).catch(function() {
+            _doExecCopy(text); _showOk();
+        });
+    } else {
+        // HTTP LAN → fallback execCommand
+        _doExecCopy(text);
+        _showOk();
+    }
+}
+
+// ══ Feature 9 — Notes inline ═════════════════════════════════════════
+var _notesOriginal = '';
+
+function skNotesEdit() {
+    var display  = document.getElementById('dc-notes-display');
+    var textarea = document.getElementById('dc-notes-textarea');
+    var actions  = document.getElementById('dc-notes-actions');
+    var status   = document.getElementById('dc-notes-status');
+    _notesOriginal   = textarea.value;
+    display.style.display  = 'none';
+    textarea.style.display = 'block';
+    actions.style.display  = 'flex';
+    status.textContent     = '';
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function skNotesCancel() {
+    var display  = document.getElementById('dc-notes-display');
+    var textarea = document.getElementById('dc-notes-textarea');
+    var actions  = document.getElementById('dc-notes-actions');
+    textarea.value         = _notesOriginal;
+    display.style.display  = 'block';
+    textarea.style.display = 'none';
+    actions.style.display  = 'none';
+}
+
+function skNotesKey(e) {
+    if (e.key === 'Escape') { skNotesCancel(); return; }
+    if (e.key === 'Enter' && e.ctrlKey) { skNotesSave(); return; }
+}
+
+function skNotesSave() {
+    var textarea = document.getElementById('dc-notes-textarea');
+    var display  = document.getElementById('dc-notes-display');
+    var actions  = document.getElementById('dc-notes-actions');
+    var status   = document.getElementById('dc-notes-status');
+    var newNotes = textarea.value.trim();
+    var btn      = document.querySelector('.dc-notes-save');
+
+    btn.disabled    = true;
+    btn.textContent = 'Sauvegarde…';
+    status.className    = '';
+    status.textContent  = '';
+
+    fetch('/component/{{ component.id }}/notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({notes: newNotes})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            _notesOriginal = newNotes;
+            // Mettre à jour l'affichage
+            if (newNotes) {
+                display.innerHTML = newNotes.replace(/\n/g, '<br>');
+                display.classList.remove('dc-notes-empty');
+            } else {
+                display.innerHTML = '<span class="dc-notes-placeholder">Aucune note — double-cliquez pour en ajouter</span>';
+                display.classList.add('dc-notes-empty');
+            }
+            display.style.display  = 'block';
+            textarea.style.display = 'none';
+            actions.style.display  = 'none';
+            status.className    = 'dc-notes-status--ok';
+            status.textContent  = '✓ Sauvegardé';
+            setTimeout(function() { status.textContent = ''; }, 2000);
+        } else {
+            status.className   = 'dc-notes-status--err';
+            status.textContent = '✗ Erreur : ' + (data.error || 'inconnue');
+        }
+        btn.disabled    = false;
+        btn.textContent = 'Sauvegarder';
+    })
+    .catch(function() {
+        status.className   = 'dc-notes-status--err';
+        status.textContent = '✗ Erreur réseau';
+        btn.disabled    = false;
+        btn.textContent = 'Sauvegarder';
+    });
+}
+
 </script>
 <script src="{{ url_for('static', filename='js/detail.js') }}?v={{ cache_buster }}"></script>
 {% endblock %}

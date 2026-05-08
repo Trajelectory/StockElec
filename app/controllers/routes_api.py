@@ -70,29 +70,40 @@ def _comp_dict(row):
     """Composant DB → dict JSON propre."""
     d = dict(row) if not isinstance(row, dict) else row
     image_path = d.get("image_path") or ""
+    qty      = d.get("quantity") or 0
+    min_s    = d.get("min_stock") or 0
     return {
-        "id":           d.get("id"),
-        "name":         _safe(d.get("manufacture_part_number") or d.get("description") or ""),
-        "description":  _safe(d.get("description") or ""),
-        "manufacturer": _safe(d.get("manufacturer") or ""),
-        "lcsc_ref":     d.get("lcsc_part_number") or "",
-        "package":      d.get("package") or "",
-        "category":     _safe(d.get("category") or ""),
-        "quantity":     d.get("quantity") or 0,
-        "min_stock":    d.get("min_stock") or 0,
-        "unit_price":   d.get("unit_price") or 0.0,
-        "location":     d.get("location") or "",
-        "image_url":    f"/component/{d['id']}/image/raw?w=220&h=220" if image_path else "",
-        "stock_state":  (
-            "rupture" if (d.get("quantity") or 0) == 0 else
-            "bas"     if (d.get("min_stock") or 0) > 0 and
-                         (d.get("quantity") or 0) <= (d.get("min_stock") or 0) else
-            "ok"
-        ),
-        "notes":        d.get("notes") or "",
-        "datasheet_url": d.get("datasheet_url") or "",
-        "created_at":   d.get("created_at") or "",
-        "updated_at":   d.get("updated_at") or "",
+        "id":                   d.get("id"),
+        # Références
+        "name":                 d.get("manufacture_part_number") or d.get("description") or "",
+        "description":          d.get("description") or "",
+        "manufacturer":         d.get("manufacturer") or "",
+        "lcsc_ref":             d.get("lcsc_part_number") or "",
+        "mouser_ref":           d.get("mouser_part_number") or "",
+        "digikey_ref":          d.get("digikey_part_number") or "",
+        "customer_no":          d.get("customer_no") or "",
+        # Caractéristiques
+        "package":              d.get("package") or "",
+        "category":             d.get("category") or "",
+        "category_id":          d.get("category_id"),
+        "rohs":                 d.get("rohs") or "",
+        # Stock
+        "quantity":             qty,
+        "min_stock":            min_s,
+        "unit_price":           round(float(d.get("unit_price") or 0.0), 6),
+        "ext_price":            round(float(d.get("ext_price") or qty * float(d.get("unit_price") or 0.0)), 4),
+        "stock_state":          "rupture" if qty == 0 else "bas" if min_s > 0 and qty <= min_s else "ok",
+        # Localisation
+        "location":             d.get("location") or "",
+        # Médias
+        "image_url":            f"/component/{d['id']}/image/raw?w=220&h=220" if image_path else "",
+        "datasheet_url":        d.get("datasheet_url") or "",
+        "source_url":           d.get("source_url") or "",
+        # Notes
+        "notes":                d.get("notes") or "",
+        # Dates
+        "created_at":           d.get("created_at") or "",
+        "updated_at":           d.get("updated_at") or "",
     }
 
 
@@ -105,8 +116,10 @@ def _stock_query(where_clauses=None, params=None, extra="", limit=None, offset=N
     sql_limit     = f"LIMIT {limit} OFFSET {offset}" if limit is not None else ""
     rows = db.execute(
         f"""SELECT id, description, manufacture_part_number, lcsc_part_number,
-                   package, category, manufacturer, quantity, min_stock,
-                   unit_price, location, image_path, notes, datasheet_url,
+                   mouser_part_number, digikey_part_number,
+                   package, category, category_id, manufacturer, quantity, min_stock,
+                   unit_price, ext_price, location, image_path, notes, datasheet_url,
+                   source_url, customer_no, rohs,
                    created_at, updated_at
             FROM components {sql_where} {extra} {sql_limit}""",
         params
@@ -518,7 +531,9 @@ def api_historique():
             "note":           r["note"] or "",
             "project_id":     r["project_id"],
             "project_name":   r["project_name"] or "",
-            "created_at":     r["created_at"],
+            "image_url":      f"/component/{r['component_id']}/image/raw?w=220&h=220"
+                              if r["image_path"] else "",
+            "created_at":     r["created_at"] or "",
         })
 
     return jsonify({
@@ -541,7 +556,14 @@ def api_projets():
         "name":        p.name,
         "description": p.description or "",
         "status":      p.status or "active",
-        "created_at":  str(p.created_at) if hasattr(p, "created_at") else "",
+        "tags":        p.tags        if hasattr(p, "tags")        else [],
+        "checklist":   p.checklist   if hasattr(p, "checklist")   else [],
+        "links":       p.links       if hasattr(p, "links")       else [],
+        "image_url":   f"/project/{p.id}/image" if (hasattr(p, "image_path") and p.image_path) else "",
+        "component_count": p.component_count if hasattr(p, "component_count") else 0,
+        "total_value": round(float(p.total_value), 2) if hasattr(p, "total_value") and p.total_value else 0.0,
+        "created_at":  str(p.created_at)  if hasattr(p, "created_at")  else "",
+        "updated_at":  str(p.updated_at)  if hasattr(p, "updated_at")  else "",
     } for p in projets])
 
 
@@ -559,14 +581,25 @@ def api_projet_detail(project_id):
         "name":        projet.name,
         "description": projet.description or "",
         "status":      projet.status or "active",
+        "tags":        projet.tags        if hasattr(projet, "tags")        else [],
+        "checklist":   projet.checklist   if hasattr(projet, "checklist")   else [],
+        "links":       projet.links       if hasattr(projet, "links")       else [],
+        "image_url":   f"/project/{projet.id}/image" if (hasattr(projet, "image_path") and projet.image_path) else "",
+        "created_at":  str(projet.created_at) if hasattr(projet, "created_at") else "",
+        "updated_at":  str(projet.updated_at) if hasattr(projet, "updated_at") else "",
         "components":  [{
-            "component_id": c.component_id,
-            "name":         _safe(c.description or ""),
-            "lcsc_ref":     c.lcsc_ref or "",
-            "quantity":     c.quantity,
-            "quantity_used": c.quantity_used if hasattr(c, "quantity_used") else 0,
-            "notes":        c.notes or "",
-            "location":     c.location or "",
+            "component_id":   c.component_id,
+            "name":           c.description or "",
+            "lcsc_ref":       c.lcsc_ref or "",
+            "manufacturer":   c.manufacturer if hasattr(c, "manufacturer") else "",
+            "package":        c.package      if hasattr(c, "package")      else "",
+            "unit_price":     round(float(c.unit_price), 6) if hasattr(c, "unit_price") and c.unit_price else 0.0,
+            "quantity":       c.quantity,
+            "quantity_used":  c.quantity_used if hasattr(c, "quantity_used") else 0,
+            "stock_quantity": c.stock_quantity if hasattr(c, "stock_quantity") else 0,
+            "notes":          c.notes or "",
+            "location":       c.location or "",
+            "image_url":      f"/component/{c.component_id}/image/raw?w=220&h=220" if (hasattr(c, "image_path") and c.image_path) else "",
         } for c in components],
     })
 
@@ -680,6 +713,71 @@ def api_projet_return_component(project_id, comp_id):
 # ─────────────────────────────────────────────────────────────────────
 #  LEDs — proxy vers les routes LED existantes
 # ─────────────────────────────────────────────────────────────────────
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  GET /api/ateliers — liste complète des ateliers
+# ─────────────────────────────────────────────────────────────────────
+@api_bp.route("/ateliers")
+def api_ateliers():
+    """Retourne tous les ateliers avec leur configuration complète."""
+    ateliers = AtelierModel.get_all()
+    result = []
+    for a in ateliers:
+        d = dict(a) if not isinstance(a, dict) else a
+        result.append({
+            "id":             d.get("id") or "",
+            "name":           d.get("name") or "",
+            "emoji":          d.get("emoji") or "",
+            "color":          d.get("color") or "",
+            "position":       d.get("position") or 0,
+            "esp32_url":      d.get("esp32_url") or "",
+            "esp32_token":    d.get("esp32_token") or "",
+            "esp32_duration": d.get("esp32_duration") or 5,
+            "esp32_offsets":  d.get("esp32_offsets") or "{}",
+        })
+    return jsonify(result)
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  GET /api/ateliers/<atelier_id> — détail d'un atelier
+# ─────────────────────────────────────────────────────────────────────
+@api_bp.route("/ateliers/<atelier_id>")
+def api_atelier_detail(atelier_id):
+    """Retourne un atelier spécifique avec sa config et ses statistiques."""
+    atelier = AtelierModel.get(atelier_id)
+    if not atelier:
+        return jsonify({"error": "Atelier introuvable"}), 404
+    d = dict(atelier) if not isinstance(atelier, dict) else atelier
+    return jsonify({
+        "id":             d.get("id") or "",
+        "name":           d.get("name") or "",
+        "emoji":          d.get("emoji") or "",
+        "color":          d.get("color") or "",
+        "position":       d.get("position") or 0,
+        "esp32_url":      d.get("esp32_url") or "",
+        "esp32_token":    d.get("esp32_token") or "",
+        "esp32_duration": d.get("esp32_duration") or 5,
+        "esp32_offsets":  d.get("esp32_offsets") or "{}",
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  GET /api/settings — paramètres publics de l'application
+# ─────────────────────────────────────────────────────────────────────
+@api_bp.route("/settings")
+def api_settings():
+    """Retourne les paramètres publics (hors tokens sensibles)."""
+    s = SettingsModel.get_all()
+    # Filtrer les clés sensibles
+    sensitive = {"esp32_token", "mouser_api_key", "digikey_client_id",
+                 "digikey_client_secret", "digikey_access_token",
+                 "digikey_refresh_token", "secret_key"}
+    return jsonify({
+        k: v for k, v in s.items()
+        if k not in sensitive and not any(x in k for x in ["token", "secret", "password", "key"])
+    })
+
 @api_bp.route("/led/on", methods=["POST"])
 def api_led_on():
     """Allume une LED. Body JSON identique à /api/led/<cell>/on."""

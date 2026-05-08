@@ -55,8 +55,8 @@ def _resolve_cfg(atelier_id: str | None = None) -> dict:
       1. Config de l'atelier demandé (si atelier_id fourni et esp32_url renseignée)
       2. Config globale (table settings, clé esp32_url)  ← fallback
 
-    Utilisé par led_ping, led_off, led_status pour supporter
-    le paramètre ?atelier_id= / body atelier_id.
+    Copie TOUS les champs pertinents depuis l'atelier :
+    url, token, duration ET offsets (les offsets sont propres à chaque atelier).
     """
     cfg = _get_led_config()  # fallback global
     if not atelier_id:
@@ -68,6 +68,11 @@ def _resolve_cfg(atelier_id: str | None = None) -> dict:
         cfg["url"]      = atelier["esp32_url"].strip().rstrip("/")
         cfg["token"]    = atelier.get("esp32_token") or cfg["token"]
         cfg["duration"] = atelier.get("esp32_duration") or cfg["duration"]
+        # Les offsets sont propres à chaque atelier — TOUJOURS les copier
+        # Sans ça, _compute_led_indices utilise les offsets globaux (vides)
+        # et les indices LED sont incorrects.
+        if atelier.get("esp32_offsets"):
+            cfg["offsets"] = atelier["esp32_offsets"]
     return cfg
 
 
@@ -288,31 +293,32 @@ def _color_for_category(category: str, default: str) -> str:
 
 @component_bp.route("/api/led/<cell_id>/on", methods=["POST"])
 def led_on(cell_id):
-    """Allume les LEDs correspondant à la case donnée sur l'ESP32."""
-    data         = request.get_json(silent=True) or {}
-    atelier_id   = data.get("atelier_id")
+    """Allume les LEDs correspondant à la case donnée sur l'ESP32.
 
-    # Résoudre la config ESP32 selon l'atelier
-    cfg = _get_led_config()  # config globale par défaut
+    Utilise _resolve_cfg() pour résoudre la config ESP32 dans le même
+    ordre de priorité que led_off, led_ping et led_status :
+      1. Config de l'atelier (atelier_id dans le body JSON ou query string)
+      2. Config globale (table settings) en fallback
+    """
+    data       = request.get_json(silent=True) or {}
+    atelier_id = (data.get("atelier_id") or
+                  request.args.get("atelier_id", "")).strip()
+
+    cfg = _resolve_cfg(atelier_id)
+
+    # ── DEBUG TEMPORAIRE — à supprimer après validation ─────────────
+    logger.warning(
+        "[LED DEBUG] led_on appelé — atelier_id=%r  url_résolue=%r  body=%r",
+        atelier_id, cfg.get("url"), dict(data)
+    )
+    # ────────────────────────────────────────────────────────────────
+
+    # Enrichir la config avec les données de rangement de l'atelier
     if atelier_id:
-        from ..models.atelier import AtelierModel
-        atelier = AtelierModel.get(atelier_id)
-        if atelier and atelier.get("esp32_url"):
-            # Override les clés pertinentes avec les valeurs de l'atelier
-            cfg = dict(cfg)
-            cfg["url"]      = atelier["esp32_url"].strip().rstrip("/")
-            cfg["token"]    = atelier.get("esp32_token") or cfg["token"]
-            cfg["duration"] = atelier.get("esp32_duration") or cfg["duration"]
-            try:
-                import json as _json
-                cfg["offsets"] = atelier.get("esp32_offsets") or cfg["offsets"]
-            except Exception:
-                pass
-            # Utiliser la config rangement de l'atelier
-            from ..models.settings import SettingsModel as _SM
-            raw = _SM.get(f"atelier_{atelier_id}_rangement_config", "")
-            cfg["_rangement_config"] = raw
-            cfg["_atelier_id"]       = atelier_id
+        from ..models.settings import SettingsModel as _SM
+        raw = _SM.get(f"atelier_{atelier_id}_rangement_config", "")
+        cfg["_rangement_config"] = raw
+        cfg["_atelier_id"]       = atelier_id
 
     if not cfg["url"]:
         return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
@@ -581,43 +587,29 @@ def led_status():
 @component_bp.route("/api/led/test", methods=["POST"])
 def led_test():
     """Lance un chenillard sur un plateau pour valider le câblage.
-    
+
     Accepte un paramètre optionnel atelier_id dans le body JSON
-    pour utiliser la config ESP32 propre à l'atelier.
+    ou en query string pour utiliser la config ESP32 propre à l'atelier.
+    Utilise _resolve_cfg() comme toutes les autres routes LED.
     """
     data       = request.get_json() or {}
-    atelier_id = data.get("atelier_id")
+    atelier_id = (data.get("atelier_id") or
+                  request.args.get("atelier_id", "")).strip()
 
-    # Résoudre l'URL et les offsets selon l'atelier
-    if atelier_id:
-        from ..models.atelier import AtelierModel
-        atelier = AtelierModel.get(atelier_id)
-        if atelier and atelier.get("esp32_url"):
-            esp32_url  = atelier["esp32_url"].strip().rstrip("/")
-            esp32_tok  = atelier.get("esp32_token") or SettingsModel.get("esp32_token", "")
-            raw_off    = atelier.get("esp32_offsets") or "{}"
-            raw_config = SettingsModel.get(f"atelier_{atelier_id}_rangement_config", "")
-        else:
-            # fallback global
-            cfg        = _get_led_config()
-            esp32_url  = cfg["url"]
-            esp32_tok  = cfg["token"]
-            raw_off    = cfg["offsets"]
-            raw_config = SettingsModel.get("rangement_config", "")
-    else:
-        cfg        = _get_led_config()
-        esp32_url  = cfg["url"]
-        esp32_tok  = cfg["token"]
-        raw_off    = cfg["offsets"]
-        raw_config = SettingsModel.get("rangement_config", "")
+    cfg = _resolve_cfg(atelier_id)
 
-    if not esp32_url:
+    if not cfg["url"]:
         return jsonify({"ok": False, "error": _t("msg.esp32_not_configured")}), 400
+
+    esp32_url  = cfg["url"]
+    esp32_tok  = cfg["token"]
+    raw_off    = cfg["offsets"]
+    raw_config = (SettingsModel.get(f"atelier_{atelier_id}_rangement_config", "")
+                  if atelier_id else SettingsModel.get("rangement_config", ""))
 
     pid      = data.get("plateau", "A")
     delay_ms = int(data.get("delay_ms", 80))
-    cfg_base = _get_led_config()
-    color    = data.get("color", cfg_base["color"])
+    color    = data.get("color", cfg["color"])
 
     try:
         offsets = json.loads(raw_off) if raw_off else {}

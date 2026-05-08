@@ -1,4 +1,45 @@
 {% extends "base.html" %}
+{% macro cat_icon(label) -%}
+{%- set l = label | lower -%}
+{%- if 'resistor' in l or 'resistance' in l -%}img/categories/resistor.png
+{%- elif 'capacitor' in l or 'condensateur' in l or 'mlcc' in l or 'ceramic' in l or 'electrolytic' in l or 'trimmer' in l -%}img/categories/capacitor.png
+{%- elif 'mosfet' in l -%}img/categories/mosfet.png
+{%- elif 'transistor' in l or 'bjt' in l -%}img/categories/transistor.png
+{%- elif 'diode' in l or 'zener' in l or 'schottky' in l or 'rectifier' in l -%}img/categories/diode.png
+{%- elif 'inductor' in l or 'inductance' in l or 'ferrite' in l or 'choke' in l -%}img/categories/inductor.png
+{%- elif 'led' in l or 'light emitting' in l -%}img/categories/led.png
+{%- elif 'connector' in l or 'connecteur' in l or 'header' in l or 'socket' in l or 'plug' in l or 'jumper' in l or 'terminal' in l -%}img/categories/connector.png
+{%- elif 'sensor' in l or 'capteur' in l or 'temperature' in l or 'humidity' in l or 'pressure' in l or 'accelero' in l or 'gyro' in l -%}img/categories/sensor.png
+{%- elif 'power' in l or 'alimentation' in l or 'ldo' in l or 'buck' in l or 'boost' in l or 'voltage regul' in l or 'dcdc' in l or 'pmic' in l -%}img/categories/power.png
+{%- elif 'opto' in l or 'coupl' in l or 'isolat' in l -%}img/categories/opto.png
+{%- elif 'memory' in l or 'flash' in l or 'eeprom' in l or 'sram' in l or 'sdram' in l or 'nor' in l or 'nand' in l -%}img/categories/memory.png
+{%- elif 'crystal' in l or 'oscillator' in l or 'resonat' in l or 'clock' in l or 'timing' in l or 'rtc' in l -%}img/categories/crystal.png
+{%- elif 'fuse' in l or 'fusible' in l or 'pptc' in l or 'resettable' in l -%}img/categories/fuse.png
+{%- elif 'protect' in l or 'tvs' in l or 'esd' in l or 'varistor' in l or 'overvolt' in l -%}img/categories/protection.png
+{%- elif 'microcontrol' in l or 'mcu' in l or 'soc' in l or 'microprocess' in l or 'dsp' in l or 'evaluation board' in l or 'development' in l -%}img/categories/mcu.png
+{%- elif 'relay' in l or 'relais' in l -%}img/categories/relay.png
+{%- elif 'display' in l or 'affich' in l or 'lcd' in l or 'oled' in l or 'screen' in l or 'segment' in l -%}img/categories/display.png
+{%- elif 'rf' in l or 'wireless' in l or 'antenna' in l or 'antenne' in l or 'bluetooth' in l or 'wifi' in l or 'zigbee' in l or 'lora' in l or 'nfc' in l -%}img/categories/rf.png
+{%- elif 'interface' in l or 'usb' in l or 'uart' in l or 'spi' in l or 'i2c' in l or 'can bus' in l or 'rs485' in l or 'level shift' in l or 'transceiver' in l -%}img/categories/interface.png
+{%- elif 'motor' in l or 'moteur' in l or 'driver' in l or 'stepper' in l or 'servo' in l -%}img/categories/motor.png
+{%- elif 'amplif' in l or 'op amp' in l or 'comparator' in l or 'comparateur' in l or 'opamp' in l or 'instrumentation' in l or 'analog' in l or 'adc' in l or 'dac' in l -%}img/categories/analog.png
+{%- elif 'module' in l or 'bluetooth module' in l or 'gps' in l or 'camera' in l -%}img/categories/module.png
+{%- elif 'switch' in l or 'button' in l or 'bouton' in l or 'encoder' in l or 'potentiom' in l or 'tactile' in l -%}img/categories/switch.png
+{%- elif 'transform' in l or 'coil' in l -%}img/categories/transformer.png
+{%- elif 'battery' in l or 'batterie' in l or 'bms' in l or 'charger' in l or 'chargeur' in l -%}img/categories/battery.png
+{%- elif 'screw' in l or 'vis' in l or 'bolt' in l -%}img/categories/screw.png
+{%- elif 'nut' in l or 'écrou' in l or 'ecrou' in l -%}img/categories/nut.png
+{%- elif 'washer' in l or 'rondelle' in l -%}img/categories/washer.png
+{%- elif 'standoff' in l or 'entretoise' in l or 'spacer' in l or 'pilier' in l -%}img/categories/standoff.png
+{%- elif 'cable' in l or 'wire' in l or 'fil' in l or 'ribbon' in l -%}img/categories/cable.png
+{%- elif 'heatsink' in l or 'dissipat' in l or 'thermal' in l or 'heat' in l -%}img/categories/heatsink.png
+{%- elif 'pcb' in l or 'circuit board' in l or 'substrate' in l -%}img/categories/pcb.png
+{%- elif 'enclosure' in l or 'boitier' in l or 'coffret' in l or 'case' in l or 'housing' in l -%}img/categories/enclosure.png
+{%- else -%}img/categories/misc.png
+{%- endif -%}
+{%- endmacro %}
+
+
 {% block title %}{{ t.stock.title }} — StockElec{% endblock %}
 
 {% block head %}{% endblock %}
@@ -112,7 +153,11 @@
         {% for cat in group.options %}
         <a href="{{ url_for('components.stock', category=cat.value, sort_by=sort_by, order=order, per_page=per_page, page=1) }}"
            class="sk-cat-btn {% if selected_category == cat.value %}sk-cat-active{% endif %}"
-           title="{{ cat.label }}">{{ cat.label }}</a>
+           title="{{ cat.label }}">
+          <img src="{{ url_for('static', filename=cat_icon(cat.label) | trim) }}"
+               width="16" height="16" class="sk-cat-icon" alt=""/>
+          {{ cat.label }}
+        </a>
         {% endfor %}
       </div>
       {% endfor %}
@@ -189,13 +234,16 @@
           <th class="th-center col-hide-sm"><a href="{{ sort_url('package') }}" class="sk-sort-link">{{ t.stock.sort_package }}{{ sort_icon('package') }}</a></th>
           <th class="th-center"><a href="{{ sort_url('quantity') }}" class="sk-sort-link">{{ t.stock.sort_quantity }}{{ sort_icon('quantity') }}</a></th>
           <th class="th-right col-hide-sm"><a href="{{ sort_url('unit_price') }}" class="sk-sort-link">{{ t.stock.sort_price }}{{ sort_icon('unit_price') }}</a></th>
-          <th class="col-hide-md"><a href="{{ sort_url('location') }}" class="sk-sort-link">{{ t.stock.sort_date }}{{ sort_icon('location') }}</a></th>
+          <th class="th-center th-kicad col-hide-md" title="KiCad : Symbole / Footprint / Modèle 3D">KiCad</th>
           <th class="th-center">{{ t.stock.col_actions }}</th>
         </tr>
       </thead>
       <tbody>
         {% for c in components %}
-        <tr class="{% if c.quantity == 0 %}row-empty{% elif c.is_low_stock %}row-low{% endif %}" id="row-{{ c.id }}">
+        <tr class="{% if c.quantity == 0 %}row-empty{% elif c.is_low_stock %}row-low{% endif %}" id="row-{{ c.id }}"
+            data-location="{{ c.location or '' }}"
+            data-comp-id="{{ c.id }}"
+            data-image="{{ url_for('components.component_image', filename=c.image_path.split('images/')|last) if c.image_path else '' }}">
           <td class="td-check">
             <input type="checkbox" class="row-check" value="{{ c.id }}" onchange="onCheckChange()"/>
           </td>
@@ -220,6 +268,7 @@
               <a href="{{ url_for('components.detail', component_id=c.id) }}" class="td-desc-link">{{ c.description or '—' }}</a>
               {% if c.rohs == 'YES' %}<span class="badge badge-green badge-xs">{{ t.stock.badge_rohs }}</span>{% endif %}
               {% if c.datasheet_url %}<a href="{{ c.datasheet_url }}" target="_blank" rel="noopener" class="badge badge-blue badge-xs">{{ t.stock.badge_ds }}</a>{% endif %}
+              {% if not c.location %}<span class="badge badge-unplaced badge-xs" title="Composant sans emplacement de rangement">Non placé</span>{% endif %}
             </div>
             {% if c.category %}<div class="sk-td-cat">{{ c.category.split(' / ')|last }}</div>{% endif %}
           </td>
@@ -262,7 +311,32 @@
           <td class="td-price col-hide-sm">
             {% if c.unit_price is not none %}{{ "%.4f"|format(c.unit_price) }} €{% else %}—{% endif %}
           </td>
-          <td class="td-secondary col-hide-md" style="white-space:nowrap;font-family:var(--mono);font-size:.78rem">{{ c.location or '—' }}</td>
+          <td class="td-kicad col-hide-md">
+            {%- set ks = kicad_statuses.get(c.lcsc_part_number, {}) if c.lcsc_part_number else {} -%}
+            {% if c.location %}
+            <button type="button" class="sk-loc-badge"
+                    data-location="{{ c.location }}"
+                    data-comp-id="{{ c.id }}"
+                    onmouseenter="skShowLocTooltip(this)"
+                    onmouseleave="skHideLocTooltip()"
+                    title="{{ c.location }}">📍</button>
+            {% endif %}
+            <a href="{{ url_for('components.detail', component_id=c.id) }}#kicad"
+               class="kicad-badges" title="KiCad : Symbole / Footprint / Modèle 3D">
+              <span class="kicad-icon {% if ks.get('symbol') %}kicad-on{% else %}kicad-off{% endif %}"
+                    title="{% if ks.get('symbol') %}Symbole KiCad disponible{% else %}Pas de symbole KiCad{% endif %}">
+                <img src="{{ url_for('static', filename='img/symbol.png') }}" alt="SYM" width="16" height="16"/>
+              </span>
+              <span class="kicad-icon {% if ks.get('footprint') %}kicad-on{% else %}kicad-off{% endif %}"
+                    title="{% if ks.get('footprint') %}Footprint KiCad disponible{% else %}Pas de footprint KiCad{% endif %}">
+                <img src="{{ url_for('static', filename='img/footprint.png') }}" alt="FP" width="16" height="16"/>
+              </span>
+              <span class="kicad-icon {% if ks.get('model_3d') %}kicad-on{% else %}kicad-off{% endif %}"
+                    title="{% if ks.get('model_3d') %}Modèle 3D disponible{% else %}Pas de modèle 3D{% endif %}">
+                <img src="{{ url_for('static', filename='img/model3D.png') }}" alt="3D" width="16" height="16"/>
+              </span>
+            </a>
+          </td>
           <td class="td-actions">
             <a href="{{ url_for('components.edit', component_id=c.id) }}" class="btn-icon" title="{{ t.stock.btn_edit }}">✏️</a>
             <form method="post" action="{{ url_for('components.delete', component_id=c.id) }}"
@@ -276,6 +350,15 @@
         {% endfor %}
       </tbody>
     </table>
+    {# Tooltip rangement overlay (Feature 5) #}
+    <div id="sk-loc-tooltip" class="sk-loc-tooltip" style="display:none">
+      <div class="sk-loc-tooltip-header">
+        <span id="sk-loc-tooltip-atelier"></span>
+        <span class="sk-loc-tooltip-sep">·</span>
+        <span id="sk-loc-tooltip-case" class="sk-loc-tooltip-case"></span>
+      </div>
+      <div id="sk-loc-tooltip-grid" class="sk-loc-tooltip-grid"></div>
+    </div>
     </div>
 
     {% if total_pages > 1 %}
@@ -341,6 +424,160 @@
 const t_stock_error_generic = {{ t.stock.error_generic | tojson }};
 const t_stock_error_network = {{ t.stock.error_network | tojson }};
 const t_stock_stats_parts   = {{ t.stock.stats_parts | tojson }};
+
+// ══ Feature 5 — Tooltip rangement au hover de l'icône 📍 ═════════════
+var _locTooltipTimer = null;
+var _locCache = {};  // cache atelier_id → données de rangement
+
+function skShowLocTooltip(btn) {
+    clearTimeout(_locTooltipTimer);
+    var location = btn.dataset.location;  // ex: "bureau:A3"
+    if (!location || !location.includes(':')) return;
+
+    var parts     = location.split(':');
+    var atelierId = parts[0];
+    var caseId    = parts[1];
+
+    var tooltip = document.getElementById('sk-loc-tooltip');
+    document.getElementById('sk-loc-tooltip-atelier').textContent = atelierId;
+    document.getElementById('sk-loc-tooltip-case').textContent    = caseId;
+    document.getElementById('sk-loc-tooltip-grid').innerHTML      = '<span style="opacity:.5;font-size:.72rem">Chargement…</span>';
+
+    // Positionner le tooltip
+    var rect = btn.getBoundingClientRect();
+    tooltip.style.display = 'block';
+    var ttW = tooltip.offsetWidth  || 220;
+    var ttH = tooltip.offsetHeight || 160;
+    var left = Math.min(rect.right + 8, window.innerWidth - ttW - 8);
+    var top  = Math.min(rect.top,       window.innerHeight - ttH - 8);
+    tooltip.style.left = left + window.scrollX + 'px';
+    tooltip.style.top  = top  + window.scrollY + 'px';
+
+    // Charger les données (avec cache)
+    if (_locCache[atelierId]) {
+        skRenderLocGrid(_locCache[atelierId], caseId);
+    } else {
+        fetch('/api/rangement/' + atelierId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            _locCache[atelierId] = data;
+            skRenderLocGrid(data, caseId);
+        })
+        .catch(function() {
+            document.getElementById('sk-loc-tooltip-grid').innerHTML =
+                '<span style="opacity:.5;font-size:.72rem">Erreur chargement</span>';
+        });
+    }
+}
+
+function skRenderLocGrid(data, targetCaseId) {
+    var grid = document.getElementById('sk-loc-tooltip-grid');
+    if (!data || !data.plateaux) { grid.innerHTML = ''; return; }
+
+    // Trouver le plateau qui contient la case cible
+    var targetPlateau = null;
+    for (var i = 0; i < data.plateaux.length; i++) {
+        var p   = data.plateaux[i];
+        var pid = p.id;
+        if (targetCaseId.startsWith(pid) && !isNaN(parseInt(targetCaseId.slice(pid.length)))) {
+            targetPlateau = p; break;
+        }
+    }
+    if (!targetPlateau) {
+        grid.innerHTML = '<span style="opacity:.5;font-size:.72rem">Plateau introuvable</span>';
+        return;
+    }
+
+    var cols  = targetPlateau.cols || 8;
+    var cells = targetPlateau.cells || [];
+
+    // Trouver infos de la case cible
+    var targetSize  = '1x1';
+    var targetIndex = 1;
+    for (var k = 0; k < cells.length; k++) {
+        if (cells[k].cell_id === targetCaseId) {
+            targetSize  = cells[k].size  || '1x1';
+            targetIndex = cells[k].index || 1;
+            break;
+        }
+    }
+    var tParts = targetSize.split('x');
+    var tW = parseInt(tParts[0]) || 1;  // largeur en colonnes
+    var tH = parseInt(tParts[1]) || 1;  // hauteur en rangées
+    // Position de la case cible dans la grille (base 0)
+    var tCol = (targetIndex - 1) % cols;
+    var tRow = Math.floor((targetIndex - 1) / cols);
+
+    // Mettre à jour le header
+    var caseLabel = document.getElementById('sk-loc-tooltip-case');
+    if (caseLabel)
+        caseLabel.textContent = targetCaseId + (targetSize !== '1x1' ? '  ' + targetSize : '');
+
+    // Construire la grille via DOM (plus propre que innerHTML avec grid-column/row)
+    // Calculer une taille de case adaptée au nombre de colonnes
+    // Max tooltip ~300px, gap 2px → taille par case
+    var maxW    = 280;
+    var cellPx  = Math.max(10, Math.min(20, Math.floor((maxW - (cols - 1) * 2) / cols)));
+
+    var container = document.createElement('div');
+    container.className = 'sk-loc-grid';
+    container.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cellPx + 'px)';
+    container.style.gridAutoRows        = cellPx + 'px';
+
+    for (var j = 0; j < cells.length; j++) {
+        var cell  = cells[j];
+        var state = cell.stock_state || 'empty';
+
+        // Cases absorbées → NE PAS les rendre du tout.
+        // La case principale avec son span CSS occupe déjà cet espace.
+        // Ajouter un div fantôme déformerait la grille.
+        if (state === 'absorbed') continue;
+
+        var isTarget = cell.cell_id === targetCaseId;
+        var div = document.createElement('div');
+
+        // Appliquer la taille réelle de la boîte (span colonnes × rangées)
+        var parts = (cell.size || '1x1').split('x');
+        var cw = parseInt(parts[0]) || 1;
+        var ch = parseInt(parts[1]) || 1;
+        if (cw > 1) div.style.gridColumn = 'span ' + cw;
+        if (ch > 1) div.style.gridRow    = 'span ' + ch;
+
+        if (isTarget) {
+            div.className = 'sk-loc-cell sk-loc-cell--target';
+            if (cw > 1 || ch > 1) {
+                var sizeTag = document.createElement('span');
+                sizeTag.className = 'sk-loc-size-tag';
+                sizeTag.textContent = cell.size;
+                div.appendChild(sizeTag);
+            }
+        } else {
+            div.className = 'sk-loc-cell';
+            if (state === 'empty') div.classList.add('sk-loc-cell--empty-dim');
+        }
+
+        container.appendChild(div);
+    }
+
+    grid.innerHTML = '';
+    grid.appendChild(container);
+}
+
+function skHideLocTooltip() {
+    _locTooltipTimer = setTimeout(function() {
+        var tooltip = document.getElementById('sk-loc-tooltip');
+        if (tooltip) tooltip.style.display = 'none';
+    }, 200);
+}
+
+// Garder le tooltip visible quand on le survole
+document.addEventListener('DOMContentLoaded', function() {
+    var tt = document.getElementById('sk-loc-tooltip');
+    if (!tt) return;
+    tt.addEventListener('mouseenter', function() { clearTimeout(_locTooltipTimer); });
+    tt.addEventListener('mouseleave', skHideLocTooltip);
+});
+
 </script>
 <script src="{{ url_for('static', filename='js/stock.js') }}?v={{ cache_buster }}"></script>
 {% endblock %}

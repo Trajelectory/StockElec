@@ -231,8 +231,8 @@
 }
 .sk-cat-btn {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: flex-start;
     width: 100%;
     padding: .35rem .85rem .35rem 1.1rem;
     border: none;
@@ -244,7 +244,7 @@
     text-decoration: none;
     cursor: pointer;
     transition: background .1s, color .1s;
-    gap: .35rem;
+    gap: 7px;
     white-space: normal;
     word-break: break-word;
 }
@@ -504,7 +504,8 @@
 }
 .sk-cat-btn {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   padding: .32rem .75rem .32rem 1rem;
   border: none;
@@ -950,3 +951,202 @@
 /* ── Masquage colonnes responsive ──────────────────────────────── */
 @media (max-width: 1100px) { .col-hide-md { display: none; } }
 @media (max-width: 700px)  { .col-hide-sm { display: none; } }
+
+/* ── Colonne KiCad — badges symbole / footprint / modèle 3D ─────────── */
+.th-kicad {
+  width: 76px;
+  min-width: 76px;
+  text-align: center;
+  font-size: .72rem;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+}
+
+.td-kicad {
+  width: 76px;
+  min-width: 76px;
+  text-align: center;
+  vertical-align: middle !important;
+  padding: .35rem .4rem;
+}
+
+.kicad-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.kicad-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  transition: background .15s, transform .1s;
+}
+
+.kicad-icon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Disponible — icône colorée avec fond léger */
+.kicad-on {
+  background: rgba(var(--accent-rgb, 99 102 241), .12);
+  opacity: 1;
+}
+
+.kicad-on img {
+  filter: none;
+}
+
+.kicad-badges:hover .kicad-on {
+  background: rgba(var(--accent-rgb, 99 102 241), .25);
+  transform: scale(1.1);
+}
+
+/* Absent — icône grisée et transparente */
+.kicad-off {
+  opacity: .25;
+}
+
+.kicad-off img {
+  filter: grayscale(1);
+}
+
+/* ══ Feature 4 — Badge "Non placé" ══════════════════════════════════ */
+.badge-unplaced {
+  background: color-mix(in srgb, var(--warning, #f59e0b) 15%, transparent);
+  color: var(--warning, #f59e0b);
+  border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 35%, transparent);
+  font-size: .65rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  vertical-align: middle;
+}
+
+/* ══ Feature 5 — Icône emplacement dans la liste ══════════════════════ */
+.sk-loc-badge {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: .85rem;
+  padding: 2px 3px;
+  border-radius: 4px;
+  opacity: .55;
+  transition: opacity .15s, background .15s;
+  margin-right: 3px;
+  vertical-align: middle;
+}
+.sk-loc-badge:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* Tooltip rangement */
+.sk-loc-tooltip {
+  position: absolute;
+  z-index: 999;
+  background: var(--bg-surface, #1a1a2e);
+  border: 1px solid var(--border, #2d2d4e);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.55);
+  min-width: 180px;
+  max-width: 340px;
+  pointer-events: all;
+}
+.sk-loc-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .72rem;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.sk-loc-tooltip-sep { opacity: .35; }
+.sk-loc-tooltip-case {
+  color: #2aaa50;
+  font-weight: 700;
+  font-family: var(--mono);
+  font-size: .82rem;
+}
+
+/* Grille */
+.sk-loc-tooltip-grid { }
+.sk-loc-grid {
+  display: grid;
+  gap: 2px;
+  grid-auto-rows: 14px;   /* hauteur fixe par rangée → cases carrées */
+}
+
+/* Case de base — neutre, discrète */
+.sk-loc-cell {
+  width: 100%;
+  height: 100%;
+  min-width: 14px;
+  min-height: 14px;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.04);
+  box-sizing: border-box;
+}
+
+/* Cases vides — encore plus discrètes */
+.sk-loc-cell--empty-dim {
+  background: rgba(255,255,255,.02);
+  border-color: rgba(255,255,255,.04);
+}
+
+/* Cases absorbées — invisibles, juste pour maintenir la grille */
+.sk-loc-cell--absorbed {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Case cible — verte et bien visible avec label taille */
+.sk-loc-cell--target {
+  background: #2aaa50 !important;
+  border-color: #2aaa50 !important;
+  border-radius: 3px;
+  box-shadow: 0 0 10px rgba(42,170,80,.5),
+              0 0 20px rgba(42,170,80,.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+/* Tag taille dans la case cible (ex: "2x1") */
+.sk-loc-size-tag {
+  font-size: 8px;
+  font-weight: 700;
+  color: rgba(255,255,255,.9);
+  font-family: var(--mono);
+  line-height: 1;
+  letter-spacing: .02em;
+  pointer-events: none;
+}
+
+/* ── Icônes catégories dans le sidebar ─────────────────────────── */
+.sk-cat-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+  align-self: center;   /* centrage vertical par rapport au texte */
+  opacity: .85;
+  transition: opacity .15s;
+}
+.sk-cat-btn:hover .sk-cat-icon,
+.sk-cat-active .sk-cat-icon { opacity: 1; }

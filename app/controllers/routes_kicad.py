@@ -7,6 +7,7 @@ Routes :
 """
 
 import os
+import glob
 import io
 import zipfile
 import logging
@@ -332,3 +333,188 @@ def download_component_zip(lcsc_ref):
         download_name=download_name,
         mimetype="application/zip",
     )
+
+
+# ------------------------------------------------------------------ #
+#  POST /kicad/upload/<component_id> — Upload manuel de fichiers KiCad
+# ------------------------------------------------------------------ #
+
+ALLOWED_KICAD_EXTENSIONS = {
+    ".kicad_sym": "symbol",
+    ".kicad_mod": "footprint",
+    ".step":      "model_3d",
+    ".wrl":       "model_3d",
+}
+
+def _get_or_create_comp_dir(component, kicad_dir: str) -> str | None:
+    """
+    Retourne le dossier du composant dans instance/kicad/, le crée si besoin.
+    Priorité :
+      1. Dossier déjà existant (glob *_<LCSC_REF>)
+      2. Création depuis category + manufacture_part_number du composant
+      3. Fallback : Unclassified/<MPN>_<LCSC_REF> ou Unclassified/<LCSC_REF>
+    """
+    from ..services.kicad_jlc import _safe_name
+    lcsc_ref = component.lcsc_part_number or ""
+
+    # 1. Dossier existant ?
+    existing = glob.glob(os.path.join(kicad_dir, "*", f"*_{lcsc_ref}")) if lcsc_ref else []
+    if existing:
+        return existing[0]
+
+    # 2. Créer depuis les infos du composant
+    category = component.category or "Unclassified"
+    # Prendre la sous-catégorie la plus précise (dernière partie après " / ")
+    category_leaf = category.split(" / ")[-1].strip() if " / " in category else category
+
+    mpn = (component.manufacture_part_number or
+           component.lcsc_part_number or
+           f"component_{component.id}")
+
+    safe_cat  = _safe_name(category_leaf)
+    safe_mpn  = _safe_name(mpn)
+    ref_suffix = f"_{lcsc_ref}" if lcsc_ref else f"_id{component.id}"
+    folder_name = f"{safe_mpn}{ref_suffix}"
+    dest_dir = os.path.join(kicad_dir, safe_cat, folder_name)
+    os.makedirs(dest_dir, exist_ok=True)
+    return dest_dir
+
+
+@kicad_bp.route("/upload/<int:component_id>", methods=["POST"])
+def upload_kicad_file(component_id):
+    """
+    Upload manuel d'un fichier KiCad pour un composant.
+    Accepte : .kicad_sym, .kicad_mod, .step, .wrl
+    Place le fichier dans le bon dossier instance/kicad/<cat>/<part_ref>/
+    """
+    from ..models.component import ComponentModel
+    from ..services.kicad_jlc import get_component_kicad_status
+
+    component = ComponentModel.get_by_id(component_id)
+    if not component:
+        return jsonify({"ok": False, "error": "Composant introuvable"}), 404
+
+    uploaded_file = request.files.get("kicad_file")
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({"ok": False, "error": "Aucun fichier reçu"}), 400
+
+    filename = uploaded_file.filename.strip()
+    ext = ""
+    # Gérer les extensions composées comme .kicad_sym / .kicad_mod
+    for known_ext in ALLOWED_KICAD_EXTENSIONS:
+        if filename.lower().endswith(known_ext):
+            ext = known_ext
+            break
+
+    if not ext:
+        return jsonify({
+            "ok": False,
+            "error": f"Extension non supportée. Acceptés : {', '.join(ALLOWED_KICAD_EXTENSIONS.keys())}"
+        }), 400
+
+    kicad_dir = _kicad_dir()
+    os.makedirs(kicad_dir, exist_ok=True)
+
+    comp_dir = _get_or_create_comp_dir(component, kicad_dir)
+    if not comp_dir:
+        return jsonify({"ok": False, "error": "Impossible de déterminer le dossier KiCad"}), 500
+
+    # Supprimer les fichiers existants du même type avant de sauvegarder
+    # (évite d'avoir deux .kicad_sym dans le même dossier = comportement imprévisible)
+    same_type_exts = {
+        "symbol":    [".kicad_sym"],
+        "footprint": [".kicad_mod"],
+        "model_3d":  [".step", ".wrl"],
+    }
+    file_type = ALLOWED_KICAD_EXTENSIONS[ext]
+    replaced  = []
+    for old_ext in same_type_exts[file_type]:
+        for old_file in glob.glob(os.path.join(comp_dir, f"*{old_ext}")):
+            old_name = os.path.basename(old_file)
+            if old_name != filename:   # pas le même fichier → on le supprime
+                try:
+                    os.remove(old_file)
+                    replaced.append(old_name)
+                    logger.info("[KiCad upload] Ancien fichier supprimé : %s", old_file)
+                except Exception as e:
+                    logger.warning("[KiCad upload] Impossible de supprimer %s : %s", old_file, e)
+
+    dest_path = os.path.join(comp_dir, filename)
+    try:
+        uploaded_file.save(dest_path)
+    except Exception as e:
+        logger.error("[KiCad upload] Erreur sauvegarde %s : %s", dest_path, e)
+        return jsonify({"ok": False, "error": f"Erreur sauvegarde : {e}"}), 500
+
+    logger.info("[KiCad upload] comp=%d type=%s → %s (remplace: %s)", component_id, file_type, dest_path, replaced or "rien")
+
+    # Recalculer le statut KiCad après upload
+    lcsc_ref = component.lcsc_part_number or ""
+    new_status = get_component_kicad_status(lcsc_ref, kicad_dir) if lcsc_ref else {}
+
+    return jsonify({
+        "ok":        True,
+        "file_type": file_type,
+        "filename":  filename,
+        "replaced":  replaced,    # anciens fichiers supprimés
+        "dest":      os.path.relpath(dest_path, kicad_dir),
+        "status":    {
+            "symbol":    new_status.get("symbol",    False),
+            "footprint": new_status.get("footprint", False),
+            "model_3d":  new_status.get("model_3d",  False),
+        },
+    })
+
+
+@kicad_bp.route("/upload/<int:component_id>/delete", methods=["POST"])
+def delete_kicad_file(component_id):
+    """
+    Supprime un fichier KiCad uploadé manuellement.
+    Body JSON : {"file_type": "symbol"|"footprint"|"model_3d"}
+    """
+    from ..models.component import ComponentModel
+    from ..services.kicad_jlc import get_component_kicad_status
+
+    component = ComponentModel.get_by_id(component_id)
+    if not component:
+        return jsonify({"ok": False, "error": "Composant introuvable"}), 404
+
+    data      = request.get_json(silent=True) or {}
+    file_type = data.get("file_type", "")
+    if file_type not in ("symbol", "footprint", "model_3d"):
+        return jsonify({"ok": False, "error": "file_type invalide"}), 400
+
+    kicad_dir = _kicad_dir()
+    lcsc_ref  = component.lcsc_part_number or ""
+    existing  = glob.glob(os.path.join(kicad_dir, "*", f"*_{lcsc_ref}")) if lcsc_ref else []
+    if not existing:
+        return jsonify({"ok": False, "error": "Dossier KiCad introuvable"}), 404
+
+    comp_dir = existing[0]
+    ext_map  = {
+        "symbol":    [".kicad_sym"],
+        "footprint": [".kicad_mod"],
+        "model_3d":  [".step", ".wrl"],
+    }
+    deleted = []
+    for ext in ext_map[file_type]:
+        for f in glob.glob(os.path.join(comp_dir, f"*{ext}")):
+            try:
+                os.remove(f)
+                deleted.append(os.path.basename(f))
+            except Exception as e:
+                logger.warning("[KiCad delete] %s : %s", f, e)
+
+    if not deleted:
+        return jsonify({"ok": False, "error": "Aucun fichier trouvé à supprimer"}), 404
+
+    new_status = get_component_kicad_status(lcsc_ref, kicad_dir) if lcsc_ref else {}
+    return jsonify({
+        "ok":     True,
+        "deleted": deleted,
+        "status": {
+            "symbol":    new_status.get("symbol",    False),
+            "footprint": new_status.get("footprint", False),
+            "model_3d":  new_status.get("model_3d",  False),
+        },
+    })

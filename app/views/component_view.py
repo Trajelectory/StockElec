@@ -1,4 +1,5 @@
-from flask import render_template
+import os
+from flask import render_template, current_app
 from ..models.settings import SettingsModel
 
 
@@ -9,6 +10,21 @@ class ComponentView:
                      sort_by, order, page, per_page, total, total_pages,
                      low_only=False, low_count=0, location_filter="", drawer_letters=None,
                      drawer_ateliers=None, all_ateliers_map=None):
+        # ── Statuts KiCad pour tous les composants de la page ──────────
+        # Calculé en batch ici pour ne pas le faire composant par composant
+        # dans le template (appels glob répétés = lent).
+        kicad_statuses = {}
+        try:
+            from ..services.kicad_jlc import get_component_kicad_status
+            kicad_dir = os.path.join(current_app.instance_path, "kicad")
+            if os.path.isdir(kicad_dir):
+                for c in components:
+                    lcsc = getattr(c, "lcsc_part_number", None) or ""
+                    if lcsc:
+                        kicad_statuses[lcsc] = get_component_kicad_status(lcsc, kicad_dir)
+        except Exception:
+            pass  # KiCad non configuré — pas grave, les icônes seront grises
+
         return render_template(
             "components/index.html",
             components=components, category_groups=category_groups, stats=stats,
@@ -18,6 +34,7 @@ class ComponentView:
             sort_by=sort_by, order=order,
             page=page, per_page=per_page, total=total, total_pages=total_pages,
             low_only=low_only, low_count=low_count,
+            kicad_statuses=kicad_statuses,
         )
 
     @staticmethod
