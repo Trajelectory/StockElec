@@ -69,13 +69,67 @@ def labels_print():
         flash(_t("msg.component_not_found2"), "warning")
         return redirect(url_for("components.stock"))
 
-    # Charge la config étiquette
-    lbl_config = {k: SettingsModel.get(k, v) for k, v in LABEL_DEFAULTS.items()}
+    # Choisir le moteur de rendu :
+    # - Si un layout éditeur est sauvegardé → label_layout_print.html
+    # - Sinon → ancien labels_print.html (config basique)
+    import json as _json
+    saved_layout_str = SettingsModel.get("lbl_editor_layout", None)
+    use_editor = saved_layout_str and saved_layout_str.strip() not in ("", "{}", "null")
 
+    if use_editor:
+        try:
+            layout   = _json.loads(saved_layout_str)
+            canvas   = layout.get("canvas", {"w":60,"h":30,"bg":"#ffffff"})
+            blocks   = layout.get("blocks", [])
+            copies   = max(1, min(50, int(request.args.get("copies", 1))))
+
+            # Rendre une étiquette par composant
+            return render_template(
+                "components/label_layout_multi_print.html",
+                components_data = components_data,
+                canvas          = canvas,
+                blocks          = blocks,
+                copies          = copies,
+                base_url        = base_url,
+            )
+        except Exception:
+            pass  # fallback si JSON corrompu
+
+    # Fallback si pas de layout éditeur — layout par défaut minimaliste
+    default_layout = {
+        "canvas": {"w": 60, "h": 30, "bg": "#ffffff"},
+        "blocks": [
+            {"id":"b1","type":"image","x":0,"y":0,"w":15,"h":14,
+             "fit":"contain","bg":"#f8f8f8","border":False,"border_radius":0,"opacity":1},
+            {"id":"b2","type":"text","x":16,"y":0.5,"w":44,"h":6,
+             "field":"description","font_size":2.8,"font_weight":"bold",
+             "color":"#111111","align":"left","font_family":"Arial","line_clamp":2,"opacity":1},
+            {"id":"b3","type":"text","x":16,"y":7,"w":22,"h":3.5,
+             "field":"manufacture_part_number","font_size":1.8,"font_weight":"normal",
+             "color":"#555555","align":"left","font_family":"Courier New","line_clamp":1,"opacity":1},
+            {"id":"b4","type":"badge","x":16,"y":11,"w":12,"h":3.5,
+             "field":"package","bg":"#ebebeb","color":"#333","font_size":1.6,
+             "border_radius":1,"font_weight":"600","prefix":""},
+            {"id":"b5","type":"badge","x":29,"y":11,"w":10,"h":3.5,
+             "field":"quantity","bg":"#d0e8ff","color":"#1a5080",
+             "font_size":1.6,"border_radius":1,"font_weight":"600","prefix":""},
+            {"id":"b6","type":"qr","x":38,"y":0,"w":12,"h":12,
+             "show_label":True,"label_size":1.2,"bg":"#ffffff","fg":"#000000"},
+            {"id":"b7","type":"badge","x":0,"y":15,"w":50,"h":3.5,
+             "field":"location","bg":"#fff3cc","color":"#7a5a00",
+             "font_size":1.6,"border_radius":1,"font_weight":"600","prefix":""},
+        ]
+    }
+    canvas = default_layout["canvas"]
+    blocks = default_layout["blocks"]
+    copies = max(1, min(50, int(request.args.get("copies", 1))))
     return render_template(
-        "components/labels_print.html",
-        components_data=components_data,
-        lbl=lbl_config,
+        "components/label_layout_multi_print.html",
+        components_data = components_data,
+        canvas          = canvas,
+        blocks          = blocks,
+        copies          = copies,
+        base_url        = base_url,
     )
 
 
@@ -311,10 +365,14 @@ def easyeda_png_file(filename):
 
 # Valeurs par défaut de la config étiquette
 LABEL_DEFAULTS = {
+    # Dimensions
     "lbl_width_mm":       "60",
     "lbl_height_mm":      "30",
+    "lbl_orientation":    "landscape",   # landscape | portrait
+    # Couleurs
     "lbl_bg_color":       "#ffffff",
     "lbl_text_color":     "#111111",
+    # Champs visibles
     "lbl_show_image":     "1",
     "lbl_show_qr":        "1",
     "lbl_show_lcsc":      "1",
@@ -326,19 +384,45 @@ LABEL_DEFAULTS = {
     "lbl_show_location":  "1",
     "lbl_show_category":  "1",
     "lbl_show_price":     "1",
+    "lbl_show_note":      "1",
+    # Tailles polices
     "lbl_desc_size_mm":   "2.1",
     "lbl_ref_size_mm":    "1.7",
     "lbl_badge_size_mm":  "1.4",
+    # Couleurs badges
     "lbl_color_pkg":      "#ebebeb",
     "lbl_color_rohs":     "#d4f0dd",
     "lbl_color_qty":      "#d0e8ff",
     "lbl_color_loc":      "#fff3cc",
     "lbl_color_cat":      "#efe8ff",
+    # Position QR
+    "lbl_qr_position":    "right",       # right | left | bottom | none
+    # Copies par défaut
+    "lbl_copies":         "1",
+    # Note personnalisée
+    "lbl_custom_note":    "",
+}
+
+# Presets de formats courants
+LABEL_PRESETS = {
+    "tiroir_petit":   {"lbl_width_mm": "40", "lbl_height_mm": "20", "label": "Tiroir petit (40×20mm)"},
+    "tiroir_standard":{"lbl_width_mm": "60", "lbl_height_mm": "30", "label": "Tiroir standard (60×30mm)"},
+    "tiroir_grand":   {"lbl_width_mm": "80", "lbl_height_mm": "40", "label": "Grand tiroir (80×40mm)"},
+    "sachet":         {"lbl_width_mm": "50", "lbl_height_mm": "25", "label": "Sachet composant (50×25mm)"},
+    "boite":          {"lbl_width_mm": "100","lbl_height_mm": "50", "label": "Boîte (100×50mm)"},
+    "avery_l4732":    {"lbl_width_mm": "25", "lbl_height_mm": "10", "label": "Avery L4732 (25×10mm)"},
+    "dymo_11354":     {"lbl_width_mm": "57", "lbl_height_mm": "32", "label": "Dymo 11354 (57×32mm)"},
+    "dymo_11355":     {"lbl_width_mm": "51", "lbl_height_mm": "19", "label": "Dymo 11355 (51×19mm)"},
 }
 
 
-@component_bp.route("/label-settings", methods=["GET", "POST"])
+@component_bp.route("/label-settings")
 def label_settings():
+    """Redirige vers le nouvel éditeur avancé."""
+    return redirect(url_for("components.label_editor"))
+
+@component_bp.route("/label-settings-old", methods=["GET", "POST"])
+def label_settings_old():
     """Page de configuration visuelle des étiquettes."""
 
     if request.method == "POST":
@@ -347,8 +431,10 @@ def label_settings():
             if key.startswith("lbl_show_"):
                 val = "1" if request.form.get(key) else "0"
             else:
-                val = request.form.get(key, LABEL_DEFAULTS[key]).strip()
+                val = (request.form.get(key) or LABEL_DEFAULTS[key]).strip()
             SettingsModel.set(key, val)
+        # Note personnalisée (peut être vide)
+        SettingsModel.set("lbl_custom_note", request.form.get("lbl_custom_note", ""))
         flash(_t("msg.labels_saved"), "success")
         return redirect(url_for("components.label_settings"))
 
@@ -363,8 +449,204 @@ def label_settings():
         "components/label_settings.html",
         config=config,
         preview_comp=preview_comp,
+        presets=LABEL_PRESETS,
     )
 
 # ------------------------------------------------------------------ #
 #  Page alertes stock bas
 # ------------------------------------------------------------------ #
+
+@component_bp.route("/labels/preview/<int:component_id>")
+def labels_preview(component_id):
+    """
+    Aperçu temps réel — génère une page HTML minimale avec juste l'étiquette,
+    conçue pour être affichée dans un iframe sans décalage ni scroll.
+    Tous les paramètres de config sont acceptés en GET.
+    """
+    comp = ComponentModel.get_by_id(component_id)
+    if comp is None:
+        return "<p style='color:red;font-family:sans-serif'>Composant introuvable</p>", 404
+
+    lbl = {}
+    for k, default in LABEL_DEFAULTS.items():
+        lbl[k] = request.args.get(k, SettingsModel.get(k, default))
+
+    _configured = SettingsModel.get("base_url", "").strip().rstrip("/")
+    base_url    = _configured if _configured else request.host_url.rstrip("/")
+    fiche_url   = f"{base_url}{url_for('components.detail', component_id=component_id)}"
+    qr_data_url = qr_svg_data_url(fiche_url)
+
+    return render_template(
+        "components/label_preview_embed.html",
+        comp=comp,
+        lbl=lbl,
+        fiche_url=fiche_url,
+        qr_data_url=qr_data_url,
+    )
+
+
+# ================================================================== #
+#  ÉDITEUR D'ÉTIQUETTES AVANCÉ
+# ================================================================== #
+
+@component_bp.route("/label-editor")
+def label_editor():
+    """Éditeur d'étiquettes WYSIWYG avec blocs libres."""
+    import json as _json
+
+    # Composant de preview — prendre un composant avec image si possible
+    all_comps   = ComponentModel.get_all()
+    preview_comp = next((c for c in all_comps if c.image_path), None) or (all_comps[0] if all_comps else None)
+
+    # Données du composant pour le rendu JS
+    comp_data = {}
+    if preview_comp:
+        _base_url = SettingsModel.get("base_url","").strip().rstrip("/") or request.host_url.rstrip("/")
+        comp_data = {
+            "id":                   preview_comp.id,
+            "description":          preview_comp.description or "",
+            "description_long":     getattr(preview_comp, "description_long", "") or "",
+            "manufacture_part_number": preview_comp.manufacture_part_number or "",
+            "manufacturer":         preview_comp.manufacturer or "",
+            "lcsc_part_number":     preview_comp.lcsc_part_number or "",
+            "mouser_part_number":   getattr(preview_comp, "mouser_part_number", "") or "",
+            "digikey_part_number":  getattr(preview_comp, "digikey_part_number", "") or "",
+            "package":              preview_comp.package or "",
+            "category":             preview_comp.category or "",
+            "quantity":             preview_comp.quantity or 0,
+            "unit_price":           float(preview_comp.unit_price or 0),
+            "location":             preview_comp.location or "",
+            "notes":                preview_comp.notes or "",
+            "rohs":                 preview_comp.rohs or "",
+            "image_url":            f"/component/{preview_comp.id}/image/raw?w=300&h=300" if preview_comp.image_path else "",
+            "qr_url":               qr_svg_data_url(f"{_base_url}{url_for('components.detail', component_id=preview_comp.id)}"),
+            "lcsc":                 preview_comp.lcsc_part_number or "",
+        }
+
+    # Layout sauvegardé
+    saved_layout = SettingsModel.get("lbl_editor_layout", None)
+
+    return render_template(
+        "components/label_editor.html",
+        preview_comp  = preview_comp,
+        comp_data     = comp_data,
+        saved_layout  = saved_layout,
+        presets       = LABEL_PRESETS,
+    )
+
+
+@component_bp.route("/label-editor/save", methods=["POST"])
+def label_editor_save():
+    """Sauvegarde le layout JSON de l'éditeur."""
+    import json as _json
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"ok": False, "error": "Pas de données"}), 400
+    SettingsModel.set("lbl_editor_layout", _json.dumps(data))
+    return jsonify({"ok": True})
+
+
+@component_bp.route("/labels/preview-layout/<int:component_id>")
+def labels_preview_layout(component_id):
+    """
+    Aperçu iframe de l'éditeur — rendu en temps réel depuis le JSON de layout.
+    Paramètre GET: layout=<JSON>
+    """
+    import json as _json
+    comp = ComponentModel.get_by_id(component_id)
+    if not comp:
+        return "<p>Composant introuvable</p>", 404
+
+    layout_str = request.args.get("layout", "{}")
+    try:
+        layout = _json.loads(layout_str)
+    except Exception:
+        layout = {}
+
+    canvas = layout.get("canvas", {"w": 60, "h": 30, "bg": "#ffffff"})
+    blocks = layout.get("blocks", [])
+
+    _base_url   = SettingsModel.get("base_url","").strip().rstrip("/") or request.host_url.rstrip("/")
+    fiche_url   = f"{_base_url}{url_for('components.detail', component_id=component_id)}"
+    qr_data_url = qr_svg_data_url(fiche_url)
+
+    comp_dict = {
+        "description":          comp.description or "",
+        "description_long":     getattr(comp, "description_long", "") or "",
+        "manufacture_part_number": comp.manufacture_part_number or "",
+        "manufacturer":         comp.manufacturer or "",
+        "lcsc_part_number":     comp.lcsc_part_number or "",
+        "mouser_part_number":   getattr(comp, "mouser_part_number", "") or "",
+        "digikey_part_number":  getattr(comp, "digikey_part_number", "") or "",
+        "package":              comp.package or "",
+        "category":             comp.category or "",
+        "quantity":             comp.quantity or 0,
+        "unit_price":           float(comp.unit_price or 0),
+        "location":             comp.location or "",
+        "notes":                comp.notes or "",
+        "rohs":                 comp.rohs or "",
+        "image_path":           comp.image_path or "",
+    }
+
+    return render_template(
+        "components/label_layout_print.html",
+        comp        = comp_dict,
+        canvas      = canvas,
+        blocks      = blocks,
+        qr_data_url = qr_data_url,
+        copies      = 1,
+        embed       = True,
+    )
+
+
+@component_bp.route("/labels/print-layout/<int:component_id>")
+def labels_print_layout(component_id):
+    """
+    Page d'impression depuis l'éditeur.
+    Paramètre GET: layout=<JSON>, copies=<int>
+    """
+    import json as _json
+    comp = ComponentModel.get_by_id(component_id)
+    if not comp:
+        flash("Composant introuvable", "danger")
+        return redirect(url_for("components.label_editor"))
+
+    layout_str = request.args.get("layout", "{}")
+    try:
+        layout = _json.loads(layout_str)
+    except Exception:
+        layout = {}
+
+    copies = max(1, min(50, int(request.args.get("copies", 1))))
+    canvas = layout.get("canvas", {"w": 60, "h": 30, "bg": "#ffffff"})
+    blocks = layout.get("blocks", [])
+
+    _base_url   = SettingsModel.get("base_url","").strip().rstrip("/") or request.host_url.rstrip("/")
+    fiche_url   = f"{_base_url}{url_for('components.detail', component_id=component_id)}"
+    qr_data_url = qr_svg_data_url(fiche_url)
+
+    comp_dict = {
+        "description":          comp.description or "",
+        "description_long":     getattr(comp, "description_long", "") or "",
+        "manufacture_part_number": comp.manufacture_part_number or "",
+        "manufacturer":         comp.manufacturer or "",
+        "lcsc_part_number":     comp.lcsc_part_number or "",
+        "package":              comp.package or "",
+        "category":             comp.category or "",
+        "quantity":             comp.quantity or 0,
+        "unit_price":           float(comp.unit_price or 0),
+        "location":             comp.location or "",
+        "notes":                comp.notes or "",
+        "rohs":                 comp.rohs or "",
+        "image_path":           comp.image_path or "",
+    }
+
+    return render_template(
+        "components/label_layout_print.html",
+        comp        = comp_dict,
+        canvas      = canvas,
+        blocks      = blocks,
+        qr_data_url = qr_data_url,
+        copies      = copies,
+        embed       = False,
+    )

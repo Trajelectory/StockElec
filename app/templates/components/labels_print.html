@@ -6,9 +6,12 @@
     <title>Étiquettes ({{ components_data|length }} composant{{ 's' if components_data|length > 1 }})</title>
 
     {# ── Calculs de dimensions écran depuis les mm ────────────────── #}
-    {# Aperçu légèrement agrandi pour meilleure lisibilité #}
-    {% set w_px = (lbl.lbl_width_mm|float * 4.8)|int %}
-    {% set h_px = (lbl.lbl_height_mm|float * 4.8)|int %}
+    {% set is_portrait  = lbl.lbl_orientation == 'portrait' %}
+    {% set real_w = lbl.lbl_height_mm if is_portrait else lbl.lbl_width_mm %}
+    {% set real_h = lbl.lbl_width_mm  if is_portrait else lbl.lbl_height_mm %}
+    {% set w_px = (real_w|float * 4.8)|int %}
+    {% set h_px = (real_h|float * 4.8)|int %}
+    {% set qr_pos = lbl.lbl_qr_position or 'right' %}
 
     
 <style>
@@ -145,6 +148,20 @@
     }
     .lbl-qr-ref { font-size: 4.5px; color: #999; text-align: center; word-break: break-all; line-height: 1.2; }
 
+    /* ── Mode embed (iframe preview) ────────────────────────────── */
+    .embed-mode {
+        background: #f5f5f5 !important;
+        padding: .5rem !important;
+        align-items: flex-start;
+        justify-content: flex-start;
+    }
+    .embed-mode .preview-area {
+        width: auto;
+    }
+    .embed-mode .labels-grid {
+        transform-origin: top left;
+    }
+
     /* ── Impression ──────────────────────────────────────────────── */
     @media print {
         @page { size: A4 portrait; margin: 8mm; }
@@ -186,9 +203,10 @@
     }
     </style>
 </head>
-<body>
+{% set embed_mode = embed | default(false) %}
+<body class="{{ 'embed-mode' if embed_mode else '' }}">
 
-<div class="toolbar">
+<div class="toolbar" {% if embed_mode %}style="display:none"{% endif %}>
     <span class="toolbar-title">
         🏷️ {{ components_data|length }} étiquette{{ 's' if components_data|length > 1 }}
     </span>
@@ -202,7 +220,7 @@
     <button class="btn btn-print" onclick="window.print()">{{ t.labels.print_btn }}</button>
 </div>
 
-<p class="print-hint">
+<p class="print-hint" {% if embed_mode %}style="display:none"{% endif %}>
     💡 Dans le dialogue d'impression : désactive les <strong>{{ t.labels.print_headers }}</strong>,
     marges à <strong>{{ t.labels.print_minimum }}</strong>, {{ t.labels.print_format }} <strong>{{ t.labels.print_a4 }}</strong>.
     Config appliquée depuis <a href="{{ url_for('components.label_settings') }}">{{ t.labels.print_settings }}</a>.
@@ -242,7 +260,8 @@ const COMPONENTS = [
 // On garde juste les flags de visibilité pour le JS qui construit le DOM
 const CFG = {
     show_image:   {{ (lbl.lbl_show_image == '1') | tojson }},
-    show_qr:      {{ (lbl.lbl_show_qr == '1') | tojson }},
+    show_qr:      {{ (lbl.lbl_show_qr == '1' and qr_pos != 'none') | tojson }},
+    qr_position:  {{ (qr_pos) | tojson }},
     show_lcsc:    {{ (lbl.lbl_show_lcsc == '1') | tojson }},
     show_mfr:     {{ (lbl.lbl_show_mfr_part == '1') | tojson }},
     show_mfg:     {{ (lbl.lbl_show_mfg == '1') | tojson }},
@@ -252,12 +271,17 @@ const CFG = {
     show_location:{{ (lbl.lbl_show_location == '1') | tojson }},
     show_category:{{ (lbl.lbl_show_category == '1') | tojson }},
     show_price:   {{ (lbl.lbl_show_price == '1') | tojson }},
+    show_note:    {{ (lbl.lbl_show_note == '1') | tojson }},
+    custom_note:  {{ (lbl.lbl_custom_note or '') | tojson }},
     color_pkg:    {{ lbl.lbl_color_pkg|tojson }},
     color_rohs:   {{ lbl.lbl_color_rohs|tojson }},
     color_qty:    {{ lbl.lbl_color_qty|tojson }},
     color_loc:    {{ lbl.lbl_color_loc|tojson }},
     color_cat:    {{ lbl.lbl_color_cat|tojson }},
 };
+
+// Copies depuis la config (overridable dans la toolbar)
+document.getElementById('copies').value = {{ (lbl.lbl_copies or '1') | tojson }};
 
 function buildLabels() {
     const copies = Math.max(1, Math.min(20, parseInt(document.getElementById('copies').value) || 1));
@@ -285,6 +309,11 @@ function makeLabel(DATA) {
             imgWrap.innerHTML = '<span class="lbl-img-empty">⚡</span>';
         }
         label.appendChild(imgWrap);
+    }
+
+    // QR gauche
+    if (CFG.show_qr && CFG.qr_position === 'left') {
+        label.appendChild(makeQR(DATA));
     }
 
     // Corps
@@ -317,16 +346,34 @@ function makeLabel(DATA) {
     }
     label.appendChild(body);
 
-    // QR
-    if (CFG.show_qr) {
-        const qrWrap = el('div', 'lbl-qr');
-        const qrImg = el('img'); qrImg.src = DATA.qr_data_url; qrImg.alt = 'QR';
-        const qrRef = el('div', 'lbl-qr-ref'); qrRef.textContent = DATA.lcsc || '';
-        qrWrap.appendChild(qrImg); qrWrap.appendChild(qrRef);
-        label.appendChild(qrWrap);
+    // Note personnalisée
+    if (CFG.show_note && CFG.custom_note) {
+        const note = el('div', 'lbl-note');
+        note.textContent = CFG.custom_note;
+        body.appendChild(note);
+    }
+    label.appendChild(body);
+
+    // QR droite (défaut)
+    if (CFG.show_qr && CFG.qr_position === 'right') {
+        label.appendChild(makeQR(DATA));
+    }
+
+    // QR bas — wrapper flex column
+    if (CFG.show_qr && CFG.qr_position === 'bottom') {
+        label.style.flexDirection = 'column';
+        label.appendChild(makeQR(DATA, true));  // true = mode bas
     }
 
     return label;
+}
+
+function makeQR(DATA, isBottom) {
+    const qrWrap = el('div', isBottom ? 'lbl-qr-bottom' : 'lbl-qr');
+    const qrImg = el('img'); qrImg.src = DATA.qr_data_url; qrImg.alt = 'QR';
+    const qrRef = el('div', 'lbl-qr-ref'); qrRef.textContent = DATA.lcsc || '';
+    qrWrap.appendChild(qrImg); qrWrap.appendChild(qrRef);
+    return qrWrap;
 }
 
 function el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }

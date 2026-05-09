@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+{% if not embed %}
+html, body {
+    background: #1a1d27;
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    gap: .8rem;
+    min-height: 100vh;
+}
+
+.toolbar {
+    display: flex; gap: .6rem; align-items: center; flex-wrap: wrap;
+    background: #20232f; border: 1px solid #2e3140;
+    border-radius: 8px; padding: .6rem 1rem;
+    width: 100%; max-width: 1100px; color: #e2e4ec;
+}
+.toolbar-title { flex: 1; font-size: .9rem; font-weight: 700; color: #7c3aed; }
+.btn { padding: .4rem .9rem; border-radius: 6px; border: none; font-size: .82rem; cursor: pointer; font-weight: 500; }
+.btn-print { background: #7c3aed; color: #fff; }
+.btn-back  { background: #20232f; color: #7c82a0; border: 1px solid #2e3140; }
+
+.labels-grid {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    width: 100%; max-width: 1100px;
+}
+{% else %}
+html, body {
+    width: 100%; height: 100%;
+    background: #e8e8e8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.labels-grid { display: flex; }
+{% endif %}
+
+/* ── Étiquette positionnée ─────────────────────────────────────────── */
+{% set W = canvas.w %}
+{% set H = canvas.h %}
+{% set SC = 4.8 %}
+{% set W_px = (W * SC)|int %}
+{% set H_px = (H * SC)|int %}
+
+.label {
+    position: relative;
+    width:  {{ W_px }}px;
+    height: {{ H_px }}px;
+    background: {{ canvas.bg }};
+    overflow: hidden;
+    {% if not embed %}
+    box-shadow: 0 3px 12px rgba(0,0,0,.4);
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    {% else %}
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    {% endif %}
+}
+
+.lb {
+    position: absolute;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+@media print {
+    @page { size: A4 portrait; margin: 6mm; }
+    html, body { background: white !important; padding: 0 !important; min-height: auto; }
+    .toolbar, .print-hint { display: none !important; }
+    .labels-grid { display: flex; flex-wrap: wrap; gap: 2mm; }
+    .label {
+        width:  {{ W }}mm !important;
+        height: {{ H }}mm !important;
+        box-shadow: none !important;
+        border: 0.3mm solid #ddd !important;
+        border-radius: 0.5mm !important;
+        page-break-inside: avoid;
+    }
+    {% for blk in blocks %}
+    .lb-{{ blk.id }} {
+        left:   {{ blk.x }}mm !important;
+        top:    {{ blk.y }}mm !important;
+        width:  {{ blk.w }}mm !important;
+        height: {{ blk.h }}mm !important;
+    }
+    {% if blk.type == 'text' %}
+    .lb-{{ blk.id }} > div {
+        font-size: {{ blk.font_size }}mm !important;
+    }
+    {% elif blk.type == 'badge' %}
+    .lb-{{ blk.id }} > div {
+        font-size: {{ blk.font_size }}mm !important;
+    }
+    {% elif blk.type == 'separator' %}
+    .lb-{{ blk.id }}-line {
+        {% if blk.direction == 'vertical' %}
+        width: {{ blk.thickness }}mm !important;
+        {% else %}
+        height: {{ blk.thickness }}mm !important;
+        {% endif %}
+    }
+    {% endif %}
+    {% endfor %}
+}
+</style>
+</head>
+<body>
+
+{% if not embed %}
+<div class="toolbar">
+    <span class="toolbar-title">🏷️ {{ copies }} étiquette{{ 's' if copies > 1 }} — {{ W }}×{{ H }}mm</span>
+    <a href="{{ url_for('components.label_editor') }}" class="btn btn-back">← Éditeur</a>
+    <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
+</div>
+{% endif %}
+
+<div class="labels-grid">
+{% for i in range(copies) %}
+<div class="label">
+    {% for blk in blocks %}
+    {% set bx = (blk.x * 4.8)|int %}
+    {% set by = (blk.y * 4.8)|int %}
+    {% set bw = (blk.w * 4.8)|int %}
+    {% set bh = (blk.h * 4.8)|int %}
+
+    <div class="lb lb-{{ blk.id }}"
+         style="left:{{ bx }}px;top:{{ by }}px;width:{{ bw }}px;height:{{ bh }}px;z-index:{{ loop.index }}">
+
+        {% if blk.type == 'text' %}
+        {%- set fv = '' -%}
+        {%- if blk.field == 'custom' -%}
+            {%- set fv = blk.custom_text or '' -%}
+        {%- elif blk.field == 'unit_price' and comp[blk.field] -%}
+            {%- set fv = '%.4f €' | format(comp[blk.field]|float) -%}
+        {%- elif blk.field == 'category' and comp[blk.field] -%}
+            {%- set parts = comp[blk.field].split(' / ') -%}
+            {%- set fv = parts[-1] -%}
+        {%- else -%}
+            {%- set fv = comp.get(blk.field, '') or '' -%}
+        {%- endif -%}
+        <div style="
+            width:100%;height:100%;
+            font-family:{{ blk.font_family or 'Arial' }},sans-serif;
+            font-size:{{ (blk.font_size * 2.83)|round(1) }}px;
+            font-weight:{{ blk.font_weight or 'normal' }};
+            color:{{ blk.color or '#111' }};
+            text-align:{{ blk.align or 'left' }};
+            opacity:{{ blk.opacity or 1 }};
+            line-height:1.3;
+            word-break:break-word;
+            {% if blk.line_clamp and blk.line_clamp > 0 %}
+            display:-webkit-box;-webkit-line-clamp:{{ blk.line_clamp }};-webkit-box-orient:vertical;overflow:hidden;
+            {% endif %}
+            padding:1px 2px;
+        ">{{ fv | e }}</div>
+
+        {% elif blk.type == 'image' %}
+        <div style="
+            width:100%;height:100%;
+            background:{{ blk.bg or '#f8f8f8' }};
+            border-radius:{{ (blk.border_radius or 0) * 2.83 }}px;
+            border:{{ '1px solid ' + (blk.border_color or '#e8e8e8') if blk.border else 'none' }};
+            overflow:hidden;
+            opacity:{{ blk.opacity or 1 }};
+            display:flex;align-items:center;justify-content:center;
+        ">
+            {% if comp.image_path %}
+            <img src="{{ url_for('components.component_image', filename=comp.image_path.split('images/')|last) }}"
+                 style="max-width:100%;max-height:100%;object-fit:{{ blk.fit or 'contain' }};display:block;"
+                 alt=""/>
+            {% else %}
+            <span style="font-size:{{ bh * 0.4 }}px;opacity:.2">📦</span>
+            {% endif %}
+        </div>
+
+        {% elif blk.type == 'qr' %}
+        <div style="
+            width:100%;height:100%;
+            display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+            background:{{ blk.bg or '#fff' }};
+        ">
+            <img src="{{ qr_data_url }}"
+                 style="flex:1;min-height:0;max-width:100%;image-rendering:pixelated;"
+                 alt="QR"/>
+            {% if blk.show_label and comp.lcsc_part_number %}
+            <div style="font-size:{{ (blk.label_size or 1.2) * 2.83 }}px;color:#999;text-align:center;word-break:break-all;line-height:1.1;">
+                {{ comp.lcsc_part_number }}
+            </div>
+            {% endif %}
+        </div>
+
+        {% elif blk.type == 'badge' %}
+        {%- set bv = '' -%}
+        {%- if blk.field == 'custom' -%}
+            {%- set bv = blk.custom_text or '' -%}
+        {%- elif blk.field == 'rohs' -%}
+            {%- set bv = 'RoHS' if comp.get('rohs') == 'YES' else '' -%}
+        {%- elif blk.field == 'quantity' -%}
+            {%- set bv = 'Qté: ' + (comp.get('quantity', '')|string) -%}
+        {%- elif blk.field == 'location' -%}
+            {%- set bv = '📍 ' + (comp.get('location', '')) if comp.get('location') else '' -%}
+        {%- elif blk.field == 'category' -%}
+            {%- set parts = (comp.get('category', '')).split(' / ') -%}
+            {%- set bv = parts[-1] -%}
+        {%- elif blk.field == 'lcsc' -%}
+            {%- set bv = comp.get('lcsc_part_number', '') -%}
+        {%- elif blk.field == 'price' -%}
+            {%- set bv = '%.4f €' | format(comp.get('unit_price', 0)|float) if comp.get('unit_price') else '' -%}
+        {%- else -%}
+            {%- set bv = comp.get(blk.field, '') or '' -%}
+        {%- endif -%}
+        {% if bv %}
+        <div style="
+            width:100%;height:100%;
+            background:{{ blk.bg or '#ebebeb' }};
+            border-radius:{{ (blk.border_radius or 1) * 2.83 }}px;
+            display:flex;align-items:center;justify-content:center;
+            font-family:Arial,sans-serif;
+            font-size:{{ (blk.font_size or 1.6) * 2.83 }}px;
+            font-weight:{{ blk.font_weight or '600' }};
+            color:{{ blk.color or '#333' }};
+            padding:0 3px;
+            white-space:nowrap;overflow:hidden;
+        ">{{ (blk.prefix or '') | e }}{{ bv | e }}</div>
+        {% endif %}
+
+        {% elif blk.type == 'separator' %}
+        <div style="width:100%;height:100%;display:flex;{{ 'align-items:center;' if blk.direction != 'vertical' else 'justify-content:center;' }}">
+            <div class="lb-{{ blk.id }}-line" style="
+                {% if blk.direction == 'vertical' %}
+                height:100%;width:{{ (blk.thickness or 0.5) * 2.83 }}px;
+                {% else %}
+                width:100%;height:{{ (blk.thickness or 0.5) * 2.83 }}px;
+                {% endif %}
+                background:{{ blk.color or '#ccc' }};
+            "></div>
+        </div>
+
+        {% elif blk.type == 'rect' %}
+        <div style="
+            width:100%;height:100%;
+            background:{{ blk.bg or '#f0f4ff' }};
+            border:{{ '%smm solid %s' | format(blk.border_width or 0.3, blk.border_color or '#c7d2fe') if blk.border else 'none' }};
+            border-radius:{{ (blk.border_radius or 2) * 2.83 }}px;
+            opacity:{{ blk.opacity or 1 }};
+        "></div>
+        {% endif %}
+
+    </div>
+    {% endfor %}
+</div>
+{% endfor %}
+</div>
+
+</body>
+</html>

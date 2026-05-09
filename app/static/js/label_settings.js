@@ -1,113 +1,135 @@
-/* StockEleK — label_settings */
+/* StockEleK — label_settings.js — Preview iframe temps réel */
 
-// Ratio aperçu : 1mm = N px — sera recalculé dynamiquement
-const BASE_MM_PX = 4.0;
-
+// ── Helpers ────────────────────────────────────────────────────────────
 function val(id) {
     const el = document.getElementById(id);
-    return el ? (el.type === 'checkbox' ? el.checked : el.value) : null;
+    if (!el) return null;
+    if (el.type === 'checkbox') return el.checked;
+    if (el.type === 'radio')   return document.querySelector(`input[name="${el.name}"]:checked`)?.value;
+    return el.value;
 }
 
 function stepNum(id, delta) {
     const el = document.getElementById(id);
     if (!el) return;
     const v = parseFloat(el.value) || 0;
-    el.value = Math.max(parseFloat(el.min)||0, Math.min(parseFloat(el.max)||999, Math.round((v + delta) * 10) / 10));
-    updatePreview();
+    el.value = Math.max(parseFloat(el.min)||0, Math.min(parseFloat(el.max)||999,
+               Math.round((v + delta) * 10) / 10));
+    schedulePreview();
 }
 
-function updatePreview() {
-    const w  = parseFloat(val('lbl_width_mm'))  || 60;
-    const h  = parseFloat(val('lbl_height_mm')) || 30;
-    const bg = val('lbl_bg_color')   || '#ffffff';
-    const fg = val('lbl_text_color') || '#111111';
-    const descSize  = parseFloat(val('lbl_desc_size_mm'))  || 2.1;
-    const refSize   = parseFloat(val('lbl_ref_size_mm'))   || 1.7;
-    const badgeSize = parseFloat(val('lbl_badge_size_mm')) || 1.4;
+// ── Preview iframe ────────────────────────────────────────────────────
+const PREVIEW_ID = document.querySelector('[data-preview-id]')?.dataset?.previewId || null;
+var _previewTimer = null;
+var _previewPending = false;
 
-    const zone = document.getElementById('ls-preview-zone');
-    const zoneW = zone ? zone.clientWidth - 48 : 480;
-    const zoneH = zone ? zone.clientHeight - 48 : 320;
+function schedulePreview(delay) {
+    clearTimeout(_previewTimer);
+    _previewTimer = setTimeout(refreshPreview, delay || 600);
+    // Mettre à jour les labels hex immédiatement (pas besoin d'attendre)
+    updateColorLabels();
+    updateDimsLabel();
+    updateToggleStyles();
+}
 
-    // Calculer l'échelle pour remplir la zone au maximum
-    const scaleW = zoneW / (w * BASE_MM_PX);
-    const scaleH = zoneH / (h * BASE_MM_PX);
-    const scale  = Math.min(scaleW, scaleH, 2.5); // max 2.5x
-    const pw = Math.round(w * BASE_MM_PX * scale);
-    const ph = Math.round(h * BASE_MM_PX * scale);
+function refreshPreview() {
+    if (!PREVIEW_ID) return;
+    const iframe   = document.getElementById('ls-preview-iframe');
+    const loading  = document.getElementById('ls-preview-loading');
+    if (!iframe)   return;
 
-    const label = document.getElementById('preview-label');
-    label.style.width      = pw + 'px';
-    label.style.height     = ph + 'px';
-    label.style.minWidth   = pw + 'px';
-    label.style.background = bg;
-    label.style.color      = fg;
+    // Construire l'URL avec les params courants
+    const params = collectParams();
+    const url    = `/labels/preview/${PREVIEW_ID}?${params}`;
 
-    document.getElementById('preview-dims').textContent = w + ' × ' + h + ' mm';
+    if (loading) loading.style.display = 'flex';
+    iframe.style.opacity = '0.4';
+    iframe.src = url;
+}
 
-    const toPx = mm => Math.max(7, Math.round(mm * BASE_MM_PX * scale * 0.72)) + 'px';
+function iframeLoaded() {
+    const iframe  = document.getElementById('ls-preview-iframe');
+    const loading = document.getElementById('ls-preview-loading');
+    if (loading) loading.style.display = 'none';
+    if (iframe)  iframe.style.opacity  = '1';
+    scaleiframe();
+}
 
-    // Tailles de police
-    const desc = document.getElementById('prev-desc');
-    if (desc) desc.style.fontSize = toPx(descSize);
-    document.querySelectorAll('#prev-refs > div').forEach(el => el.style.fontSize = toPx(refSize));
-    document.querySelectorAll('#prev-badges > span').forEach(el => {
-        el.style.fontSize = toPx(badgeSize);
-        el.style.padding  = `0 ${Math.max(2, Math.round(scale*1.5))}px`;
+function scaleiframe() {
+    // Le template embed gère lui-même le scale via CSS max-width/max-height
+    // On met juste l'iframe à la bonne hauteur
+    const iframe = document.getElementById('ls-preview-iframe');
+    const zone   = document.getElementById('ls-preview-zone');
+    if (!iframe || !zone) return;
+    iframe.style.width  = '100%';
+    iframe.style.height = zone.clientHeight + 'px';
+}
+
+function collectParams() {
+    const keys = [
+        'lbl_width_mm','lbl_height_mm','lbl_bg_color','lbl_text_color',
+        'lbl_show_image','lbl_show_qr','lbl_show_lcsc','lbl_show_mfr_part',
+        'lbl_show_mfg','lbl_show_package','lbl_show_rohs','lbl_show_qty',
+        'lbl_show_location','lbl_show_category','lbl_show_price','lbl_show_note',
+        'lbl_desc_size_mm','lbl_ref_size_mm','lbl_badge_size_mm',
+        'lbl_color_pkg','lbl_color_rohs','lbl_color_qty','lbl_color_loc','lbl_color_cat',
+        'lbl_copies','lbl_custom_note','lbl_qr_position',
+    ];
+    const p = new URLSearchParams();
+    keys.forEach(k => {
+        const el = document.getElementById(k);
+        if (!el) return;
+        if (el.type === 'checkbox') p.set(k, el.checked ? '1' : '0');
+        else p.set(k, el.value || '');
     });
-    const price = document.getElementById('prev-price');
-    if (price) price.style.fontSize = toPx(refSize);
+    // Orientation — radio button
+    const ori = document.querySelector('input[name="lbl_orientation"]:checked');
+    if (ori) p.set('lbl_orientation', ori.value);
+    return p.toString();
+}
 
-    // Image et QR
-    const imgDiv = document.getElementById('prev-img');
-    if (imgDiv) { imgDiv.style.width = ph + 'px'; imgDiv.style.height = ph + 'px'; }
-    const qrDiv  = document.getElementById('prev-qr');
-    if (qrDiv)  { qrDiv.style.width = Math.round(ph * 0.6) + 'px'; qrDiv.style.height = ph + 'px'; }
+// ── Rétrocompat : updatePreview() déclenche schedulePreview ──────────
+function updatePreview() { schedulePreview(400); }
 
-    // Visibilité
-    toggle('prev-img',   val('lbl_show_image'));
-    toggle('prev-qr',    val('lbl_show_qr'));
-    toggle('prev-lcsc',  val('lbl_show_lcsc'));
-    toggle('prev-mfr',   val('lbl_show_mfr_part'));
-    toggle('prev-mfg',   val('lbl_show_mfg'));
-    toggle('prev-pkg',   val('lbl_show_package'));
-    toggle('prev-rohs',  val('lbl_show_rohs'));
-    toggle('prev-qty',   val('lbl_show_qty'));
-    toggle('prev-loc',   val('lbl_show_location'));
-    toggle('prev-cat',   val('lbl_show_category'));
-    toggle('prev-price', val('lbl_show_price'));
-
-    // Couleurs badges
-    setBadgeBg('prev-pkg',  val('lbl_color_pkg'));
-    setBadgeBg('prev-rohs', val('lbl_color_rohs'));
-    setBadgeBg('prev-qty',  val('lbl_color_qty'));
-    setBadgeBg('prev-loc',  val('lbl_color_loc'));
-    setBadgeBg('prev-cat',  val('lbl_color_cat'));
-
-    // Labels hex des color pickers
+// ── Labels couleurs hex ──────────────────────────────────────────────
+function updateColorLabels() {
     ['lbl_bg_color','lbl_text_color','lbl_color_pkg','lbl_color_rohs',
      'lbl_color_qty','lbl_color_loc','lbl_color_cat'].forEach(id => {
         const vEl = document.getElementById(id + '_val');
         const iEl = document.getElementById(id);
         if (vEl && iEl) vEl.textContent = iEl.value;
     });
+}
 
-    // Toggles visuels
+// ── Dimensions dans la barre ─────────────────────────────────────────
+function updateDimsLabel() {
+    const w   = document.getElementById('lbl_width_mm')?.value  || '?';
+    const h   = document.getElementById('lbl_height_mm')?.value || '?';
+    const ori = document.querySelector('input[name="lbl_orientation"]:checked')?.value;
+    const el  = document.getElementById('preview-dims');
+    if (el) el.textContent = (ori === 'portrait') ? `${h} × ${w} mm` : `${w} × ${h} mm`;
+}
+
+// ── Toggles visuels (les petits switches) ────────────────────────────
+function updateToggleStyles() {
     document.querySelectorAll('input[type=checkbox][id^="lbl_"]').forEach(cb => {
         const track = document.getElementById('tgl-' + cb.name);
         if (track) track.style.background = cb.checked ? 'var(--accent)' : 'var(--border)';
     });
 }
 
-function toggle(id, show) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = show ? '' : 'none';
-}
-function setBadgeBg(id, color) {
-    const el = document.getElementById(id);
-    if (el && color) el.style.background = color;
+// ── Presets ──────────────────────────────────────────────────────────
+function applyPreset(w, h) {
+    const wi = document.getElementById('lbl_width_mm');
+    const hi = document.getElementById('lbl_height_mm');
+    if (wi) wi.value = w;
+    if (hi) hi.value = h;
+    document.querySelectorAll('.ls-preset-btn').forEach(b => b.classList.remove('ls-preset-active'));
+    if (event?.currentTarget) event.currentTarget.classList.add('ls-preset-active');
+    schedulePreview(200);
 }
 
+// ── Reset défauts ────────────────────────────────────────────────────
 function resetDefaults() {
     if (!confirm(CONFIRM_RESET)) return;
     Object.entries(DEFAULTS).forEach(([key, v]) => {
@@ -116,11 +138,28 @@ function resetDefaults() {
         if (el.type === 'checkbox') el.checked = v === '1';
         else el.value = v;
     });
-    updatePreview();
+    schedulePreview(200);
 }
 
-// Recalculer à chaque resize
-window.addEventListener('resize', updatePreview);
+// ── Note toggle ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    var toggleNote  = document.getElementById('lbl_show_note');
+    var noteSection = document.getElementById('note-section');
+    if (toggleNote && noteSection) {
+        toggleNote.addEventListener('change', function() {
+            noteSection.style.display = this.checked ? '' : 'none';
+            schedulePreview();
+        });
+    }
+    // Init
+    updateColorLabels();
+    updateDimsLabel();
+    updateToggleStyles();
+    // Déclencher le premier chargement de l'iframe
+    setTimeout(refreshPreview, 300);
+});
 
-// Init
-updatePreview();
+window.addEventListener('resize', function() {
+    scaleiframe();
+    updateDimsLabel();
+});

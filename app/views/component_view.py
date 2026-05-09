@@ -9,7 +9,8 @@ class ComponentView:
     def render_index(components, category_groups, stats, search, selected_category,
                      sort_by, order, page, per_page, total, total_pages,
                      low_only=False, low_count=0, location_filter="", drawer_letters=None,
-                     drawer_ateliers=None, all_ateliers_map=None):
+                     drawer_ateliers=None, all_ateliers_map=None,
+                     smart_filter="", smart_counts=None):
         # ── Statuts KiCad pour tous les composants de la page ──────────
         # Calculé en batch ici pour ne pas le faire composant par composant
         # dans le template (appels glob répétés = lent).
@@ -35,6 +36,8 @@ class ComponentView:
             page=page, per_page=per_page, total=total, total_pages=total_pages,
             low_only=low_only, low_count=low_count,
             kicad_statuses=kicad_statuses,
+            smart_filter=smart_filter or "",
+            smart_counts=smart_counts or {},
         )
 
     @staticmethod

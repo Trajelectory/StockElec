@@ -25,8 +25,23 @@ from . import component_bp
 
 @component_bp.route("/")
 def home():
-    """Page d'accueil — logo + barre de recherche uniquement."""
-    return render_template("components/home.html")
+    """Page d'accueil — logo + barre de recherche + stats globales."""
+    from ..models.component import ComponentModel
+    from ..models.atelier   import AtelierModel
+    db   = get_db()
+    comp = ComponentModel.get_dashboard_stats()
+    stats = {
+        "total":         comp["n_components"]   if comp else 0,
+        "ruptures":      comp["n_zero"]         if comp else 0,
+        "bas":           comp["n_alerts"]        if comp else 0,
+        "ok":            (comp["n_components"] - comp["n_zero"] - comp["n_alerts"]) if comp else 0,
+        "places":        db.execute("SELECT COUNT(*) FROM components WHERE location IS NOT NULL AND location != ''").fetchone()[0],
+        "non_places":    db.execute("SELECT COUNT(*) FROM components WHERE location IS NULL OR location = ''").fetchone()[0],
+        "ateliers":      len(AtelierModel.get_all()),
+        "projets":       db.execute("SELECT COUNT(*) FROM projects").fetchone()[0],
+        "valeur_totale": round(float(comp["total_value"] or 0), 2) if comp else 0.0,
+    }
+    return render_template("components/home.html", stats=stats)
 
 
 @component_bp.route("/stock")
@@ -41,8 +56,15 @@ def stock():
         per_page = ITEMS_PER_PAGE_DEFAULT
 
     # Filtre "alertes seulement"
-    low_only = request.args.get("low_stock") == "1"
+    low_only      = request.args.get("low_stock") == "1"
     location_filter = request.args.get("location", "").strip()
+    smart_filter  = request.args.get("smart_filter", "").strip()
+
+    # Filtres KiCad filesystem : post-filtrage après get_page
+    # (nécessitent un accès au dossier instance/kicad/)
+    KICAD_FS_FILTERS = {"no_kicad", "no_kicad_sym", "no_kicad_fp", "no_kicad_3d", "no_lcsc_img"}
+    is_kicad_fs = smart_filter in KICAD_FS_FILTERS
+    sql_smart   = None if is_kicad_fs else (smart_filter or None)
 
     components, total = ComponentModel.get_page(
         search=search or None,
@@ -53,7 +75,61 @@ def stock():
         per_page=per_page,
         low_only=low_only,
         location=location_filter,
+        smart_filter=sql_smart,
     )
+
+    # Post-filtrage filesystem pour les filtres KiCad
+    # On charge TOUS les composants (pas juste la page) puis on pagine manuellement
+    if is_kicad_fs:
+        import os
+        kicad_dir = os.path.join(current_app.instance_path, "kicad")
+
+        # Index KiCad commun à tous les filtres KiCad filesystem
+        kicad_idx = ComponentModel.build_kicad_index(kicad_dir)
+
+        # Charger tous les composants (on pagine manuellement ensuite)
+        all_comps, _ = ComponentModel.get_page(
+            search=search or None,
+            category=category or None,
+            sort_by=sort_by, order=order,
+            page=1, per_page=9999,
+            low_only=low_only, location=location_filter,
+        )
+
+        # Fonctions de test par type de fichier manquant
+        def _miss(c, key):
+            return bool(c.lcsc_part_number and
+                        not kicad_idx.get(c.lcsc_part_number, {}).get(key))
+
+        kicad_predicates = {
+            "no_kicad":     lambda c: c.lcsc_part_number and not (
+                                kicad_idx.get(c.lcsc_part_number, {}).get("sym") and
+                                kicad_idx.get(c.lcsc_part_number, {}).get("fp") and
+                                kicad_idx.get(c.lcsc_part_number, {}).get("model")),
+            "no_kicad_sym": lambda c: _miss(c, "sym"),
+            "no_kicad_fp":  lambda c: _miss(c, "fp"),
+            "no_kicad_3d":  lambda c: _miss(c, "model"),
+        }
+
+        if smart_filter in kicad_predicates:
+            filtered   = [c for c in all_comps if kicad_predicates[smart_filter](c)]
+            total      = len(filtered)
+            offset     = (max(page, 1) - 1) * per_page
+            components = filtered[offset:offset + per_page]
+
+        elif smart_filter == "no_lcsc_img":
+            all_comps, _ = ComponentModel.get_page(
+                search=search or None,
+                category=category or None,
+                sort_by=sort_by, order=order,
+                page=1, per_page=9999,
+                low_only=low_only, location=location_filter,
+            )
+            filtered   = [c for c in all_comps
+                          if c.lcsc_part_number and not c.image_path]
+            total      = len(filtered)
+            offset     = (max(page, 1) - 1) * per_page
+            components = filtered[offset:offset + per_page]
     total_pages  = max((total + per_page - 1) // per_page, 1)
     stats        = ComponentModel.get_stats()
     low_count    = ComponentModel.count_low_stock()
@@ -89,6 +165,25 @@ def stock():
     # drawer_letters reste pour rétrocompat (format ancien)
     drawer_letters = sorted(legacy_letters)
 
+    # Compteurs smart_filters pour la sidebar
+    # Cache en mémoire 60s pour éviter les glob() répétés à chaque page
+    import os, time
+    from flask import g
+    _cache_key   = "_smart_counts_cache"
+    _cache_ts_key = "_smart_counts_ts"
+    _CACHE_TTL   = 60  # secondes
+
+    _cached_counts = getattr(current_app, _cache_key, None)
+    _cached_ts     = getattr(current_app, _cache_ts_key, 0)
+    if _cached_counts is None or (time.time() - _cached_ts) > _CACHE_TTL:
+        kicad_dir = os.path.join(current_app.instance_path, "kicad")
+        _cached_counts = ComponentModel.count_smart_filters(
+            kicad_dir=kicad_dir if os.path.isdir(kicad_dir) else None
+        )
+        setattr(current_app, _cache_key,   _cached_counts)
+        setattr(current_app, _cache_ts_key, time.time())
+    smart_counts = _cached_counts
+
     return ComponentView.render_index(
         components=components,
         category_groups=category_groups,
@@ -107,6 +202,8 @@ def stock():
         total_pages=total_pages,
         low_only=low_only,
         low_count=low_count,
+        smart_filter=smart_filter,
+        smart_counts=smart_counts,
     )
 
 

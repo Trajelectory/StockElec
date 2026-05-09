@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr" id="html-root">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Éditeur d'étiquettes — StockEleK</title>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ cache_buster }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ cache_buster }}"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modules/label_editor.css') }}?v={{ cache_buster }}"/>
+<style>html,body{height:100vh;overflow:hidden;margin:0;padding:0;}</style>
+</head>
+<body>
+<div class="le-layout">
+
+  <!-- ══ TOOLBAR ════════════════════════════════════════════════════ -->
+  <div class="le-toolbar">
+    <span class="le-toolbar-title">🏷️ Éditeur</span>
+    <div class="le-toolbar-sep"></div>
+
+    <!-- Undo / Redo -->
+    <button id="le-undo-btn" class="le-toolbar-btn" onclick="historyUndo()" title="Annuler Ctrl+Z">↩</button>
+    <button id="le-redo-btn" class="le-toolbar-btn" onclick="historyRedo()" title="Rétablir Ctrl+Y">↪</button>
+    <div class="le-toolbar-sep"></div>
+
+    <!-- Sélection -->
+    <button class="le-toolbar-btn" onclick="selectAll()"           title="Tout sélectionner Ctrl+A">⊞ Tout</button>
+    <button class="le-toolbar-btn" onclick="duplicateSelected()"   title="Dupliquer Ctrl+D">⧉</button>
+    <button class="le-toolbar-btn le-toolbar-btn--danger" onclick="deleteSelected()" title="Suppr">🗑</button>
+    <div class="le-toolbar-sep"></div>
+
+    <!-- Zoom -->
+    <button class="le-toolbar-btn" onclick="zoomOut()"   title="Zoom − (Ctrl+-)">−</button>
+    <span   id="le-zoom-display"   class="le-zoom-lbl">100%</span>
+    <button class="le-toolbar-btn" onclick="zoomIn()"    title="Zoom + (Ctrl+=)">+</button>
+    <button class="le-toolbar-btn" onclick="zoomReset()" title="Zoom 100% (Ctrl+0)">⊙</button>
+    <div class="le-toolbar-sep"></div>
+
+    <!-- Options -->
+    <label class="le-toolbar-chk" title="Snap grille 1mm">
+      <input type="checkbox" checked onchange="STATE.snapEnabled=this.checked"/> Snap
+    </label>
+    <label class="le-toolbar-chk" title="Guides magnétiques">
+      <input type="checkbox" checked onchange="STATE.guidesEnabled=this.checked"/> Guides
+    </label>
+    <label class="le-toolbar-chk" title="Règles mm">
+      <input type="checkbox" checked onchange="STATE.rulersEnabled=this.checked;renderCanvas()"/> Règles
+    </label>
+    <div class="le-toolbar-sep"></div>
+
+    <!-- Actions -->
+    <button class="le-toolbar-btn" onclick="exportSVG()"  title="Exporter SVG">↓ SVG</button>
+    <button class="le-toolbar-btn" onclick="exportPNG()"  title="Exporter PNG haute résolution">↓ PNG</button>
+    <button class="le-toolbar-btn" onclick="openPrint()"  title="Imprimer">🖨️</button>
+    <button class="le-toolbar-btn le-toolbar-btn--primary" id="le-save-btn" onclick="saveLayout()">💾 Sauvegarder</button>
+    <div class="le-toolbar-sep"></div>
+    <a href="{{ url_for('components.stock') }}" class="le-toolbar-btn">← Stock</a>
+    <span id="le-coord-display" class="le-coord"></span>
+  </div>
+
+  <!-- ══ PANEL BLOCS (gauche) ══════════════════════════════════════ -->
+  <div class="le-blocks-panel">
+
+    <!-- Types de blocs -->
+    <div class="le-blocks-title">➕ Ajouter un bloc</div>
+    <button class="le-block-btn" onclick="addBlock('text')">
+      <div class="le-block-btn-icon" style="background:color-mix(in srgb,#818cf8 15%,#131825);color:#818cf8">T</div>
+      <div class="le-block-btn-info"><span class="le-block-btn-label">Texte</span><span class="le-block-btn-sub">Champ, prix total, texte libre…</span></div>
+    </button>
+    <button class="le-block-btn" onclick="addBlock('image')">
+      <div class="le-block-btn-icon" style="background:color-mix(in srgb,#34d399 15%,#131825);color:#34d399">🖼</div>
+      <div class="le-block-btn-info"><span class="le-block-btn-label">Image</span><span class="le-block-btn-sub">Photo du composant</span></div>
+    </button>
+    <button class="le-block-btn" onclick="addBlock('qr')">
+      <div class="le-block-btn-icon" style="background:color-mix(in srgb,#60a5fa 15%,#131825);color:#60a5fa">▦</div>
+      <div class="le-block-btn-info"><span class="le-block-btn-label">QR Code</span><span class="le-block-btn-sub">Lien vers la fiche</span></div>
+    </button>
+    <button class="le-block-btn" onclick="addBlock('badge')">
+      <div class="le-block-btn-icon" style="background:color-mix(in srgb,#f59e0b 15%,#131825);color:#f59e0b">🏷</div>
+      <div class="le-block-btn-info"><span class="le-block-btn-label">Badge</span><span class="le-block-btn-sub">Package, RoHS, Qté, prix…</span></div>
+    </button>
+    <button class="le-block-btn" onclick="addBlock('separator')">
+      <div class="le-block-btn-icon" style="background:color-mix(in srgb,#94a3b8 15%,#131825);color:#94a3b8">—</div>
+      <div class="le-block-btn-info"><span class="le-block-btn-label">Séparateur</span><span class="le-block-btn-sub">Ligne H ou V, pointillés</span></div>
+    </button>
+    <button class="le-block-btn" onclick="addBlock('rect')">
+      <div class="le-block-btn-icon" style="background:color-mix(in srgb,#e879f9 15%,#131825);color:#e879f9">□</div>
+      <div class="le-block-btn-info"><span class="le-block-btn-label">Rectangle</span><span class="le-block-btn-sub">Zone colorée, arrondie</span></div>
+    </button>
+
+    <!-- Templates -->
+    <div class="le-blocks-title" style="margin-top:4px">⚡ Templates</div>
+    <button class="le-tpl-btn" onclick="applyTemplate('tiroir_simple')">🗄️ Tiroir simple</button>
+    <button class="le-tpl-btn" onclick="applyTemplate('tiroir_compact')">📦 Tiroir compact</button>
+    <button class="le-tpl-btn" onclick="applyTemplate('sachet')">🛍️ Sachet composant</button>
+    <button class="le-tpl-btn" onclick="applyTemplate('boite')">📫 Grande boîte</button>
+    <button class="le-tpl-btn" onclick="applyTemplate('minimal')">✂️ Minimal</button>
+
+    <!-- Layouts nommés -->
+    <div class="le-blocks-title" style="margin-top:4px">💾 Mes layouts</div>
+    <button class="le-tpl-btn le-tpl-btn--accent" onclick="saveNamedLayout()">+ Sauvegarder ce layout…</button>
+    <div id="le-layouts-list" style="padding:4px 0"></div>
+
+    <div style="flex:1"></div>
+
+    <!-- Raccourcis -->
+    <div class="le-shortcuts">
+      <div class="le-shortcut"><kbd>Suppr</kbd> Supprimer</div>
+      <div class="le-shortcut"><kbd>Ctrl+D</kbd> Dupliquer</div>
+      <div class="le-shortcut"><kbd>Ctrl+A</kbd> Tout sélectionner</div>
+      <div class="le-shortcut"><kbd>Ctrl+Z/Y</kbd> Undo/Redo</div>
+      <div class="le-shortcut"><kbd>Ctrl+S</kbd> Sauvegarder</div>
+      <div class="le-shortcut"><kbd>↑↓←→</kbd> Déplacer (×0.1+Shift)</div>
+      <div class="le-shortcut"><kbd>Ctrl+scroll</kbd> Zoom</div>
+      <div class="le-shortcut"><kbd>Shift+resize</kbd> Proportions</div>
+      <div class="le-shortcut"><kbd>Shift+clic</kbd> Multi-sélection</div>
+    </div>
+  </div>
+
+  <!-- ══ CANVAS ZONE (centre) ══════════════════════════════════════ -->
+  <div class="le-canvas-zone" id="le-canvas-zone">
+    <!-- Règle horizontale -->
+    <div class="le-ruler-corner"></div>
+    <div class="le-ruler-h-wrap"><div id="le-ruler-h" class="le-ruler-h"></div></div>
+
+    <!-- Règle verticale + canvas -->
+    <div class="le-ruler-v-wrap"><div id="le-ruler-v" class="le-ruler-v"></div></div>
+    <div class="le-canvas-scroll" id="le-canvas-scroll">
+      <div id="le-canvas-wrap">
+        <div id="le-canvas"></div>
+      </div>
+    </div>
+
+    <!-- Infos bas du canvas -->
+    <div class="le-canvas-info">
+      <span id="le-canvas-dims"></span>
+    </div>
+  </div>
+
+  <!-- ══ PANEL PROPRIÉTÉS (droite) ═════════════════════════════════ -->
+  <div class="le-props-panel">
+    <div class="le-props-header">
+      <span>Propriétés</span>
+      <span id="le-selected-type"></span>
+    </div>
+    <div id="le-panel-content"></div>
+
+    <!-- Preview iframe -->
+    <div class="le-preview-zone">
+      <div class="le-preview-bar">
+        <span>Aperçu temps réel</span>
+        <button onclick="updatePreview()" class="le-preview-refresh" title="Forcer l'aperçu">⟳</button>
+      </div>
+      <div style="position:relative;flex:1;min-height:0">
+        <div class="le-preview-loading" id="le-preview-loading">
+          <span class="le-preview-spinner"></span> Aperçu…
+        </div>
+        {% if preview_comp %}
+        <iframe id="le-preview-iframe" class="le-preview-iframe"
+                src="" frameborder="0" onload="onPreviewLoaded()" scrolling="no"></iframe>
+        {% else %}
+        <div style="font-size:.72rem;color:#4a5a6a;padding:12px;text-align:center">Aucun composant disponible.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ COUCHES (bas centre) ══════════════════════════════════════ -->
+  <div class="le-layers-panel">
+    <div class="le-layers-header" id="le-layers-header">Couches — glisser pour réordonner</div>
+    <div id="le-layers"></div>
+  </div>
+
+</div>
+
+<script>
+const LE_PREVIEW_ID   = {{ preview_comp.id | tojson if preview_comp else 'null' }};
+const LE_PRESETS      = {{ presets | tojson }};
+const LE_COMP         = {{ comp_data | tojson }};
+const LE_SAVED_LAYOUT = {{ saved_layout | tojson }};
+
+function openPrint() {
+    if (!LE_PREVIEW_ID) { alert('Aucun composant disponible.'); return; }
+    const layout = encodeURIComponent(JSON.stringify({ canvas:STATE.canvas, blocks:STATE.blocks }));
+    window.open('/labels/print-layout/' + LE_PREVIEW_ID + '?layout=' + layout, '_blank');
+}
+</script>
+<script src="{{ url_for('static', filename='js/label_editor.js') }}?v={{ cache_buster }}"></script>
+<script>
+initEditor(LE_PREVIEW_ID, LE_COMP, LE_SAVED_LAYOUT, LE_PRESETS);
+</script>
+</body>
+</html>

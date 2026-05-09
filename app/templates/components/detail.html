@@ -628,7 +628,9 @@
     {# Actions #}
     <div class="dc-actions">
       <a href="{{ url_for('components.labels_print', ids=component.id|string) }}"
-         class="btn btn-secondary btn-full" target="_blank">{{ t.detail.btn_label }}</a>
+         class="btn btn-secondary btn-full" target="_blank">🖨️ {{ t.detail.btn_label }}</a>
+      <a href="{{ url_for('components.label_editor') }}"
+         class="btn btn-secondary btn-full">✏️ Éditeur étiquettes</a>
       <a href="{{ url_for('components.edit', component_id=component.id) }}"
          class="btn btn-primary btn-full">{{ t.detail.btn_edit }}</a>
       <form method="post" action="{{ url_for('components.delete', component_id=component.id) }}"

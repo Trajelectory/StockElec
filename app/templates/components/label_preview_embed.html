@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    width: 100%; height: 100%;
+    background: #e8e8e8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ── Étiquette ───────────────────────────────────────────────────── */
+{% set is_portrait = lbl.lbl_orientation == 'portrait' %}
+{% set W = lbl.lbl_height_mm if is_portrait else lbl.lbl_width_mm %}
+{% set H = lbl.lbl_width_mm  if is_portrait else lbl.lbl_height_mm %}
+{% set W_px = (W|float * 4.8)|int %}
+{% set H_px = (H|float * 4.8)|int %}
+{% set qr_pos = lbl.lbl_qr_position or 'right' %}
+
+.label {
+    width:      {{ W_px }}px;
+    height:     {{ H_px }}px;
+    background: {{ lbl.lbl_bg_color }};
+    color:      {{ lbl.lbl_text_color }};
+    display:    flex;
+    flex-direction: {{ 'column' if qr_pos == 'bottom' else 'row' }};
+    overflow:   hidden;
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    border: 1px solid #ccc;
+    /* Scale auto pour rentrer dans la fenêtre */
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+}
+
+/* Image */
+.lbl-img {
+    width: {{ (H_px * 0.67)|int }}px;
+    flex-shrink: 0;
+    background: #f8f8f8;
+    border-right: 1px solid #e8e8e8;
+    display: {{ 'flex' if lbl.lbl_show_image == '1' else 'none' }};
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 4px;
+}
+.lbl-img img {
+    width:  {{ (H_px * 0.55)|int }}px;
+    height: {{ (H_px * 0.55)|int }}px;
+    object-fit: contain;
+    display: block;
+}
+.lbl-img-empty { font-size: 1.8rem; opacity: .2; }
+
+/* Corps */
+.lbl-body {
+    flex: 1;
+    padding: 5px 4px 5px 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+    min-width: 0;
+}
+.lbl-desc {
+    font-size: {{ (lbl.lbl_desc_size_mm|float * 2.83)|round(1) }}px;
+    font-weight: 700;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.lbl-refs { display: flex; flex-direction: column; gap: 1px; margin-top: 1px; }
+.lbl-ref {
+    font-size: {{ (lbl.lbl_ref_size_mm|float * 2.83)|round(1) }}px;
+    color: #333;
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lbl-ref-label { color: #999; font-size: {{ (lbl.lbl_ref_size_mm|float * 2.3)|round(1) }}px; }
+.lbl-lcsc   { display: {{ 'block' if lbl.lbl_show_lcsc     == '1' else 'none' }}; }
+.lbl-mfr    { display: {{ 'block' if lbl.lbl_show_mfr_part == '1' else 'none' }}; }
+.lbl-mfg    { display: {{ 'block' if lbl.lbl_show_mfg      == '1' else 'none' }}; }
+
+.lbl-badges { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; }
+.lbl-badge {
+    font-size: {{ (lbl.lbl_badge_size_mm|float * 2.83)|round(1) }}px;
+    padding: 1px 3px;
+    border-radius: 2px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.b-pkg  { background: {{ lbl.lbl_color_pkg }};  display: {{ 'inline' if lbl.lbl_show_package  == '1' else 'none' }}; }
+.b-rohs { background: {{ lbl.lbl_color_rohs }}; display: {{ 'inline' if lbl.lbl_show_rohs     == '1' else 'none' }}; }
+.b-qty  { background: {{ lbl.lbl_color_qty }};  display: {{ 'inline' if lbl.lbl_show_qty      == '1' else 'none' }}; }
+.b-loc  { background: {{ lbl.lbl_color_loc }};  display: {{ 'inline' if lbl.lbl_show_location == '1' else 'none' }}; }
+.b-cat  { background: {{ lbl.lbl_color_cat }};  display: {{ 'inline' if lbl.lbl_show_category == '1' else 'none' }}; }
+
+.lbl-price {
+    font-size: {{ (lbl.lbl_ref_size_mm|float * 2.83)|round(1) }}px;
+    color: #777;
+    margin-top: 1px;
+    display: {{ 'block' if lbl.lbl_show_price == '1' else 'none' }};
+}
+.lbl-note {
+    font-size: {{ (lbl.lbl_badge_size_mm|float * 2.0)|round(1) }}px;
+    color: #888;
+    font-style: italic;
+    margin-top: 1px;
+    display: {{ 'block' if lbl.lbl_show_note == '1' and lbl.lbl_custom_note else 'none' }};
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* QR droite / gauche */
+.lbl-qr {
+    width: {{ (H_px * 0.42)|int }}px;
+    flex-shrink: 0;
+    display: {{ 'flex' if lbl.lbl_show_qr == '1' and qr_pos in ('right','left') else 'none' }};
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 3px;
+    border-left: 1px solid #ebebeb;
+    background: #fff;
+}
+.lbl-qr img {
+    width:  {{ (H_px * 0.34)|int }}px;
+    height: {{ (H_px * 0.34)|int }}px;
+    image-rendering: pixelated;
+}
+.lbl-qr-ref { font-size: 5px; color: #999; text-align: center; word-break: break-all; }
+
+/* QR bas */
+.lbl-qr-bottom {
+    display: {{ 'flex' if lbl.lbl_show_qr == '1' and qr_pos == 'bottom' else 'none' }};
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 2px 4px;
+    border-top: 1px solid #ebebeb;
+    background: #fff;
+    width: 100%;
+}
+.lbl-qr-bottom img { width: 16px; height: 16px; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+
+<div class="label">
+
+    {# QR à gauche #}
+    {% if lbl.lbl_show_qr == '1' and qr_pos == 'left' %}
+    <div class="lbl-qr" style="border-left:none;border-right:1px solid #ebebeb">
+        <img src="{{ qr_data_url }}" alt="QR"/>
+        <div class="lbl-qr-ref">{{ comp.lcsc_part_number or '' }}</div>
+    </div>
+    {% endif %}
+
+    {# Image #}
+    <div class="lbl-img">
+        {% if comp.image_path %}
+        <img src="{{ url_for('components.component_image', filename=comp.image_path.split('images/')|last) }}"
+             alt="{{ comp.description }}"
+             onerror="this.parentNode.innerHTML='<span class=lbl-img-empty>⚡</span>'"/>
+        {% else %}
+        <span class="lbl-img-empty">⚡</span>
+        {% endif %}
+    </div>
+
+    {# Corps #}
+    <div class="lbl-body">
+        <div class="lbl-desc">{{ comp.description or comp.manufacture_part_number or comp.lcsc_part_number or '—' }}</div>
+
+        <div class="lbl-refs">
+            <div class="lbl-ref lbl-lcsc">
+                <span class="lbl-ref-label">LCSC </span>{{ comp.lcsc_part_number or '—' }}
+            </div>
+            <div class="lbl-ref lbl-mfr">
+                <span class="lbl-ref-label">MFR  </span>{{ comp.manufacture_part_number or '—' }}
+            </div>
+            <div class="lbl-ref lbl-mfg">
+                <span class="lbl-ref-label">MFG  </span>{{ comp.manufacturer or '—' }}
+            </div>
+        </div>
+
+        <div class="lbl-badges">
+            {% if comp.package %}
+            <span class="lbl-badge b-pkg">{{ comp.package }}</span>
+            {% endif %}
+            {% if comp.rohs == 'YES' %}
+            <span class="lbl-badge b-rohs">RoHS</span>
+            {% endif %}
+            <span class="lbl-badge b-qty">Qté: {{ comp.quantity }}</span>
+            {% if comp.location %}
+            <span class="lbl-badge b-loc">📍 {{ comp.location }}</span>
+            {% endif %}
+            {% if comp.category %}
+            <span class="lbl-badge b-cat">{{ comp.category.split(' / ')|last }}</span>
+            {% endif %}
+        </div>
+
+        {% if comp.unit_price %}
+        <div class="lbl-price">{{ "%.4f"|format(comp.unit_price) }} € / pièce</div>
+        {% endif %}
+
+        {% if lbl.lbl_custom_note %}
+        <div class="lbl-note">{{ lbl.lbl_custom_note }}</div>
+        {% endif %}
+    </div>
+
+    {# QR droite #}
+    {% if lbl.lbl_show_qr == '1' and qr_pos in ('right', 'right') %}
+    <div class="lbl-qr">
+        <img src="{{ qr_data_url }}" alt="QR"/>
+        <div class="lbl-qr-ref">{{ comp.lcsc_part_number or '' }}</div>
+    </div>
+    {% endif %}
+
+    {# QR bas #}
+    {% if lbl.lbl_show_qr == '1' and qr_pos == 'bottom' %}
+    <div class="lbl-qr-bottom">
+        <img src="{{ qr_data_url }}" alt="QR"/>
+        <div class="lbl-qr-ref">{{ comp.lcsc_part_number or '' }}</div>
+    </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

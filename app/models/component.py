@@ -55,12 +55,16 @@ class ComponentModel:
 
     @staticmethod
     def get_page(search=None, category=None, sort_by="description", order="asc", location=None,
-                 page=1, per_page=ITEMS_PER_PAGE_DEFAULT, low_only=False):
+                 page=1, per_page=ITEMS_PER_PAGE_DEFAULT, low_only=False, smart_filter=None):
         """
         Retourne (components, total_count) pour la page demandée.
+        smart_filter : no_location | no_price | no_datasheet | no_image |
+                       never_used  | in_project | no_lcsc
+                       (kicad_* filtres gérés côté route via post-filtrage filesystem)
         """
         db = get_db()
-        where, params = _build_where(search, category, low_only=low_only, location=location)
+        where, params = _build_where(search, category, low_only=low_only,
+                                     location=location, smart_filter=smart_filter)
 
         # Compte total
         total = db.execute(
@@ -535,6 +539,133 @@ class ComponentModel:
 
         return result
 
+
+    @staticmethod
+    def build_kicad_index(kicad_dir: str) -> dict:
+        """
+        Construit un index {lcsc_ref: {sym, fp, model}} en un seul glob récursif.
+        Beaucoup plus rapide que N appels glob() individuels.
+        Retourne un dict vide si kicad_dir n'existe pas.
+        """
+        import os, glob as _glob
+        result = {}  # {lcsc_ref: {"sym": bool, "fp": bool, "model": bool}}
+        if not kicad_dir or not os.path.isdir(kicad_dir):
+            return result
+
+        # Un seul glob récursif par extension
+        for path in _glob.glob(os.path.join(kicad_dir, "**", "*.kicad_sym"), recursive=True):
+            # Extraire la ref LCSC depuis le nom du dossier parent (*_C12345)
+            folder = os.path.basename(os.path.dirname(path))
+            if "_C" in folder or "_c" in folder:
+                parts = folder.rsplit("_", 1)
+                if len(parts) == 2:
+                    ref = parts[1]
+                    result.setdefault(ref, {"sym": False, "fp": False, "model": False})
+                    result[ref]["sym"] = True
+
+        for path in _glob.glob(os.path.join(kicad_dir, "**", "*.kicad_mod"), recursive=True):
+            folder = os.path.basename(os.path.dirname(path))
+            if "_C" in folder or "_c" in folder:
+                parts = folder.rsplit("_", 1)
+                if len(parts) == 2:
+                    ref = parts[1]
+                    result.setdefault(ref, {"sym": False, "fp": False, "model": False})
+                    result[ref]["fp"] = True
+
+        for ext in ("*.step", "*.wrl"):
+            for path in _glob.glob(os.path.join(kicad_dir, "**", ext), recursive=True):
+                folder = os.path.basename(os.path.dirname(path))
+                if "_C" in folder or "_c" in folder:
+                    parts = folder.rsplit("_", 1)
+                    if len(parts) == 2:
+                        ref = parts[1]
+                        result.setdefault(ref, {"sym": False, "fp": False, "model": False})
+                        result[ref]["model"] = True
+
+        return result
+
+    @staticmethod
+    def count_smart_filters(kicad_dir: str = None) -> dict:
+        """
+        Retourne les compteurs pour chaque smart_filter de la sidebar.
+        Utilise build_kicad_index() pour les filtres KiCad — un seul glob récursif.
+        """
+        import os
+        db = get_db()
+
+        def _count(extra_where, params=[]):
+            return db.execute(
+                f"SELECT COUNT(*) FROM components {extra_where}", params
+            ).fetchone()[0]
+
+        tables = {r[0] for r in db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+
+        result = {
+            "no_location":  _count("WHERE location IS NULL OR location = ''"),
+            "no_price":     _count("WHERE unit_price IS NULL OR unit_price = 0"),
+            "no_datasheet": _count("WHERE datasheet_url IS NULL OR datasheet_url = ''"),
+            "no_image":     _count("WHERE image_path IS NULL OR image_path = ''"),
+            "no_lcsc":      _count("WHERE lcsc_part_number IS NULL OR lcsc_part_number = ''"),
+            "never_used":   0,
+            "in_project":   0,
+            "no_kicad":     0,
+            "no_kicad_sym": 0,
+            "no_kicad_fp":  0,
+            "no_kicad_3d":  0,
+            "no_lcsc_img":  0,
+        }
+
+        if "stock_movements" in tables:
+            result["never_used"] = _count("""
+                WHERE id NOT IN (
+                    SELECT DISTINCT component_id FROM stock_movements
+                    WHERE type IN ('out','project_use') AND component_id IS NOT NULL
+                )""")
+
+        if "project_components" in tables:
+            result["in_project"] = _count("""
+                WHERE id IN (
+                    SELECT DISTINCT component_id FROM project_components
+                    WHERE component_id IS NOT NULL
+                )""")
+
+        # Filtres KiCad — un seul glob récursif via build_kicad_index
+        kicad_idx = ComponentModel.build_kicad_index(kicad_dir) if kicad_dir else {}
+
+        # Charger toutes les refs LCSC de la DB en une seule requête
+        refs = [r[0] for r in db.execute(
+            "SELECT lcsc_part_number FROM components "
+            "WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != ''"
+        ).fetchall()]
+
+        # 3 compteurs indépendants — chaque composant peut manquer l'un, deux, ou les trois
+        result["no_kicad_sym"] = sum(
+            1 for ref in refs if not kicad_idx.get(ref, {}).get("sym")
+        )
+        result["no_kicad_fp"] = sum(
+            1 for ref in refs if not kicad_idx.get(ref, {}).get("fp")
+        )
+        result["no_kicad_3d"] = sum(
+            1 for ref in refs if not kicad_idx.get(ref, {}).get("model")
+        )
+        # Rétrocompat : no_kicad = union des 3 (au moins un manquant)
+        result["no_kicad"] = sum(
+            1 for ref in refs
+            if not (kicad_idx.get(ref, {}).get("sym")
+                    and kicad_idx.get(ref, {}).get("fp")
+                    and kicad_idx.get(ref, {}).get("model"))
+        )
+
+        # no_lcsc_img = LCSC ref présente mais pas d'image téléchargée
+        result["no_lcsc_img"] = _count(
+            "WHERE lcsc_part_number IS NOT NULL AND lcsc_part_number != '' "
+            "AND (image_path IS NULL OR image_path = '')"
+        )
+
+        return result
+
     @staticmethod
     def count_low_stock() -> int:
         db = get_db()
@@ -862,7 +993,7 @@ _ALLOWED_SORTS = {
 }
 
 
-def _build_where(search, category, low_only=False, location=None):
+def _build_where(search, category, low_only=False, location=None, smart_filter=None):
     where = "WHERE 1=1"
     params = []
 
@@ -893,6 +1024,44 @@ def _build_where(search, category, low_only=False, location=None):
     if location:
         where += " AND location LIKE ?"
         params.append(f"{location}%")
+
+    # ── Filtres intelligents ────────────────────────────────────────────
+    if smart_filter == "no_location":
+        # Sans emplacement de rangement
+        where += " AND (location IS NULL OR location = '')"
+
+    elif smart_filter == "no_price":
+        # Sans prix unitaire
+        where += " AND (unit_price IS NULL OR unit_price = 0)"
+
+    elif smart_filter == "no_datasheet":
+        # Sans datasheet
+        where += " AND (datasheet_url IS NULL OR datasheet_url = '')"
+
+    elif smart_filter == "no_image":
+        # Sans image (image_path = None)
+        where += " AND (image_path IS NULL OR image_path = '')"
+
+    elif smart_filter == "never_used":
+        # Jamais sorti du stock (aucun mouvement de type out/project_use)
+        where += """ AND id NOT IN (
+            SELECT DISTINCT component_id FROM stock_movements
+            WHERE type IN ('out','project_use') AND component_id IS NOT NULL
+        )"""
+
+    elif smart_filter == "in_project":
+        # Utilisé dans au moins un projet
+        where += """ AND id IN (
+            SELECT DISTINCT component_id FROM project_components
+            WHERE component_id IS NOT NULL
+        )"""
+
+    elif smart_filter == "no_lcsc":
+        # Sans référence LCSC (complétude fournisseur)
+        where += " AND (lcsc_part_number IS NULL OR lcsc_part_number = '')"
+
+    # Note : les filtres kicad_* et lcsc_image sont calculés côté Python
+    # (nécessitent un accès au filesystem), pas en SQL pur.
 
     return where, params
 

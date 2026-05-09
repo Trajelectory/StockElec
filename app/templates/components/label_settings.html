@@ -9,14 +9,31 @@
         <a href="{{ url_for('components.labels_print', ids=preview_comp.id|string) }}"
            target="_blank" class="btn btn-secondary">{{ t.labels.btn_test_print }}</a>
         {% endif %}
+        <a href="{{ url_for('components.label_editor') }}" class="btn btn-primary">✏️ Éditeur avancé</a>
         <a href="{{ url_for('components.stock') }}" class="btn btn-secondary">{{ t.labels.back }}</a>
     </div>
 </div>
 
-<div class="ls-layout">
+<div class="ls-layout" data-preview-id="{% if preview_comp %}{{ preview_comp.id }}{% endif %}">
+<!-- data-preview-id lié au JS via querySelector -->
 
     <!-- ══ CONFIG (gauche) ═══════════════════════════════════════════ -->
     <form method="post" id="cfg-form" class="ls-config">
+
+        <!-- ── Presets ─────────────────────────────────────────── -->
+        <div class="ls-section">
+            <div class="ls-section-title">⚡ Formats prédéfinis</div>
+            <div class="ls-presets-grid">
+                {% for pid, preset in presets.items() %}
+                <button type="button" class="ls-preset-btn"
+                        onclick="applyPreset({{ preset.lbl_width_mm }}, {{ preset.lbl_height_mm }})"
+                        title="{{ preset.label }}">
+                    <span class="ls-preset-name">{{ preset.label.split('(')[0].strip() }}</span>
+                    <span class="ls-preset-dims">{{ preset.lbl_width_mm }}×{{ preset.lbl_height_mm }}mm</span>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
 
         <!-- Format -->
         <div class="ls-section">
@@ -42,6 +59,46 @@
                     <button type="button" class="ls-step-btn" onclick="stepNum('lbl_height_mm',+1)">+</button>
                 </div>
                 <span class="ls-unit">mm</span>
+            </div>
+        </div>
+
+        <!-- Orientation & position QR -->
+        <div class="ls-section">
+            <div class="ls-section-title">🔄 Disposition</div>
+            <div class="ls-row">
+                <span class="ls-row-label">Orientation</span>
+                <div class="ls-radio-group">
+                    <label class="ls-radio-btn {% if config.lbl_orientation == 'landscape' %}ls-radio-active{% endif %}">
+                        <input type="radio" name="lbl_orientation" value="landscape"
+                               {% if config.lbl_orientation != 'portrait' %}checked{% endif %}
+                               onchange="updatePreview()"/> 🖼️ Paysage
+                    </label>
+                    <label class="ls-radio-btn {% if config.lbl_orientation == 'portrait' %}ls-radio-active{% endif %}">
+                        <input type="radio" name="lbl_orientation" value="portrait"
+                               {% if config.lbl_orientation == 'portrait' %}checked{% endif %}
+                               onchange="updatePreview()"/> 📄 Portrait
+                    </label>
+                </div>
+            </div>
+            <div class="ls-row">
+                <span class="ls-row-label">Position QR</span>
+                <select name="lbl_qr_position" id="lbl_qr_position"
+                        class="ls-select" onchange="updatePreview()">
+                    <option value="right"  {% if config.lbl_qr_position == 'right'  %}selected{% endif %}>▶ Droite</option>
+                    <option value="left"   {% if config.lbl_qr_position == 'left'   %}selected{% endif %}>◀ Gauche</option>
+                    <option value="bottom" {% if config.lbl_qr_position == 'bottom' %}selected{% endif %}>▼ Bas</option>
+                    <option value="none"   {% if config.lbl_qr_position == 'none'   %}selected{% endif %}>✕ Masqué</option>
+                </select>
+            </div>
+            <div class="ls-row">
+                <span class="ls-row-label">Copies / étiquette</span>
+                <div class="ls-stepper">
+                    <button type="button" class="ls-step-btn" onclick="stepNum('lbl_copies',-1)">−</button>
+                    <input type="number" name="lbl_copies" id="lbl_copies"
+                           value="{{ config.lbl_copies or '1' }}" min="1" max="20"
+                           class="ls-num-input"/>
+                    <button type="button" class="ls-step-btn" onclick="stepNum('lbl_copies',+1)">+</button>
+                </div>
             </div>
         </div>
 
@@ -116,7 +173,28 @@
                 {{ t.labels[tkey] }}
             </label>
             {% endfor %}
+            <label class="ls-toggle-row">
+                <span class="ls-tgl-wrap">
+                    <input type="checkbox" name="lbl_show_note" id="lbl_show_note"
+                           {% if config.lbl_show_note == '1' %}checked{% endif %}
+                           onchange="updatePreview()"/>
+                    <span class="ls-tgl-track" id="tgl-lbl_show_note"></span>
+                </span>
+                Note personnalisée
+            </label>
             </div>
+        </div>
+
+        <!-- Note personnalisée -->
+        <div class="ls-section" id="note-section" style="{{ 'display:none' if config.lbl_show_note != '1' else '' }}">
+            <div class="ls-section-title">✏️ Note personnalisée</div>
+            <div class="ls-row">
+                <input type="text" name="lbl_custom_note" id="lbl_custom_note"
+                       value="{{ config.lbl_custom_note or '' }}"
+                       placeholder="Ex: Lot 2025-05 · Réservé projet X"
+                       class="ls-text-input" oninput="updatePreview()"/>
+            </div>
+            <p class="ls-hint">Cette note apparaîtra sur toutes les étiquettes imprimées.</p>
         </div>
 
         <!-- Couleurs badges -->
@@ -148,72 +226,42 @@
 
     </form>
 
-    <!-- ══ PREVIEW (droite) ══════════════════════════════════════════ -->
+    <!-- ══ PREVIEW (droite) — iframe temps réel ═════════════════════ -->
     <div class="ls-preview-col">
         <div class="ls-preview-card">
             <div class="ls-preview-bar">
-                <span class="ls-preview-title">{{ t.labels.preview_title }}</span>
+                <span class="ls-preview-title">Aperçu temps réel</span>
                 <span class="ls-preview-dims" id="preview-dims">
                     {{ config.lbl_width_mm }} × {{ config.lbl_height_mm }} mm
                 </span>
+                <button type="button" class="ls-preview-refresh" onclick="refreshPreview()" title="Forcer le rechargement">⟳</button>
             </div>
 
-            <!-- Zone d'aperçu -->
-            <div class="ls-preview-zone" id="ls-preview-zone">
-                <div id="preview-label" class="ls-label-el">
-
-                    <!-- Image -->
-                    <div id="prev-img" class="ls-prev-img">
-                        {% if preview_comp and preview_comp.image_path %}
-                        <img src="{{ url_for('components.component_image', filename=preview_comp.image_path.split('images/')|last) }}"
-                             id="prev-img-el" alt="" class="ls-prev-img-el"/>
-                        {% else %}
-                        <span id="prev-img-el" style="font-size:2rem;opacity:.2">📦</span>
-                        {% endif %}
-                    </div>
-
-                    <!-- Corps -->
-                    <div id="prev-body" class="ls-prev-body">
-                        <div id="prev-desc" class="ls-prev-desc">
-                            {{ (preview_comp.description or 'Description du composant')[:40] if preview_comp else 'Description du composant' }}
-                        </div>
-                        <div id="prev-refs" class="ls-prev-refs">
-                            <div id="prev-lcsc" class="ls-prev-mono">
-                                <span class="ls-prev-lbl">{{ t.labels.preview_lcsc }} </span>{{ preview_comp.lcsc_part_number or '—' if preview_comp else 'C149504' }}
-                            </div>
-                            <div id="prev-mfr" class="ls-prev-mono">
-                                <span class="ls-prev-lbl">{{ t.labels.preview_mfr }}  </span>{{ preview_comp.manufacture_part_number or '—' if preview_comp else '0805W8F1003T5E' }}
-                            </div>
-                            <div id="prev-mfg" class="ls-prev-mono">
-                                <span class="ls-prev-lbl">{{ t.labels.preview_mfg }}  </span>{{ preview_comp.manufacturer or '—' if preview_comp else 'UNI-ROYAL' }}
-                            </div>
-                        </div>
-                        <div id="prev-badges" class="ls-prev-badges">
-                            <span id="prev-pkg"  class="ls-prev-badge" style="background:{{ config.lbl_color_pkg }}">{{ preview_comp.package or '0805' if preview_comp else '0805' }}</span>
-                            <span id="prev-rohs" class="ls-prev-badge" style="background:{{ config.lbl_color_rohs }}">{{ t.labels.preview_rohs }}</span>
-                            <span id="prev-qty"  class="ls-prev-badge" style="background:{{ config.lbl_color_qty }}">{{ t.labels.preview_qty }}: {{ preview_comp.quantity if preview_comp else '10' }}</span>
-                            <span id="prev-loc"  class="ls-prev-badge" style="background:{{ config.lbl_color_loc }}">📍 {{ preview_comp.location or 'A3' if preview_comp else 'A3' }}</span>
-                            <span id="prev-cat"  class="ls-prev-badge" style="background:{{ config.lbl_color_cat }}">{% if preview_comp and preview_comp.category %}{{ preview_comp.category.split(' / ')|last }}{% else %}Resistors{% endif %}</span>
-                        </div>
-                        <div id="prev-price" class="ls-prev-mono">
-                            {{ "%.4f"|format(preview_comp.unit_price) ~ ' € / pièce' if preview_comp and preview_comp.unit_price else '0.0020 € / pièce' }}
-                        </div>
-                    </div>
-
-                    <!-- QR -->
-                    <div id="prev-qr" class="ls-prev-qr">
-                        <div class="ls-qr-dots">
-                            {% for i in range(25) %}
-                            <div class="ls-qr-dot {% if i in [0,1,2,3,4,5,9,10,14,15,19,20,21,22,23,24,6,8,11,13,16,18] %}ls-qr-dark{% else %}ls-qr-light{% endif %}"></div>
-                            {% endfor %}
-                        </div>
-                        <div class="ls-qr-ref">{{ preview_comp.lcsc_part_number if preview_comp else 'C149504' }}</div>
-                    </div>
-
+            <!-- Iframe — affiche le vrai rendu d'impression -->
+            <div class="ls-preview-zone ls-preview-zone--iframe" id="ls-preview-zone">
+                <div class="ls-preview-loading" id="ls-preview-loading">
+                    <span class="ls-preview-spinner"></span>
+                    Génération de l'aperçu…
                 </div>
+                <iframe id="ls-preview-iframe"
+                        {% if preview_comp %}
+                        src="{{ url_for('components.labels_print', ids=preview_comp.id|string) }}"
+                        {% endif %}
+                        class="ls-preview-iframe"
+                        scrolling="auto"
+                        onload="iframeLoaded()"
+                        frameborder="0">
+                </iframe>
             </div>
 
-            <p class="ls-preview-note">{{ t.labels.hint_preview }}</p>
+            <p class="ls-preview-note">
+                💡 Cet aperçu est le <strong>rendu exact</strong> de l'impression.
+                {% if preview_comp %}
+                    Composant testé : <em>{{ preview_comp.description[:30] }}</em>
+                {% else %}
+                    Ajoutez un composant pour voir l'aperçu.
+                {% endif %}
+            </p>
         </div>
     </div>
 
@@ -223,15 +271,18 @@
 /* Variables injectées par Jinja */
 const DEFAULTS = {{ {
     'lbl_width_mm': '60', 'lbl_height_mm': '30',
+    'lbl_orientation': 'landscape', 'lbl_qr_position': 'right',
     'lbl_bg_color': '#ffffff', 'lbl_text_color': '#111111',
     'lbl_show_image': '1', 'lbl_show_qr': '1',
     'lbl_show_lcsc': '1', 'lbl_show_mfr_part': '1', 'lbl_show_mfg': '1',
     'lbl_show_package': '1', 'lbl_show_rohs': '1', 'lbl_show_qty': '1',
     'lbl_show_location': '1', 'lbl_show_category': '1', 'lbl_show_price': '1',
+    'lbl_show_note': '1', 'lbl_custom_note': '', 'lbl_copies': '1',
     'lbl_desc_size_mm': '2.1', 'lbl_ref_size_mm': '1.7', 'lbl_badge_size_mm': '1.4',
     'lbl_color_pkg': '#ebebeb', 'lbl_color_rohs': '#d4f0dd',
     'lbl_color_qty': '#d0e8ff', 'lbl_color_loc': '#fff3cc', 'lbl_color_cat': '#efe8ff',
 } | tojson }};
+const PRESETS = {{ presets | tojson }};
 const CONFIRM_RESET = {{ t.labels.confirm_reset_all | tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/label_settings.js') }}?v={{ cache_buster }}"></script>

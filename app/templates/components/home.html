@@ -28,6 +28,60 @@
 
 </div>
 
+  {% if stats %}
+  <div class="home-stats">
+
+    <a href="{{ url_for('components.stock') }}" class="home-stat-card">
+      <span class="home-stat-icon">📦</span>
+      <span class="home-stat-val">{{ stats.total }}</span>
+      <span class="home-stat-lbl">Références</span>
+    </a>
+
+    <a href="{{ url_for('components.stock', low_stock='1') }}" class="home-stat-card home-stat-card--warn">
+      <span class="home-stat-icon">⚠️</span>
+      <span class="home-stat-val">{{ stats.ruptures + stats.bas }}</span>
+      <span class="home-stat-lbl">Alertes stock</span>
+    </a>
+
+    <a href="{{ url_for('components.stock', stock_filter='rupture') }}" class="home-stat-card home-stat-card--danger">
+      <span class="home-stat-icon">🔴</span>
+      <span class="home-stat-val">{{ stats.ruptures }}</span>
+      <span class="home-stat-lbl">Ruptures</span>
+    </a>
+
+    <a href="{{ url_for('components.stock') }}" class="home-stat-card home-stat-card--success">
+      <span class="home-stat-icon">✅</span>
+      <span class="home-stat-val">{{ stats.ok }}</span>
+      <span class="home-stat-lbl">En stock</span>
+    </a>
+
+    <a href="{{ url_for('components.stock', smart_filter='no_location') }}" class="home-stat-card">
+      <span class="home-stat-icon">📍</span>
+      <span class="home-stat-val">{{ stats.places }}</span>
+      <span class="home-stat-lbl">Placés</span>
+    </a>
+
+    <a href="{{ url_for('components.rangement.index') if 'rangement' in url_for.__module__ else '#' }}" class="home-stat-card">
+      <span class="home-stat-icon">🗄️</span>
+      <span class="home-stat-val">{{ stats.ateliers }}</span>
+      <span class="home-stat-lbl">Atelier{{ 's' if stats.ateliers > 1 else '' }}</span>
+    </a>
+
+    <a href="{{ url_for('projects.index') }}" class="home-stat-card">
+      <span class="home-stat-icon">🗂️</span>
+      <span class="home-stat-val">{{ stats.projets }}</span>
+      <span class="home-stat-lbl">Projet{{ 's' if stats.projets > 1 else '' }}</span>
+    </a>
+
+    <a href="{{ url_for('components.stock') }}" class="home-stat-card home-stat-card--accent">
+      <span class="home-stat-icon">💶</span>
+      <span class="home-stat-val">{{ "%.2f"|format(stats.valeur_totale) }} €</span>
+      <span class="home-stat-lbl">Valeur totale</span>
+    </a>
+
+  </div>
+  {% endif %}
+
 <script>
 (function() {
   // ── Swap logo thème clair/sombre ────────────────────────────

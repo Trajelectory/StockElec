@@ -47,7 +47,7 @@
 {% block content %}
 {%- macro sort_url(col) -%}
 {%- set new_order = 'asc' if (sort_by == col and order == 'desc') else ('desc' if sort_by == col else 'asc') -%}
-{{ url_for('components.stock', search=search, category=selected_category, sort_by=col, order=new_order, per_page=per_page, page=1, low_stock='1' if low_only else '') }}
+{{ url_for('components.stock', search=search, category=selected_category, sort_by=col, order=new_order, per_page=per_page, page=1, low_stock='1' if low_only else '', smart_filter=smart_filter or '') }}
 {%- endmacro -%}
 {%- macro sort_icon(col) -%}
 {% if sort_by == col %}<span class="sk-sort-icon">{{ '↑' if order == 'asc' else '↓' }}</span>{% endif %}
@@ -58,6 +58,7 @@
   {# ── Sidebar ─────────────────────────────────────────────────── #}
   <aside class="sk-sidebar">
 
+    {# ── Stats ─────────────────────────────────────────────────── #}
     <div class="sk-stats">
       <div class="sk-stat">
         <span class="sk-stat-lbl">{{ t.stock.stats_refs }}</span>
@@ -73,98 +74,145 @@
       </div>
     </div>
 
-    <div class="sk-quick-filters">
-      <div class="sk-section-title">{{ t.stock.filter }}</div>
-      <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
-         class="sk-qf-btn {% if not low_only and not selected_category %}sk-qf-active{% endif %}">
-        {{ t.stock.all_categories }}
-        <span class="sk-qf-count">{{ stats.total_references }}</span>
-      </a>
-      {% if low_count > 0 %}
-      <a href="{{ url_for('components.stock', low_stock='1', sort_by=sort_by, order=order, per_page=per_page) }}"
-         class="sk-qf-btn sk-qf-warn {% if low_only %}sk-qf-active{% endif %}">
-        🔔 {{ t.stock.alert_banner if low_count == 1 else t.stock.alert_banner_plural }}
-        <span class="sk-qf-count">{{ low_count }}</span>
-      </a>
-      {% endif %}
+    {# ── Macros smart filters ──────────────────────────────────── #}
+    {%- macro sf_url(key) -%}{{ url_for('components.stock', smart_filter=key if smart_filter != key else '', sort_by=sort_by, order=order, per_page=per_page, page=1) }}{%- endmacro -%}
+    {%- macro sf_btn(key, icon, label, count, cls="") -%}
+    <a href="{{ sf_url(key) }}" class="sk-sf-btn {{ 'sk-sf-active' if smart_filter == key else '' }} {{ cls }}" title="{{ label }}">
+      <span class="sk-sf-icon">{{ icon }}</span>
+      <span class="sk-sf-label">{{ label }}</span>
+      {%- if count > 0 %}<span class="sk-sf-count {{ 'sk-sf-count--warn' if cls else '' }}">{{ count }}</span>{%- endif %}
+    </a>
+    {%- endmacro -%}
+
+    {# ── Accordéon : Filtrer ───────────────────────────────────── #}
+    <div class="sk-accordion" data-section="filtre">
+      <button class="sk-accordion-hdr" onclick="skToggle('filtre')">
+        <span>{{ t.stock.filter }}</span>
+        <span class="sk-accordion-icon">▾</span>
+      </button>
+      <div class="sk-accordion-body">
+        <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
+           class="sk-qf-btn {% if not low_only and not selected_category and not smart_filter %}sk-qf-active{% endif %}">
+          {{ t.stock.all_categories }}
+          <span class="sk-qf-count">{{ stats.total_references }}</span>
+        </a>
+        {% if low_count > 0 %}
+        <a href="{{ url_for('components.stock', low_stock='1', sort_by=sort_by, order=order, per_page=per_page) }}"
+           class="sk-qf-btn sk-qf-warn {% if low_only %}sk-qf-active{% endif %}">
+          🔔 {{ t.stock.alert_banner if low_count == 1 else t.stock.alert_banner_plural }}
+          <span class="sk-qf-count">{{ low_count }}</span>
+        </a>
+        {% endif %}
+      </div>
     </div>
 
-    {% if drawer_ateliers or drawer_letters %}
-    <div class="sk-quick-filters">
-      <div class="sk-section-title">Rangement</div>
-      <div style="display:flex;flex-direction:column;gap:.4rem;padding:.5rem .6rem">
-        <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
-           class="sk-qf-btn {% if not location_filter %}sk-qf-active{% endif %}"
-           style="padding:.2rem .6rem;font-size:.75rem;border-radius:5px;border:1px solid var(--border)">
-          Tout
-        </a>
+    {# ── Accordéon : Complétion & KiCad ───────────────────────── #}
+    <div class="sk-accordion" data-section="completion">
+      <button class="sk-accordion-hdr" onclick="skToggle('completion')">
+        <span>Complétion &amp; KiCad</span>
+        <span class="sk-accordion-icon">▾</span>
+      </button>
+      <div class="sk-accordion-body">
+        <div class="sk-accordion-sub-title">Complétion</div>
+        {{ sf_btn("no_location",  "📍", "Non placés",           smart_counts.get("no_location", 0),  "sk-sf-warn") }}
+        {{ sf_btn("no_price",     "💰", "Sans prix",            smart_counts.get("no_price", 0)) }}
+        {{ sf_btn("no_datasheet", "📄", "Sans datasheet",       smart_counts.get("no_datasheet", 0)) }}
+        {{ sf_btn("no_image",     "🖼️", "Sans image",           smart_counts.get("no_image", 0)) }}
+        {{ sf_btn("no_lcsc",      "🔗", "Sans ref LCSC",        smart_counts.get("no_lcsc", 0)) }}
+        <div class="sk-accordion-sub-title">KiCad</div>
+        {{ sf_btn("no_kicad",     "🔧", "Incomplet (sym/fp/3D)", smart_counts.get("no_kicad", 0),     "sk-sf-warn") }}
+        {{ sf_btn("no_kicad_sym", "◈",  "Sans symbole",          smart_counts.get("no_kicad_sym", 0), "sk-sf-warn") }}
+        {{ sf_btn("no_kicad_fp",  "⬡",  "Sans footprint",        smart_counts.get("no_kicad_fp", 0),  "sk-sf-warn") }}
+        {{ sf_btn("no_kicad_3d",  "📦", "Sans modèle 3D",        smart_counts.get("no_kicad_3d", 0)) }}
+        {{ sf_btn("no_lcsc_img",  "🖥️", "Image LCSC manquante",  smart_counts.get("no_lcsc_img", 0)) }}
+        <div class="sk-accordion-sub-title">Utilisation</div>
+        {{ sf_btn("in_project", "🗂️", "Dans un projet",  smart_counts.get("in_project", 0)) }}
+        {{ sf_btn("never_used", "💤", "Jamais utilisé",  smart_counts.get("never_used", 0)) }}
+      </div>
+    </div>
 
-        {# Ateliers avec format nouveau atelier_id:plateau #}
-        {% for atelier_id, plateaux in drawer_ateliers.items() %}
-        {% set a = all_ateliers_map.get(atelier_id) %}
-        <div style="margin-top:.15rem">
-          <div style="font-size:.65rem;font-weight:700;color:var(--text-muted);
-                      text-transform:uppercase;letter-spacing:.06em;
-                      padding:.1rem .2rem;margin-bottom:.2rem">
-            {{ a.emoji if a else '📦' }} {{ a.name if a else atelier_id }}
+    {# ── Accordéon : Rangement ─────────────────────────────────── #}
+    {% if drawer_ateliers or drawer_letters %}
+    <div class="sk-accordion" data-section="rangement">
+      <button class="sk-accordion-hdr" onclick="skToggle('rangement')">
+        <span>Rangement</span>
+        <span class="sk-accordion-icon">▾</span>
+      </button>
+      <div class="sk-accordion-body">
+        <div style="display:flex;flex-direction:column;gap:.4rem;padding:.5rem .6rem">
+          <a href="{{ url_for('components.stock', sort_by=sort_by, order=order, per_page=per_page) }}"
+             class="sk-qf-btn {% if not location_filter %}sk-qf-active{% endif %}"
+             style="padding:.2rem .6rem;font-size:.75rem;border-radius:5px;border:1px solid var(--border)">
+            Tout
+          </a>
+          {% for atelier_id, plateaux in drawer_ateliers.items() %}
+          {% set a = all_ateliers_map.get(atelier_id) %}
+          <div style="margin-top:.15rem">
+            <div style="font-size:.65rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;padding:.1rem .2rem;margin-bottom:.2rem">
+              {{ a.emoji if a else '📦' }} {{ a.name if a else atelier_id }}
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:.25rem">
+              {% for pid in plateaux | sort %}
+              {% set filter_val = atelier_id ~ ":" ~ pid %}
+              <a href="{{ url_for('components.stock', location=filter_val, sort_by=sort_by, order=order, per_page=per_page) }}"
+                 class="sk-qf-btn {% if location_filter == filter_val %}sk-qf-active{% endif %}"
+                 style="padding:.2rem .5rem;font-family:var(--mono);font-size:.72rem;border-radius:5px;border:1px solid var(--border)">
+                {{ pid }}
+              </a>
+              {% endfor %}
+            </div>
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:.25rem">
-            {% for pid in plateaux | sort %}
-            {% set filter_val = atelier_id ~ ":" ~ pid %}
-            <a href="{{ url_for('components.stock', location=filter_val, sort_by=sort_by, order=order, per_page=per_page) }}"
-               class="sk-qf-btn {% if location_filter == filter_val %}sk-qf-active{% endif %}"
+          {% endfor %}
+          {% if drawer_letters %}
+          <div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.15rem">
+            {% for letter in drawer_letters %}
+            <a href="{{ url_for('components.stock', location=letter, sort_by=sort_by, order=order, per_page=per_page) }}"
+               class="sk-qf-btn {% if location_filter == letter %}sk-qf-active{% endif %}"
                style="padding:.2rem .5rem;font-family:var(--mono);font-size:.72rem;border-radius:5px;border:1px solid var(--border)">
-              {{ pid }}
+              {{ letter }}
             </a>
             {% endfor %}
           </div>
+          {% endif %}
         </div>
-        {% endfor %}
-
-        {# Ancien format (rétrocompat) #}
-        {% if drawer_letters %}
-        <div style="display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.15rem">
-          {% for letter in drawer_letters %}
-          <a href="{{ url_for('components.stock', location=letter, sort_by=sort_by, order=order, per_page=per_page) }}"
-             class="sk-qf-btn {% if location_filter == letter %}sk-qf-active{% endif %}"
-             style="padding:.2rem .5rem;font-family:var(--mono);font-size:.72rem;border-radius:5px;border:1px solid var(--border)">
-            {{ letter }}
-          </a>
-          {% endfor %}
-        </div>
-        {% endif %}
-
       </div>
     </div>
     {% endif %}
 
+    {# ── Accordéon : Catégories ────────────────────────────────── #}
     {% if category_groups %}
-    <div class="sk-cat-nav">
-      <div class="sk-section-title">{{ t.stock.sort_category }}</div>
-      <div style="padding:.4rem .6rem .35rem;position:relative">
-        <input type="text" id="cat-search" placeholder="{{ t.stock.ph_cat }}"
-               oninput="filterCats(this.value)"/>
-      </div>
-      {% for group in category_groups %}
-      <div class="sk-cat-group">
-        {% if group.group %}
-        <div class="sk-cat-group-label">{{ group.group }}</div>
-        {% endif %}
-        {% for cat in group.options %}
-        <a href="{{ url_for('components.stock', category=cat.value, sort_by=sort_by, order=order, per_page=per_page, page=1) }}"
-           class="sk-cat-btn {% if selected_category == cat.value %}sk-cat-active{% endif %}"
-           title="{{ cat.label }}">
-          <img src="{{ url_for('static', filename=cat_icon(cat.label) | trim) }}"
-               width="16" height="16" class="sk-cat-icon" alt=""/>
-          {{ cat.label }}
-        </a>
+    <div class="sk-accordion" data-section="categories">
+      <button class="sk-accordion-hdr" onclick="skToggle('categories')">
+        <span>{{ t.stock.sort_category }}</span>
+        <span class="sk-accordion-icon">▾</span>
+      </button>
+      <div class="sk-accordion-body">
+        <div style="padding:.4rem .6rem .35rem;position:relative">
+          <input type="text" id="cat-search" placeholder="{{ t.stock.ph_cat }}"
+                 oninput="filterCats(this.value)"/>
+        </div>
+        {% for group in category_groups %}
+        <div class="sk-cat-group">
+          {% if group.group %}
+          <div class="sk-cat-group-label">{{ group.group }}</div>
+          {% endif %}
+          {% for cat in group.options %}
+          <a href="{{ url_for('components.stock', category=cat.value, sort_by=sort_by, order=order, per_page=per_page, page=1) }}"
+             class="sk-cat-btn {% if selected_category == cat.value %}sk-cat-active{% endif %}"
+             title="{{ cat.label }}">
+            <img src="{{ url_for('static', filename=cat_icon(cat.label) | trim) }}"
+                 width="16" height="16" class="sk-cat-icon" alt=""/>
+            {{ cat.label }}
+          </a>
+          {% endfor %}
+        </div>
         {% endfor %}
       </div>
-      {% endfor %}
     </div>
     {% endif %}
 
   </aside>
+
 
   {# ── Main ────────────────────────────────────────────────────── #}
   <div class="sk-main">
@@ -576,6 +624,65 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!tt) return;
     tt.addEventListener('mouseenter', function() { clearTimeout(_locTooltipTimer); });
     tt.addEventListener('mouseleave', skHideLocTooltip);
+});
+
+
+// ══ Accordéon sidebar ════════════════════════════════════════════════
+const SK_STORAGE_KEY = 'sk_sidebar_collapsed';
+
+function skGetCollapsed() {
+    try { return JSON.parse(localStorage.getItem(SK_STORAGE_KEY) || '[]'); }
+    catch(e) { return []; }
+}
+function skSaveCollapsed(list) {
+    try { localStorage.setItem(SK_STORAGE_KEY, JSON.stringify(list)); }
+    catch(e) {}
+}
+
+function skToggle(section) {
+    var el   = document.querySelector('[data-section="' + section + '"]');
+    if (!el) return;
+    var body = el.querySelector('.sk-accordion-body');
+    var icon = el.querySelector('.sk-accordion-icon');
+    var collapsed = skGetCollapsed();
+    var isNowCollapsed = !el.classList.contains('sk-collapsed');
+
+    el.classList.toggle('sk-collapsed', isNowCollapsed);
+    if (body) {
+        body.style.maxHeight = isNowCollapsed ? '0' : body.scrollHeight + 'px';
+        // Après transition, libérer la contrainte pour le contenu dynamique
+        if (!isNowCollapsed) {
+            setTimeout(function() {
+                if (!el.classList.contains('sk-collapsed'))
+                    body.style.maxHeight = 'none';
+            }, 260);
+        }
+    }
+    if (icon) icon.textContent = isNowCollapsed ? '▸' : '▾';
+
+    if (isNowCollapsed) {
+        if (!collapsed.includes(section)) collapsed.push(section);
+    } else {
+        collapsed = collapsed.filter(function(s) { return s !== section; });
+    }
+    skSaveCollapsed(collapsed);
+}
+
+// Restaurer l'état au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    var collapsed = skGetCollapsed();
+    document.querySelectorAll('.sk-accordion').forEach(function(el) {
+        var section = el.dataset.section;
+        var body    = el.querySelector('.sk-accordion-body');
+        var icon    = el.querySelector('.sk-accordion-icon');
+        if (collapsed.includes(section)) {
+            el.classList.add('sk-collapsed');
+            if (body)  body.style.maxHeight = '0';
+            if (icon)  icon.textContent = '▸';
+        } else {
+            if (body) body.style.maxHeight = 'none';
+        }
+    });
 });
 
 </script>
